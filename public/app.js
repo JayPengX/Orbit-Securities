@@ -1,7 +1,7 @@
 // Stock Study: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
-  newAccount, replay, available, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, borrow, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, defaulted, applyCorporateActions, applyBondCashflows, backfillPrice, fillFromHistory, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, estimate, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, requiredCash, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, borrow, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, defaulted, applyCorporateActions, applyBondCashflows, backfillPrice, fillFromHistory, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, estimate, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, requiredCash, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, LEND_TERM_DAYS, lendFee, lendable } from './lib/savings.mjs';
 import {
@@ -3465,7 +3465,10 @@ async function mergeRemote(remote, { pull = false } = {}) {
   // The opening money in Securities' own books (an account older than the
   // shared wallet's; 0 since): the Worker's reset makes up what it took too much of.
   const opened = account.events.filter(e => e.type === 'deposit' && !e.pool && (e.id === 'deposit:start' || e.start)).reduce((sum, e) => sum + e.amount, 0);
-  const snapPatch = prev?.cash === figure && prev?.opened === opened && !moved ? undefined : { stock: { cash: figure, opened, ...(Number.isFinite(holdings) ? { holdings } : {}), t: Date.now() } };
+  // Made or lost by market (once prices are in), for the admin page's totals.
+  const pl = v && !v.missingRates.length ? resultByMarket(sAll, v) : prev?.pl;
+  const plMoved = !!pl && (!prev?.pl || Object.keys({ ...pl, ...prev.pl }).some(k => Math.abs((pl[k] || 0) - (prev.pl[k] || 0)) >= Math.max(1_000, Math.abs(pl[k] || 0) * 0.02)));
+  const snapPatch = prev?.cash === figure && prev?.opened === opened && !moved && !plMoved ? undefined : { stock: { cash: figure, opened, ...(Number.isFinite(holdings) ? { holdings } : {}), ...(pl ? { pl } : {}), t: Date.now() } };
   const changed = !their || JSON.stringify(account) !== JSON.stringify(their);
   if (account !== state.account) commit(account, { sync: false });
   if (changed || snapPatch || (remote.inbox || []).length) {

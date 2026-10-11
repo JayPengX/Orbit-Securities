@@ -278,6 +278,7 @@ function applyFill(s, e) {
   s.paid.tax += e.tax * twd;
   s.paid.fee += e.fee * twd;
   const held = (s.held[e.symbol] ||= { first: e.t, realized: 0, bought: 0, sold: 0 });
+  held.market ||= e.market;
   const buy = e.side === 'buy';
   add(s.cash, e.currency, buy ? -e.total : e.total);
   if (buy) held.bought += e.total * twd;
@@ -1964,4 +1965,19 @@ export function mergeDistinct(a, b) {
     .map(e => (have.has(e.id) || /^(deposit:start|pay:|int:)/.test(e.id) ? { ...e, id: `${tag}:${e.id}`, ...(e.id === 'deposit:start' ? { start: true } : {}) } : e));
   const merged = mergeAccounts(a, { ...b, id: a.id, created: a.created, events, snapshots: {} });
   return { ...merged, created: Math.min(a.created, b.created) };
+}
+
+// What the account made or lost in each market, in NT$: closed trades
+// (fees in) and what's still held at today's prices. Sent in the wallet's
+// `snap.stock.pl` for the admin page's totals; dividends, interest and
+// exchange are left to the account's whole result.
+export function resultByMarket(s, v) {
+  const out = {};
+  const add = (m, n) => {
+    if (m && Number.isFinite(n)) out[m] = (out[m] || 0) + n;
+  };
+  for (const h of Object.values(s.held || {})) add(h.market, h.realized);
+  for (const p of v?.positions || []) add(p.market, p.pl);
+  for (const k of Object.keys(out)) out[k] = Math.round(out[k]);
+  return out;
 }
