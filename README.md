@@ -1,11 +1,22 @@
 # Quadra Securities
 
-**Live site: https://jaypengx.github.io/Quadra-Securities/**
+**https://jaypengx.github.io/Quadra-Securities/**
+
+Where money lives and grows in **Quadra**. It is a practice brokerage, play
+money only, with real prices and a real broker's rules:
+- Taiwan's and the world's stocks, ETFs and funds;
+- forex, government bonds, crypto and gold;
+- margin, shorts and Taiwan's credit trading;
+- time deposits and securities lending.
+
+Its NT$ cash is the one Quadra pool.
+
+The family's rules are `Shared-Proxy/docs/TRUTH.md` (they win over
+anything here). The Pass, the pool, Plus and the economy are the kit's and
+the Worker's (Shared-Proxy README §5–6). Quotes come through the data
+proxy's Yahoo tiers (Shared-Proxy README §4.4).
 
 ## Quadra
-
-Quadra Securities is the financial powerhouse of **Quadra**, a family of
-apps sharing one account and one money pool:
 
 | App | Part it plays |
 | --- | --- |
@@ -14,35 +25,46 @@ apps sharing one account and one money pool:
 | **Quadra Pass** | The account behind every app's top-right: Plus, the truth about the money, every app and its guide |
 | Orbit Class, Weather, Transit, Sports, Words | Orbit: the everyday tools, no money, the same pass |
 
-- **Quadra Pass required.** The app opens on the sign-in screen until there's
-  a pass (the shared kit, `#kit/quadra.mjs`, from Shared-Proxy's
-  `kit/`). The account is kept with the pass (a copy on the device under the
-  pass, so it opens at once), and the market data proxy answers signed-in
-  apps only.
-- **One app at a time.** The app in use is the account's live one; opening
-  another Quadra app pauses this one (it stops refreshing) until you come
-  back, so two apps never overwrite each other.
-- **One money pool.** This account's NT$ cash is the Quadra balance: Play's
-  bets and winnings, transfers and Quadra's own pay (a
-  fixed NT$6,000 a month, like a salary, paid into the pool by the Worker) all move it. A new pass opens with
-  NT$30,000 from Quadra; those two are the only money Quadra gives.
-- **The guide lives in the Quadra Pass.** Every explanation (fees, orders,
-  FX, bonds, loans…) is in the Quadra Pass sheet's 說明, opened by the ?
-  at the top right.
+- **A Quadra Pass is required.** The app opens on the sign-in screen until
+  there's a pass.
+- **One app at a time.** Opening another Quadra app pauses this one.
+- **One money pool.** NT$ cash here is the Quadra balance. The pool may go
+  below zero (an overdraft, 1% a month): spending stops, and **賣出補足**
+  finds the fewest sales that cover it.
+- **The guide** (fees, orders, FX, bonds, loans…) is in the Quadra Pass
+  sheet's 說明.
 
-## The app
+## The tabs
 
-Four tabs, drawn by the kit (`tabBar`): a bottom bar on phones, the top bar on desktop; each keeps its place. The top right is help, refresh and the account (`topActions`).
+Four tabs (the kit's `tabBar`; each keeps its place): **首頁** (markets),
+**資產** (portfolio), **換匯・融資** (FX & loans), **紀錄** (history). At the
+top right are help, refresh and the account.
 
 ### 首頁 Home
 
-- **The home:** your total and today's change at the top (a tap opens 資產), what's for you, and today's movers (top five up and down, side by side). No promotions, no nudges.
-- **Buying power** under the account strip: NT$ cash plus what margin lends right now.
-- **Search:** by Chinese name, English name or ticker. Chinese finds the curated lists; Latin letters also search Yahoo Finance, which reaches almost any listed stock, ETF or fund worldwide (`7203.T`, `0700.HK`, `SAP.DE`, `PETR4.SA` …).
-- **World markets strip:** TAIEX, S&P 500, Nasdaq, SOX, Nikkei, Hang Seng, Bitcoin, USD/TWD, the gold passbook, the US 10-year yield.
-- **Lists** (`public/lib/catalog.mjs`, about 300 items with Chinese names): Taiwan stocks (TWSE and TPEx), Taiwan ETFs (0050, 0056, 00878, leveraged and inverse ones …), US stocks, US ETFs, government bonds (see below), bond ETFs (Taiwan's bond ETFs, US Treasury and corporate bond ETFs, and Treasury yields to watch), crypto, forex (18 currency pairs), gold and commodities, Japan, Hong Kong and China A-shares, Korea, Europe, US mutual funds, more markets (Canada, Australia, Singapore, India), and indexes. There's a watchlist (☆ on any item) too. A list opens on its first 15 rows; the rest are a tap away.
-- **Each row:** today's price line against yesterday's close, the price and its currency, whether its market is open, and the day's change.
-- **Up and down colours:** red for up and green for down (Taiwan's way) in Chinese, green for up in English. The account sheet's settings switch either way.
+- **The home:** your total and today's change (a tap opens 資產), 為你推薦
+  (`lib/foryou.mjs`: what fills a gap in the portfolio, dividend ETFs for
+  an income holder, big moves today, the well-known names, ranked by the
+  kit's `rank`), and today's movers (top five up and down).
+- **Buying power:** NT$ cash plus what margin lends right now.
+- **Search:** by Chinese name, English name or ticker. Chinese finds the
+  curated lists; Latin letters also search Yahoo Finance, which reaches
+  almost any listing worldwide.
+- **The world markets strip:** TAIEX, S&P 500, Nasdaq, SOX, Nikkei, Hang
+  Seng, Bitcoin, USD/TWD, the gold passbook, the US 10-year yield.
+- **Lists** (`lib/catalog.mjs`, about 300 items with Chinese names):
+  - Taiwan stocks (TWSE, TPEx) and ETFs, US stocks and ETFs;
+  - government bonds and bond ETFs;
+  - crypto, forex (18 pairs), gold and commodities;
+  - Japan, Hong Kong, China A-shares, Korea, Europe;
+  - US mutual funds, more markets, indexes;
+  - the watchlist (☆).
+
+  A list opens on 15 rows, the rest a tap away.
+- **Each row:** today's line against yesterday's close, the price and
+  currency, the company's logo, whether its market is open, and the
+  change. Up is red in Chinese (Taiwan's way) and green in English; the
+  account sheet switches either way.
 
 ### The detail sheet
 
@@ -59,7 +81,7 @@ Four tabs, drawn by the kit (`tabBar`): a bottom bar on phones, the top bar on d
 - **Price alert** (🔔): tell me when it rises or falls to a price. Checked on every refresh and, for the time the page was closed, against the price bars since (reported with when it happened). With notifications turned on in the account sheet (the kit's notices; the switches follow the Quadra Pass), it notifies when the app is in the background. Account events use the kit's notice kinds too (`accountNotice`): fills and plan buys (`fill`), lapsed or dropped orders and skipped plans (`order`), a margin call once a day and forced sales (`margin`), ex-dividend, dividends, coupons and interest (`income`). On screen they're toasts that open their tab when tapped; a dividend's pay day is also sent by the Worker while the app is closed.
 - **Monthly plan** (📅 定期定額): buy NT$X on day N of every month. Each month buys at the first price after 00:00 Taiwan time on its day, as many units as the money covers after costs (a foreign one exchanges only the NT$ it needs, at that moment's rate). Missed months are bought from the price history when the page opens again; a month without enough NT$ is skipped and recorded.
 - **Time machine** link: what buying this years ago would be worth now.
-- **About the company / fund:** a quick read first (is the price cheap or pricey, profitability, growth, dividends, balance sheet, swings; for funds fees, size, how spread out, dividends), rough rules of thumb shown as calm/middling/worth-a-look tags. Then the next earnings and ex-dividend dates, four years (or quarters) of revenue and net income as bars, the analysts' average target price and range against today's price, and the numbers grouped (price and value, profitability, dividends, balance sheet, performance against the S&P 500), each with a line on what it means. Funds show past returns (this year, 3 and 5 years), the sector mix, the stock/bond/cash mix and the top 10 holdings. Then what it does, translated into Chinese for a Chinese reader (the English original a tap away; Google's translate endpoint through the proxy, kept a month). There's no news.
+- **About the company / fund:** a quick read first (is the price cheap or pricey, profitability, growth, dividends, balance sheet, swings; for funds fees, size, how spread out, dividends), rough rules of thumb shown as calm/middling/worth-a-look tags. Then the next earnings and ex-dividend dates, four years (or quarters) of revenue and net income as bars, the analysts' average target price and range against today's price, and the numbers grouped (price and value, profitability, dividends, balance sheet, performance against the S&P 500), each with a line on what it means. Funds show past returns (this year, 3 and 5 years), the sector mix, the stock/bond/cash mix and the top 10 holdings. Then what it does, translated into Chinese for a Chinese reader (the English original a tap away; the kit's `translate`, through the proxy, kept a month).
 - **How fresh the price is:** "live" or "delayed N minutes", per market, from Yahoo's own figures.
 - Indexes and futures are watch-only and point to what tracks them (TAIEX → 0050, S&P 500 → VOO/SPY/00646, gold → the gold passbook/GLD/00635U …).
 
@@ -93,8 +115,7 @@ Currency pairs trade like stocks (market, limit and stop orders, shorting, alert
 - **Cash:** the spendable NT$ total up top, what's held for open orders or still settling, the cash interest rate, and a wallet for every currency. Loans show here too, and the maintenance ratio when there are any.
 - **Income:** dividends, bond coupons and cash interest over the last 12 months (month by month) and this year, the yield on holdings, the top payers, and dividends on the way.
 - Monthly plans (next buy, last result, stop) and price alerts (distance from the price, remove).
-- **Monthly payday** (no manual adding): on the 1st of every month (00:00 Taiwan time) NT$3,000 arrives on its own when the app is opened, like a salary, the same for every account. It counts as money put in, not as return. Missed months are paid when the page opens again; each payday has a fixed id (`pay:YYYY-MM`), so synced devices never pay twice. Accounts opened before paydays existed get them from their next 1st. The next payday shows under net worth.
-- Sync and backups. (Where the money came from moved to the Quadra Pass sheet's account details, the same in every app.)
+- **Money in**: Quadra's own pay (NT$6,000 on the 1st of every Taiwan month, the Worker's `eco:pay:<month>`) and the other apps' money (Play's bets and winnings, Plus) arrive as NT$ deposits from the pool (`x:<entry id>`, `pool: true`), counted as money put in, not as return. Securities' own paydays (`pay:YYYY-MM`) ended with 2026-09 (`INCOME_UNTIL_MONTH`); the next payday shows under net worth. Where the money came from is the Quadra Pass sheet's account details, the same in every app.
 
 ### 換匯・融資 FX & loans
 
@@ -134,7 +155,7 @@ and worst years and a bank deposit to compare.
 
 | What | How |
 | --- | --- |
-| Starting money | NT$100,000 for every account |
+| Starting money | The Quadra pool: NT$30,000 for a new pass (older accounts opened with NT$100,000 here, brought to the pool's NT$30,000 by the Worker's reset) |
 | Taiwan | 0.1425% commission, min NT$20 (odd lots NT$1); sell tax 0.3% stocks (0.15% on a day trade: sold the day it was bought), 0.1% ETFs, 0% bond ETFs; fractions of a dollar dropped |
 | US | 0.1% sub-brokerage commission, min US$3; SEC fee US$20.60 per million on sells (from 2026-04-04); 30% dividend withholding |
 | Mutual funds | through a fund platform, not the exchange: a 1% subscription fee (申購手續費, `FUND_FEE`) on buying, the Plus discount applies; nothing on redeeming (no commission, fee or tax) |
@@ -189,7 +210,6 @@ Two devices' copies merge by uniting their logs:
 - **Quadra Plus** (the kit's `PLUS.stock`, `usePlus` in `account.mjs`): the commission at 2.8折 (×0.28, its minimum too), half the FX spread, 1 point off a new loan's rate, and 2% a year on NT$ cash. Each counts by when it happens: a trade by its fill time, an exchange or loan by its moment, cash interest by each Taiwan month the membership was paid for (the wallet's `eco:plus:<month>`). The ticket, the FX desk and the loan form show the member price as one quiet line.
 - **Interest on idle NT$:** the settlement account earns the bank's demand-deposit rate (0.8% a year, `CASH_RATE`; Quadra Plus 2%), accrued daily and paid June 21 and December 21, with 10% tax and the 2.11% NHI premium on a payment of NT$20,000 or more.
 - **The ledger is read as of a moment:** `replay(account, t)` ignores anything dated after `t`.
-- **Data safety:** an account with no sync code, not installed to the home screen, gets a reminder that Safari can clear site data after 7 days unopened.
 
 **Each market's own exchange rules** (`markets.mjs`, detail sheet 交易規則):
 
@@ -213,7 +233,7 @@ Two devices' copies merge by uniting their logs:
 
 **Offline and installable:** opened from the home screen, the top bar starts below the status bar (`env(safe-area-inset-top)`) and is solid rather than see-through, which iPadOS smeared. `public/sw.js` keeps the page's own files (each stamped version once), and the last prices are saved, so the app opens without a connection and shows when its prices are from; trading and exchanging wait for live prices. It can be installed to a phone's home screen.
 
-**Saves** are gzip-compressed (`codec.mjs`) and kept with the Quadra Pass through Shared-Proxy's `/eco` (a copy on the device under the pass). Two devices' copies merge (nothing counted twice).
+**Saves** are gzip-compressed (`codec.mjs`) and kept with the Quadra Pass through Shared-Proxy's `/eco` (`stock-study-accounts`; a copy on the device under the pass, so it opens at once). Two devices' copies merge (nothing counted twice). Securities reports to the wallet `snap.stock` (cash, `holdings` for the account's worth and 財富等級, `opened`, and `pl` per market for the admin money report).
 
 | File | Purpose |
 | --- | --- |
@@ -231,18 +251,93 @@ Two devices' copies merge by uniting their logs:
 | `public/sw.js` | Offline files and alert notifications |
 | `#kit/quadra.mjs` | The shared kit, from Shared-Proxy's Pages (sign-in, session, pool, recommender, the Quadra Pass sheet) |
 | `public/lib/codec.mjs` | Compressed saves |
+| `public/lib/credit.mjs` | Taiwan credit trading: the credit account, 融資 and 融券 terms, day trading |
+| `public/lib/savings.mjs` | 定存 (time deposits) and 借券出借 (securities lending) |
+| `public/lib/brands.mjs`, `tvlogos.mjs` | Company and fund logos (made by `scripts/brand-logos.mjs`, `scripts/tv-logos.mjs`) |
 | `public/app.js` | Rendering and wiring |
 
-## Setup
+## Taiwan credit trading (信用交易)
 
-1. **The proxy:** Shared-Proxy's `sports-proxy` Worker allows Yahoo Finance's hosts and `orbit-workers-proxy` serves `/stock-sync` (both deployed from that repo's `main`).
-2. **Pages:** this repo's Settings → Pages → Source: GitHub Actions. Every push to `main` runs the tests and deploys `public/`. `scripts/stamp-version.mjs` cache-busts every file and makes open pages reload into a new deploy.
+`lib/credit.mjs`, as Taiwan's brokers run it.
 
-## Development
+- **The credit account** gates margin and borrowed shorts in every market.
+  - To open it: the account open 3 months, 10 trades in the last year,
+    and that year's turnover at least half the limit asked for.
+  - Above the first tier, proof of means: net worth of 30% of the limit.
+  - Limits: NT$500,000, 1M, 2M, 3M, 5M (融資額度, the same again for
+    融券).
+- **融資 and 融券** each run six months from the trade.
+  - **展延** adds six more. It is asked for in the last month, while not
+    under a margin call.
+  - Past due, the broker closes the position.
+- **融券**: the seller puts up 90% of the sale (保證金成數) and the broker
+  keeps the sale money, both as collateral. The 融券手續費 is 0.08%.
+- **Day trading (現股當沖)**: buy first after 3 months open, sell first
+  after 12, with a year of trading; the day trade's sell tax is 0.15%.
+- **Margin elsewhere** is lent and called by `account.mjs`'s rules
+  (Reg T-like). A currency pair sold borrows nothing.
 
-```sh
-npm test                                              # node:test, no installs
-python3 -m http.server 8000 --directory public        # then open http://localhost:8000
+## Money that sits still
+
+`lib/savings.mjs`; each is recorded as events in the log.
+
+- **定存 (time deposits).** NT$ locked for 1, 3, 6, 9 or 12 months at
+  Bank of Taiwan's 2026 board (1.23%–1.72%), NT$10,000 at least, paid at
+  maturity.
+  - **Broken early**: 80% of the rate for the longest posted term held,
+    nothing under a month.
+  - **At maturity**: the principal returns to cash, or rolls over at the
+    rate then (自動轉存, the interest paid out).
+- **借券出借 (securities lending).** Taiwan stocks and ETFs held in whole
+  lots, settled and not on margin, lent for a fee on their value.
+  - **Terms**: the broker keeps 30% (`LEND_CUT`). Lent shares can't be
+    sold. A recall returns them in 3 business days, and a contract ends
+    after 180 days. The fee is paid when the shares come back.
+- **Cash interest**: idle NT$ earns 0.8% a year (`CASH_RATE`; Quadra Plus
+  2%), accrued daily and paid June 21 and December 21.
+- **Tax**: interest and lending fees are income. A payment over NT$20,000
+  has 10% withheld and 2.11% NHI premium.
+
+## Notices
+
+These are the kit's `stock` kinds, each with its own switch that follows
+the pass:
+
+| Kind | When |
+| --- | --- |
+| `alert` | A price alert is reached |
+| `fill` | An order or a monthly plan fills (and on a plan's day) |
+| `order` | An order lapses or is dropped, or a plan skips a month |
+| `margin` | Margin runs low (once a day), or a loan or short is force-closed |
+| `income` | Ex-dividend, dividends, coupons and interest paid |
+
+On screen they're toasts that open their tab. While the app is closed, the
+Worker sends price alerts (it checks Yahoo) and a dividend's pay day.
+
+## Develop, test, deploy
+
+```bash
+npm test
 ```
 
-The Worker allows `http://localhost:<port>` as an origin, so local runs get live prices once it's deployed.
+```bash
+node ../Shared-Proxy/tools/preview.mjs securities --webkit
+```
+
+- **Tests**: the account and its replay, credit, margin calls, savings,
+  Plus, market rules, realism, holidays, i18n, the sheet.
+- **Deploy**: a push to `main` runs the tests, stamps versions
+  (`scripts/stamp-version.mjs`) and deploys `public/` to Pages; the kit
+  puts a new deploy in place at once.
+- **Logo tables**: `scripts/brand-logos.mjs` (Wikidata/Commons) and
+  `scripts/tv-logos.mjs` (TradingView's CDN) rebuild them; don't edit
+  them by hand.
+
+## What depends on what
+
+| If you change… | Also check |
+| --- | --- |
+| A fee, tax, spread or rate (`markets.mjs`, `savings.mjs`, `credit.mjs`) | The guide (the kit's `help.mjs` shows the same numbers), the kit's `truth.mjs` (it mirrors Securities' costs), `PLUS.stock` (the member's discounts) |
+| The account's log or replay | Merging (two devices), the pool's deposits (`applyPool`), `snap.stock` (the Worker's worth, 財富等級, the money report) |
+| A Yahoo read (`quotes.mjs`) | Shared-Proxy's Yahoo tiers and the `fundamentals`/`news` cookie handling; the push checks on prices (`push.js`) |
+| Holidays | `lib/holidays.mjs` here; the kit's `holidays.mjs` is Taiwan's days off, not the exchange's |
