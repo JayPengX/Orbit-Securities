@@ -398,3 +398,18 @@ test('crypto in fractions, gold passbook at the bank’s spread', () => {
   assert.equal(placeOrder(r.account, { side: 'buy', qty: 0.5 }, { quote: gold, rates: RATES, now: T0 }).error, 'qtyStep');
   void ids;
 });
+
+test('dayOfChange: a weekend shows the last trading day, not 今日', async () => {
+  const { dayOfChange } = await import('../public/lib/account.mjs');
+  const fri = Date.parse('2026-10-09T05:30:00Z'); // TW Friday 13:30, the close
+  const sun = Date.parse('2026-10-11T04:00:00Z'); // TW Sunday noon
+  const tw = { kind: 'stock', market: 'TW', tz: 'Asia/Taipei', marketTime: fri, session: { start: Date.parse('2026-10-12T01:00:00Z'), end: Date.parse('2026-10-12T05:30:00Z') } };
+  const d = dayOfChange({ positions: [{ quote: tw }] }, sun);
+  assert.equal(d.today, false);
+  assert.equal(d.at, fri);
+  assert.equal(dayOfChange({ positions: [{ quote: tw }] }, Date.parse('2026-10-09T07:00:00Z')).today, true);
+  // Crypto never closes.
+  assert.equal(dayOfChange({ positions: [{ quote: tw }, { quote: { kind: 'crypto', market: 'CRYPTO', marketTime: sun } }] }, sun).today, true);
+  // Nothing held: today's.
+  assert.equal(dayOfChange({ positions: [] }, sun).today, true);
+});

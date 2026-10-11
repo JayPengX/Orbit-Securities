@@ -1,7 +1,7 @@
 // Stock Study: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
-  newAccount, replay, available, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, borrow, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, defaulted, applyCorporateActions, applyBondCashflows, backfillPrice, fillFromHistory, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, estimate, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, requiredCash, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, borrow, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, defaulted, applyCorporateActions, applyBondCashflows, backfillPrice, fillFromHistory, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, estimate, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, requiredCash, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, LEND_TERM_DAYS, lendFee, lendable } from './lib/savings.mjs';
 import {
@@ -957,11 +957,15 @@ function affinityMap() {
 function recCard(symbol, why) {
   const q = state.quotes.get(symbol);
   const info = catalogInfo(symbol);
-  const whyText = why ? t(why.key, { what: why.what ? (why.key === 'whyPeer' ? nameOf(why.what, state.quotes.get(why.what)) : kindOrCat(why.what)) : '' }) : '';
+  let whyText = why ? t(why.key, { what: why.what ? (why.key === 'whyPeer' ? nameOf(why.what, state.quotes.get(why.what)) : kindOrCat(why.what)) : '' }) : '';
+  // A closed market's big move was its last day's (週五波動大 on a weekend).
+  if (why?.key === 'whyMover' && q && !dayOfChange({ positions: [{ quote: q }] }).today) whyText = t('whyMoverOn', { day: dayWord({ positions: [{ quote: q }] }) });
+  // Where it trades, in one word (港股, not the category's 港股・陸股, which wrapped).
+  const where = q && info && !/etf/.test(info.category) ? marketLabel(q.market) : info ? L(CATEGORIES.find(c => c.id === info.category)) : '';
   return `<button class="q-rec" type="button" data-action="open" data-symbol="${h(symbol)}">
     ${whyText ? `<span class="q-rec-why">${h(whyText)}</span>` : ''}
     <p class="q-rec-title">${h(nameOf(symbol, q))}</p>
-    <p class="q-rec-sub">${flagOf(symbol, q)} ${h(bareSymbol(symbol))}${info ? ` · ${h(L(CATEGORIES.find(c => c.id === info.category)))}` : ''}</p>
+    <p class="q-rec-sub">${flagOf(symbol, q)} ${h(bareSymbol(symbol))}${where ? ` · ${h(where)}` : ''}</p>
     <span class="q-rec-foot"><span class="q-rec-big">${q ? fmtPrice(q.price, q.currency, { short: true }) : '…'}</span>${pctPill(q)}</span>
     ${q ? `<span class="rec-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 200, height: 30 })}</span>` : ''}
   </button>`;
@@ -986,6 +990,14 @@ function buyingPower(v) {
 
 // The markets home: your money at a glance, what's for you, today's movers.
 // The full lists stay below, by category.
+// The account's day change, named for its day: 今日 while a market held
+// trades today, else that last day (週五 on a weekend; a date past a week).
+function dayWord(v, now = Date.now()) {
+  const d = dayOfChange(v, now);
+  if (d.today) return t('today');
+  const loc = locale === 'zh' ? 'zh-TW' : 'en-US';
+  return now - d.at < 6 * 86_400_000 ? new Intl.DateTimeFormat(loc, { weekday: 'short', timeZone: d.tz }).format(d.at) : new Intl.DateTimeFormat(loc, { month: 'numeric', day: 'numeric', timeZone: d.tz }).format(d.at);
+}
 function renderHomeRows() {
   const box = $('home-rows');
   if (!box) return;
@@ -1001,7 +1013,7 @@ function renderHomeRows() {
   const summary = v
     ? `<button class="acct-strip" type="button" data-action="goto" data-tab="portfolio">
         <span class="acct-main"><small>${h(t('netWorth'))}${plusAt() ? ' <b class="acct-plus">✦ PLUS</b>' : ''}</small><strong class="num">${h(money(v.netWorth, BASE))}</strong></span>
-        <span class="acct-day ${dirClass(v.dayChange)}"><small>${h(t('today'))}</small><strong class="num">${h(money(v.dayChange, BASE, { sign: true }))}</strong><em class="num">${base ? h(pct(v.dayChange / base)) : '—'}</em></span>
+        <span class="acct-day ${dirClass(v.dayChange)}"><small>${h(dayWord(v))}</small><strong class="num">${h(money(v.dayChange, BASE, { sign: true }))}</strong><em class="num">${base ? h(pct(v.dayChange / base)) : '—'}</em></span>
       </button>
       ${overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="od-strip" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))} ›</button>` : `<div class="power-strip"><span>${h(t('buyingPower'))} <strong class="num">${h(money(buyingPower(v), BASE))}</strong></span></div>`}`
     : '';
@@ -1011,13 +1023,16 @@ function renderHomeRows() {
   const group = groups.includes(state.moverGroup) ? state.moverGroup : groups.includes(moverGroupNow()) ? moverGroupNow() : groups[0];
   const up = movers(state.quotes, { up: true, group }).slice(0, 5);
   const down = movers(state.quotes, { up: false, group }).slice(0, 5);
+  // Named for their day: a closed market's moves are its last day's (週五 on a weekend).
+  const moverDay = dayOfChange({ positions: [...up, ...down].map(quote => ({ quote })) }).today ? null : dayWord({ positions: [...up, ...down].map(quote => ({ quote })) });
+  const mt = (key, onKey) => (moverDay ? t(onKey, { day: moverDay }) : t(key));
   const moversHtml =
     up.length || down.length
-      ? `<section class="q-section home-row"><div class="q-section-head"><h2>${h(t('moversTitle'))}</h2></div>
+      ? `<section class="q-section home-row"><div class="q-section-head"><h2>${h(mt('moversTitle', 'moversTitleOn'))}</h2></div>
           ${groups.length > 1 ? `<div class="segmented small mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : ''}
           <div class="movers">
-            <div class="movers-col"><p class="movers-head">${h(t('moversUp'))}</p>${up.map(moverRow).join('') || `<p class="muted">—</p>`}</div>
-            <div class="movers-col"><p class="movers-head">${h(t('moversDown'))}</p>${down.map(moverRow).join('') || `<p class="muted">—</p>`}</div>
+            <div class="movers-col"><p class="movers-head">${h(mt('moversUp', 'moversUpOn'))}</p>${up.map(moverRow).join('') || `<p class="muted">—</p>`}</div>
+            <div class="movers-col"><p class="movers-head">${h(mt('moversDown', 'moversDownOn'))}</p>${down.map(moverRow).join('') || `<p class="muted">—</p>`}</div>
           </div></section>`
       : '';
   const acct = $('home-account');
@@ -2094,7 +2109,7 @@ function renderPortfolio() {
       <p class="hero-label">${h(t('netWorth'))}${incomplete ? ` <small>${h(t('pricesLoading'))}</small>` : ''}</p>
       <strong class="hero-value num stat-value">${h(money(v.netWorth, BASE))}</strong>
       <div class="hero-lines">
-        <span>${h(t('today'))} <strong class="num ${dirClass(v.dayChange)}">${h(money(v.dayChange, BASE, { sign: true }))}${dayBase ? ` · ${h(pct(v.dayChange / dayBase))}` : ''}</strong></span>
+        <span>${h(dayWord(v))} <strong class="num ${dirClass(v.dayChange)}">${h(money(v.dayChange, BASE, { sign: true }))}${dayBase ? ` · ${h(pct(v.dayChange / dayBase))}` : ''}</strong></span>
         <span>${h(t('totalReturn'))} <strong class="num ${dirClass(v.totalReturn)}">${h(money(v.totalReturn, BASE, { sign: true }))} · ${h(pct(v.totalReturnPct))}</strong></span>
       </div>
       <div class="hero-comp" role="img" aria-label="${h(parts.map(([k, x]) => `${PART_LABEL[k]} ${money(x, BASE)}`).join(', '))}">${parts.map(([k, x, c]) => `<i style="flex-grow:${(x / partsTotal).toFixed(4)};background:${c}"></i>`).join('')}</div>

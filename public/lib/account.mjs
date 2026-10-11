@@ -1981,3 +1981,21 @@ export function resultByMarket(s, v) {
   for (const k of Object.keys(out)) out[k] = Math.round(out[k]);
   return out;
 }
+
+// Whose day the account's day change is: today's while a market it holds
+// trades today (or it holds crypto, which never closes); otherwise the last
+// day one of them traded (a weekend shows Friday's move as Friday's, not as
+// 今日). `at`: that last trade, for the label.
+export function dayOfChange(v, now = Date.now()) {
+  let at = 0;
+  let tz = 'Asia/Taipei';
+  for (const p of v?.positions || []) {
+    const q = p.quote;
+    if (!q) continue;
+    if (q.kind === 'crypto' || isOpen(q, now)) return { today: true, at: now, tz };
+    const t = q.marketTime || 0;
+    if (t && localDayOf(t, q.market) === localDayOf(now, q.market)) return { today: true, at: t, tz };
+    if (t > at) [at, tz] = [t, q.tz || tz];
+  }
+  return at ? { today: false, at, tz } : { today: true, at: now, tz };
+}
