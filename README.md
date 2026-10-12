@@ -34,6 +34,14 @@ proxy's Yahoo tiers (Shared-Proxy README §4.4).
 - **The guide** (fees, orders, FX, bonds, loans…) is in the Quadra Pass
   sheet's 說明.
 
+**The pool counts the proxy's figure** (the owner's lock-down, 2026-10-12):
+each save, Shared-Proxy's `stock-check.js` replays this account with the same
+code (the kit's `stock-*`, which `public/lib` re-exports) and checks every new
+event that adds cash against the market (a fill's price in that moment's
+range, a dividend Yahoo paid, an exchange's rate, interest within its rate);
+`snap.stock.cash` and the holdings' cost the pool and ranks count are the
+Worker's, never this phone's.
+
 ## The tabs
 
 Four tabs (the kit's `tabBar`; each keeps its place): **首頁** (markets),
