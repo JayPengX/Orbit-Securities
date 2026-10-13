@@ -4190,6 +4190,15 @@ function fitNumbers(nodes) {
     return Math.max(full * 0.6, Math.floor(((full * (box - 0.5)) / need) * 10) / 10);
   });
   nodes.forEach((node, i) => sizes[i] && (node.style.fontSize = `${sizes[i]}px`));
+  // Text doesn't narrow exactly with its size: each one shrunk is checked
+  // again and stepped down until it fits (as Play's).
+  nodes.forEach((node, i) => {
+    if (!sizes[i]) return;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const floor = sizes[i] * 0.85;
+    for (let size = sizes[i]; size > floor && range.getBoundingClientRect().width > node.getBoundingClientRect().width - 0.5; ) node.style.fontSize = `${(size -= 0.4)}px`;
+  });
 }
 if ('ResizeObserver' in window) {
   const resized = new ResizeObserver(entries => fitNumbers(entries.map(e => e.target)));
@@ -4199,6 +4208,10 @@ if ('ResizeObserver' in window) {
     fitNumbers(nodes);
   });
   watch.observe(document.body, { childList: true, subtree: true });
+  // Fitted before the font came, a number widens when it comes while its box
+  // (already at its narrowest) doesn't move, so nothing above sees it
+  // (為你推薦's 1,443,000 cut at 12px): fitted again once fonts load.
+  document.fonts?.addEventListener('loadingdone', () => fitNumbers([...document.querySelectorAll(FIT_SELECTOR)]));
 }
 
 // Redraw charts when the width changes (not when a phone's address bar hides).
