@@ -198,7 +198,7 @@ Two devices' copies merge by uniting their logs:
 - An order takes its most advanced status, and one filled anywhere counts as filled.
 - A copy started over wins if it's the newer start.
 
-**Prices** come from Yahoo Finance's public endpoints (`public/lib/quotes.mjs`) through Shared-Proxy's `sports-proxy` Worker, which adds CORS and caches:
+**Prices** come from Yahoo Finance's public endpoints (`public/lib/quotes.mjs`) through Shared-Proxy's data proxy (`/sports-proxy` on its one Worker), which adds CORS and caches:
 
 - `/v7/finance/spark`: up to 20 quotes per request, with today's line.
 - `/v8/finance/chart`: charts, dividends and splits.

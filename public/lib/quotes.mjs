@@ -6,7 +6,7 @@ import { BASE, METALS, GRAMS_PER_OUNCE, kindOf, marketOf, normalizeCurrency } fr
 import { BONDS, ISSUERS, CURVE_SYMBOLS, bondQuote, bondLine, curveOf } from './bonds.mjs';
 import { proxyJson } from '#kit/quadra.mjs';
 
-export const PROXY_URL = 'https://sports-proxy.pengzjay.workers.dev';
+export const PROXY_URL = 'https://orbit-workers-proxy.pengzjay.workers.dev';
 const YAHOO = 'https://query1.finance.yahoo.com';
 const SPARK_BATCH = 20;
 
