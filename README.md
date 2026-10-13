@@ -198,7 +198,9 @@ Two devices' copies merge by uniting their logs:
 - An order takes its most advanced status, and one filled anywhere counts as filled.
 - A copy started over wins if it's the newer start.
 
-**Prices** come from Yahoo Finance's public endpoints (`public/lib/quotes.mjs`) through Shared-Proxy's data proxy (`/sports-proxy` on its one Worker), which adds CORS and caches:
+**Orders are filled by the proxy** (Shared-Proxy `stock-fill.js`; the owner, 2026-10-14): every order is placed waiting (its cash or shares held), the open ones are asked about after each refresh, and the proxy fills each at its own fresh quote by the market's rules (`triggerPrice`); the app applies exactly that fill (`applyFills`: the spread, costs, cash and shares as the account has them). A fill the proxy didn't issue never counts in the pool. Orders that would have filled while the app was closed are still found in the price history and checked by the proxy against it.
+
+**Prices** come from Yahoo Finance's public endpoints (`public/lib/quotes.mjs`, the kit's `stock-quotes.mjs`, one copy with the proxy) through Shared-Proxy's data proxy (`/sports-proxy` on its one Worker), which adds CORS and caches:
 
 - `/v7/finance/spark`: up to 20 quotes per request, with today's line.
 - `/v8/finance/chart`: charts, dividends and splits.

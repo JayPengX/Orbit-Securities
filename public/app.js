@@ -21,8 +21,9 @@ import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
-  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, notifyOn, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch
+  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, notifyOn, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson
 } from '#kit/quadra.mjs';
+import * as stockAccount from './lib/account.mjs';
 
 const $ = id => document.getElementById(id);
 const TABS = ['markets', 'portfolio', 'fx', 'history'];
@@ -47,6 +48,8 @@ const state = {
   account: null,
   accountReady: false,
   quotes: new Map(),
+  // The proxy's fills for open orders (askFills).
+  fills: {},
   listAt: new Map(),
   rates: { [BASE]: 1 },
   // Currencies Yahoo has no NT$ pair for (DKK): priced through US$ instead.
@@ -328,6 +331,34 @@ async function refresh({ list = false } = {}) {
   return refreshing;
 }
 
+// The proxy's fills for the open orders ({ orderId: { quote, t } }), asked
+// once at a time after each refresh; an answer with a new fill runs
+// afterPrices again (it's applied there).
+const FILL_ASK_MS = 3_000;
+let fillAsk = { at: 0, busy: false };
+async function askFills(account) {
+  const open = (account?.orders || []).filter(o => o.status === 'open' && !state.fills[o.id]);
+  if (!open.length || fillAsk.busy || Date.now() - fillAsk.at < FILL_ASK_MS) return;
+  fillAsk = { at: Date.now(), busy: true };
+  try {
+    const spec = o => ({ id: o.id, symbol: o.symbol, side: o.side, type: o.type, qty: o.qty, limit: o.limit, stop: o.stop, t: o.t, after: o.after, market: o.market, kind: o.kind });
+    const res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'fill', orders: open.slice(0, 40).map(spec) }), timeout: 15_000 });
+    const fresh = Object.entries(res?.fills || {}).filter(([id]) => !state.fills[id]);
+    if (!fresh.length) return;
+    for (const [id, f] of fresh) state.fills[id] = f;
+    afterPrices();
+    render();
+    if (state.detail) renderDetail();
+  } finally {
+    fillAsk.busy = false;
+  }
+}
+
+// Every order waits for the proxy's fill (none at the phone's own quote):
+// placed as one waiting for a fresh price, which only the proxy's answers
+// fill. An older kit: as before.
+const place = (account, req, opts) => placeOrder(account, stockAccount.applyFills ? { ...req, fresh: true } : req, opts);
+
 // Once new prices are in: fill waiting orders, force-sell if the loans call
 // for it, record today's value.
 function afterPrices() {
@@ -343,7 +374,11 @@ function afterPrices() {
   const ex = expireOrders(account, now);
   account = ex.account;
   for (const o of ex.expired) accountNotice('order', t('toastExpired', { name: nameOf(o.symbol) }), { tag: `order:${o.id}`, hash: 'history' });
-  const r = processOrders(account, state.quotes, state.rates, now);
+  // Filled by the proxy at its own quote (Shared-Proxy stock-fill.js; the
+  // owner, 2026-10-14): its fills applied here, the open orders asked about
+  // (askFills). An older kit without it: filled here as before.
+  const r = stockAccount.applyFills ? stockAccount.applyFills(account, state.fills, state.rates, now) : processOrders(account, state.quotes, state.rates, now);
+  if (stockAccount.applyFills) askFills(account);
   account = r.account;
   for (const f of r.filled) filledNotice(t('toastFilled', { side: t(f.side), qty: fmtQty(f.qty), name: nameOf(f.symbol), price: fmtPrice(f.price, f.currency) }), f);
   for (const o of r.rejected) accountNotice('order', t('toastRejected', { name: nameOf(o.symbol), why: t(`err_${o.reason}`) }), { tone: 'bad', tag: `order:${o.id}`, hash: 'history' });
@@ -352,7 +387,7 @@ function afterPrices() {
   // Below the line the broker needs every share: lent ones are called back.
   if (v.margin === 'liquidate') account = recallAll(account, now);
   for (const plan of liquidationPlan(account, v)) {
-    const placed = placeOrder(account, plan, { quote: state.quotes.get(plan.symbol), rates: state.rates, now });
+    const placed = place(account, plan, { quote: state.quotes.get(plan.symbol), rates: state.rates, now });
     if (placed.account) {
       account = placed.account;
       accountNotice('margin', t('toastForced', { name: nameOf(plan.symbol) }), { tone: 'bad', tag: `forced:${plan.symbol}:${now}`, hash: 'fx' });
@@ -362,7 +397,7 @@ function afterPrices() {
   // a credit account, and day trades sold first and not bought back by the
   // close: closed for the account.
   for (const plan of closeOutPlan(account, v, now)) {
-    const placed = placeOrder(account, plan, { quote: state.quotes.get(plan.symbol), rates: state.rates, valuation: v, now });
+    const placed = place(account, plan, { quote: state.quotes.get(plan.symbol), rates: state.rates, valuation: v, now });
     if (placed.account) {
       account = placed.account;
       accountNotice('margin', t({ due: 'toastTermDue', noCredit: 'toastNoCredit' }[plan.reason] || 'toastDayCover', { name: nameOf(plan.symbol) }), { tone: 'bad', tag: `closeout:${plan.symbol}:${now}`, hash: 'fx' });
@@ -395,7 +430,7 @@ function afterPrices() {
         }
         v = valuate(replay(account, now), state.quotes, state.rates);
         for (const x of coverPlan(v, overdrawnBy(v)).plan) {
-          const placed = placeOrder(account, { symbol: x.symbol, side: 'sell', type: 'market', qty: x.qty, forced: true, cover: true }, { quote: state.quotes.get(x.symbol), rates: state.rates, valuation: v, now });
+          const placed = place(account, { symbol: x.symbol, side: 'sell', type: 'market', qty: x.qty, forced: true, cover: true }, { quote: state.quotes.get(x.symbol), rates: state.rates, valuation: v, now });
           if (placed.account) {
             account = placed.account;
             accountNotice('margin', t('odForced', { name: nameOf(x.symbol) }), { tone: 'bad', tag: `odsell:${x.symbol}:${now}`, hash: 'portfolio' });
@@ -418,7 +453,7 @@ function afterPrices() {
     if (c.sell) {
       account = recallAll(account, now);
       for (const plan of callPlan(account, v)) {
-        const placed = placeOrder(account, plan, { quote: state.quotes.get(plan.symbol), rates: state.rates, now });
+        const placed = place(account, plan, { quote: state.quotes.get(plan.symbol), rates: state.rates, now });
         if (placed.account) {
           account = placed.account;
           accountNotice('margin', t('toastCalledSale', { name: nameOf(plan.symbol) }), { tone: 'bad', tag: `called:${plan.symbol}:${now}`, hash: 'fx' });
@@ -1939,7 +1974,7 @@ function placeFromTicket() {
   if (d.type === 'limit') req.limit = Number(d.limit);
   if (d.type === 'stop') req.stop = Number(d.stop);
   if (d.type !== 'market' && d.tif === 'gtc') req.tif = 'gtc';
-  const r = placeOrder(state.account, req, { quote: q, rates: state.rates, valuation: valuation(), now: Date.now() });
+  const r = place(state.account, req, { quote: q, rates: state.rates, valuation: valuation(), now: Date.now() });
   if (r.error && !r.account) {
     d.msg = { kind: 'bad', text: errorText(r) };
   } else {
@@ -3660,7 +3695,7 @@ document.addEventListener('click', event => {
       let sold = 0;
       for (const x of plan) {
         const quote = state.quotes.get(x.symbol);
-        const r = placeOrder(account, { symbol: x.symbol, side: 'sell', type: 'market', qty: x.qty }, { quote, rates: state.rates, valuation: valuate(replay(account), state.quotes, state.rates), now: Date.now() });
+        const r = place(account, { symbol: x.symbol, side: 'sell', type: 'market', qty: x.qty }, { quote, rates: state.rates, valuation: valuate(replay(account), state.quotes, state.rates), now: Date.now() });
         if (r.account) {
           account = r.account;
           sold++;
