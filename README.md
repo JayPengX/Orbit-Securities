@@ -34,13 +34,17 @@ proxy's Yahoo tiers (Shared-Proxy README §4.4).
 - **The guide** (fees, orders, FX, bonds, loans…) is in the Quadra Pass
   sheet's 說明.
 
-**The pool counts the proxy's figure** (the owner's lock-down, 2026-10-12):
-each save, Shared-Proxy's `stock-check.js` replays this account with the same
-code (the kit's `stock-*`, which `public/lib` re-exports) and checks every new
-event that adds cash against the market (a fill's price in that moment's
-range, a dividend Yahoo paid, an exchange's rate, interest within its rate);
-`snap.stock.cash` and the holdings' cost the pool and ranks count are the
-Worker's, never this phone's.
+**The pool counts the proxy's figure** (the owner's lock-down, 2026-10-12,
+made exploit-proof 2026-10-14): each save, Shared-Proxy's `stock-check.js`
+replays this account with the same code (the kit's `stock-*`, which
+`public/lib` re-exports) and counts an event that adds money only as the
+market allows it: a fill only as the proxy issued it (its order's terms as
+first seen, its quote, moment and NT$ rate, once), any other fill at the
+worst price since its moment, an exchange at most the market's rate then less
+the narrowest spread, interest no more than earned, a dividend Yahoo paid, in
+the stock's currency, once. `snap.stock.cash` (what can be spent: never
+borrowed money or a short sale's proceeds), the holdings' cost and the
+opening money the pool and ranks count are the Worker's, never this phone's.
 
 ## The tabs
 
@@ -87,7 +91,7 @@ top right are help, refresh and the account.
   - **Short of a currency?** One tap exchanges exactly the NT$ needed.
   - **Short of cash?** 融資買進 borrows the rest in the order's currency (at the loan rate, repay any time) and places the order in one tap; 融資最大 sizes a buy to cash plus margin room.
 - **Price alert** (🔔): tell me when it rises or falls to a price. Checked on every refresh and, for the time the page was closed, against the price bars since (reported with when it happened). With notifications turned on in the account sheet (the kit's notices; the switches follow the Quadra Pass), it notifies when the app is in the background. Account events use the kit's notice kinds too (`accountNotice`): fills and plan buys (`fill`), lapsed or dropped orders and skipped plans (`order`), a margin call once a day and forced sales (`margin`), ex-dividend, dividends, coupons and interest (`income`). On screen they're toasts that open their tab when tapped; a dividend's pay day is also sent by the Worker while the app is closed.
-- **Monthly plan** (📅 定期定額): buy NT$X on day N of every month. Each month buys at the first price after 00:00 Taiwan time on its day, as many units as the money covers after costs (a foreign one exchanges only the NT$ it needs, at that moment's rate). Missed months are bought from the price history when the page opens again; a month without enough NT$ is skipped and recorded.
+- **Monthly plan** (📅 定期定額): buy NT$X on day N of every month. Each month buys at the first price after 00:00 Taiwan time on its day, as many units as the money covers after costs (a foreign one exchanges only the NT$ it needs, at that moment's rate). The proxy fills each month (its first price on or after the day, that moment's rate) for a plan it saw before that day; the page applies it when it opens; a month without enough NT$ is skipped and recorded.
 - **Time machine** link: what buying this years ago would be worth now.
 - **About the company / fund:** a quick read first (is the price cheap or pricey, profitability, growth, dividends, balance sheet, swings; for funds fees, size, how spread out, dividends), rough rules of thumb shown as calm/middling/worth-a-look tags. Then the next earnings and ex-dividend dates, four years (or quarters) of revenue and net income as bars, the analysts' average target price and range against today's price, and the numbers grouped (price and value, profitability, dividends, balance sheet, performance against the S&P 500), each with a line on what it means. Funds show past returns (this year, 3 and 5 years), the sector mix, the stock/bond/cash mix and the top 10 holdings. Then what it does, translated into Chinese for a Chinese reader (the English original a tap away; the kit's `translate`, through the proxy, kept a month).
 - **How fresh the price is:** "live" or "delayed N minutes", per market, from Yahoo's own figures.
@@ -178,7 +182,7 @@ and worst years and a bank deposit to compare.
 | Dividends | Credited on the ex-date for shares held then; Yahoo's split-adjusted amounts scaled back; withholding by market; Taiwan's 2.11% NHI premium on a payment of NT$20,000+ |
 | Splits | Shares multiplied from the split date; cost unchanged |
 | Orders | Market orders fill at once while open, else at the first price after the open (holding 3% extra). Limit and stop orders are **day orders** by default: they end at the close of the session they're for (placed while shut: the next one) and expire unfilled; **長效 (GTC)** keeps one for 30 days. Crypto and currency pairs are always GTC. Open orders hold their cash or shares. A buy that no longer fits the cash when it triggers is dropped |
-| While the page is closed | On opening (and on coming back to the tab), each open order is checked against the price bars since it was placed: 5-minute bars for the last few days, 30-minute for a month, hourly for two years. It fills at the first bar that reached its price, dated then, at that moment's exchange rate; a gap through the price fills at the bar's open. Dividends, splits, coupons and maturities are credited on their own dates, and net worth history is rebuilt from daily closes |
+| While the page is closed | On opening (and on coming back to the tab), the proxy checks each open order against the price bars since it first saw it (5-minute bars for the last few days, 30-minute for a month, hourly for two years) and fills it at the first bar that reached its price, dated then; a gap through the price fills at the bar's open. Dividends, splits, coupons and maturities are credited on their own dates, and net worth history is rebuilt from daily closes |
 | Hours | Each market's own session and holidays from Yahoo; crypto always; government bonds on weekdays in the issuer's business hours |
 | Short selling | Stocks, ETFs, bond ETFs, crypto; 150% initial cover; 3% a year borrow fee; dividends charged; bought back first in a forced sale |
 
@@ -198,7 +202,7 @@ Two devices' copies merge by uniting their logs:
 - An order takes its most advanced status, and one filled anywhere counts as filled.
 - A copy started over wins if it's the newer start.
 
-**Orders are filled by the proxy** (Shared-Proxy `stock-fill.js`; the owner, 2026-10-14): every order is placed waiting (its cash or shares held), the open ones are asked about after each refresh, and the proxy fills each at its own fresh quote by the market's rules (`triggerPrice`); the app applies exactly that fill (`applyFills`: the spread, costs, cash and shares as the account has them). A fill the proxy didn't issue never counts in the pool. Orders that would have filled while the app was closed are still found in the price history and checked by the proxy against it.
+**Orders are filled by the proxy** (Shared-Proxy `stock-fill.js`; the owner, 2026-10-14): every order is placed waiting (its cash or shares held), the open ones are asked about after each refresh (with the monthly plans due), and the proxy fills each at its own fresh quote by the market's rules (`triggerPrice`), with its NT$ rate; the app applies exactly that fill (`applyFills`: the spread, costs, cash and shares as the account has them). The proxy keeps each order's terms and the moment it first saw it (that moment is when it was placed, for every rule). An order that waited across a session the page wasn't open for is filled by the proxy from the price bars since (once a session), dated then; the app asks before any order lapses, so one that met its price before its end still fills.
 
 **Prices** come from Yahoo Finance's public endpoints (`public/lib/quotes.mjs`, the kit's `stock-quotes.mjs`, one copy with the proxy) through Shared-Proxy's data proxy (`/sports-proxy` on its one Worker), which adds CORS and caches:
 
@@ -212,7 +216,7 @@ Two devices' copies merge by uniting their logs:
 - **Exchange price rules:** Taiwan and US limit and stop prices must sit on the exchange's tick (Taiwan: 0.01 below NT$10 up to 5 from NT$1,000; ETFs 0.01/0.05; US one cent), and Taiwan limit orders must be inside the day's ±10% price limit. The order form shows the allowed range and the tick.
 - **Dividends are paid on the market's pay day:** holding on the ex-date earns it; the cash arrives about 4 weeks later in Taiwan, 1 week in the US, 2–3 months in Japan, within days in much of Europe (`DIV_PAY_DAYS`). Until then it's listed as on the way and counted in net worth as a receivable (the price already dropped by it), but can't be spent.
 - **Forced sales while away:** with a loan or a short, the price history since the last visit is walked (every price bar) and, where the account fell below the liquidation line, shorts are bought back and holdings sold at that moment's price, dated then, and the loans repaid; whatever the sale didn't cover is still owed.
-- **Fills found in the past** must have fitted the cash and shares at that moment, and still fit today's.
+- **Fills found in the past** must have fitted the cash and shares at that moment, and still fit today's. A forced sale found here counts in the pool at the worst price traded since its moment.
 - **The spread:** market and triggered stop orders buy at the ask and sell at the bid: half a tick at least, or a typical half-spread per market (US 0.01%, Europe and Asia 0.05%, crypto 0.02%). Limit orders fill only at their price or better. Monthly plans size their buy at the ask.
 - **Settlement:** every fill records when it settles (Taiwan, Japan, Hong Kong, Korea, Europe, Australia and Singapore T+2; the US, Canada, India and China T+1; the UK, the EU and Switzerland T+1 from 2027-10-11), counted in the market's own business days (weekends and its holidays skipped) and ending at 23:59 in the market's own time. Sale money can buy again at once in its market, but can't be exchanged into another currency until it settles; wallets show what's still settling.
 - **Taiwan odd lots** (not whole lots of 1,000) match only from 09:10, in the intraday odd-lot session, live and in history.
@@ -247,7 +251,7 @@ Two devices' copies merge by uniting their logs:
 
 | File | Purpose |
 | --- | --- |
-| `public/lib/account.mjs` | The ledger: orders and fills (live and from price history), short positions, exchange, loans and margin, dividends, splits, coupons and maturities, valuation, net worth history, benchmarks, merging |
+| `public/lib/account.mjs` | The ledger: orders and fills (the proxy's, applied here), short positions, exchange, loans and margin, dividends, splits, coupons and maturities, valuation, net worth history, benchmarks, merging |
 | `public/lib/bonds.mjs` | Government bonds: issuers, curves (live and reference), coupon dates, pricing with accrued interest, trading hours |
 | `public/lib/markets.mjs` | Currencies (spreads, loan rates), markets (commissions, taxes, withholding), kinds, hours, margin rules |
 | `public/lib/quotes.mjs` | Fetching and parsing Yahoo's quotes, charts, events and search; passbook metals |
