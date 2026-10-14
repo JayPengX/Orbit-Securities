@@ -1,7 +1,7 @@
 // Stock Study: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
-  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, borrow, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, defaulted, applyCorporateActions, applyBondCashflows, backfillPrice, fillFromHistory, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, estimate, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, requiredCash, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, borrow, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, defaulted, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, estimate, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, requiredCash, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, LEND_TERM_DAYS, lendFee, lendable } from './lib/savings.mjs';
 import {
@@ -336,13 +336,17 @@ async function refresh({ list = false } = {}) {
 // afterPrices again (it's applied there).
 const FILL_ASK_MS = 3_000;
 let fillAsk = { at: 0, busy: false };
-async function askFills(account) {
+// A monthly plan whose month is due and not bought yet (the proxy buys it).
+const plansDue = account => activePlans(account).filter(p => planRuns(p).some(r => !account.orders.some(o => o.id === planOrderId(p, r.month)) && !state.fills[planOrderId(p, r.month)]));
+async function askFills(account, { now = false } = {}) {
   const open = (account?.orders || []).filter(o => o.status === 'open' && !state.fills[o.id]);
-  if (!open.length || fillAsk.busy || Date.now() - fillAsk.at < FILL_ASK_MS) return;
+  const plans = account ? plansDue(account) : [];
+  if ((!open.length && !plans.length) || (!now && (fillAsk.busy || Date.now() - fillAsk.at < FILL_ASK_MS))) return;
   fillAsk = { at: Date.now(), busy: true };
   try {
-    const spec = o => ({ id: o.id, symbol: o.symbol, side: o.side, type: o.type, qty: o.qty, limit: o.limit, stop: o.stop, t: o.t, after: o.after, market: o.market, kind: o.kind });
-    const res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'fill', orders: open.slice(0, 40).map(spec) }), timeout: 15_000 });
+    const spec = o => ({ id: o.id, symbol: o.symbol, side: o.side, type: o.type, qty: o.qty, limit: o.limit, stop: o.stop, t: o.t, after: o.after, expires: o.expires, market: o.market, kind: o.kind, currency: o.currency });
+    const planSpec = p => ({ id: p.id, symbol: p.symbol, day: p.day, amount: p.amount, on: p.on, currency: state.quotes.get(p.symbol)?.currency || p.currency, market: p.market, kind: p.kind });
+    const res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'fill', orders: open.slice(0, 40).map(spec), plans: plans.slice(0, 20).map(planSpec) }), timeout: 15_000 });
     const fresh = Object.entries(res?.fills || {}).filter(([id]) => !state.fills[id]);
     if (!fresh.length) return;
     for (const [id, f] of fresh) state.fills[id] = f;
@@ -370,16 +374,17 @@ function afterPrices() {
   // (And old 融資 loans tied to what they bought, once.)
   let account = matureLending(matureDeposits(state.account, now), now);
   for (const e of account.events.filter(e => e.type === 'tdend' && !state.account.events.some(x => x.id === e.id))) accountNotice('income', t('tdMatured', { v: money(e.amount + e.net, BASE) }), { tag: e.id, hash: 'fx' });
-  // Day orders past their session end (and month-old GTC ones) lapse first.
+  // Filled by the proxy at its own quote (Shared-Proxy stock-fill.js; the
+  // owner, 2026-10-14): its fills applied here (one from a session the page
+  // wasn't open for, dated then, before its order could lapse), the open
+  // orders asked about (askFills). An older kit without it: filled here.
+  const r = stockAccount.applyFills ? stockAccount.applyFills(account, state.fills, state.rates, now) : processOrders(account, state.quotes, state.rates, now);
+  account = r.account;
+  // Day orders past their session end (and month-old GTC ones) lapse.
   const ex = expireOrders(account, now);
   account = ex.account;
   for (const o of ex.expired) accountNotice('order', t('toastExpired', { name: nameOf(o.symbol) }), { tag: `order:${o.id}`, hash: 'history' });
-  // Filled by the proxy at its own quote (Shared-Proxy stock-fill.js; the
-  // owner, 2026-10-14): its fills applied here, the open orders asked about
-  // (askFills). An older kit without it: filled here as before.
-  const r = stockAccount.applyFills ? stockAccount.applyFills(account, state.fills, state.rates, now) : processOrders(account, state.quotes, state.rates, now);
   if (stockAccount.applyFills) askFills(account);
-  account = r.account;
   for (const f of r.filled) filledNotice(t('toastFilled', { side: t(f.side), qty: fmtQty(f.qty), name: nameOf(f.symbol), price: fmtPrice(f.price, f.currency) }), f);
   for (const o of r.rejected) accountNotice('order', t('toastRejected', { name: nameOf(o.symbol), why: t(`err_${o.reason}`) }), { tone: 'bad', tag: `order:${o.id}`, hash: 'history' });
   if (r.filled.some(f => f.forced && !f.cover)) account = repayAll(account, state.rates, state.fxOpen, now);
@@ -566,8 +571,9 @@ function checkIncome() {
 
 // ---- Monthly plans (定期定額) ----------------------------------------------------
 
-// Every month's buy that is due and not done: bought at the first price on
-// or after its day (from the price history), at that moment's rate.
+// Every month's buy that is due and not done: bought at the proxy's fill
+// (stock-fill.js: the first price on or after its day, that moment's rate),
+// asked for with the orders (askFills).
 let plansRunning = false;
 async function checkPlans() {
   if (!state.account || plansRunning || !state.backfilled) return;
@@ -576,27 +582,13 @@ async function checkPlans() {
     // The copies a repeated tap left: one plan a symbol.
     const once = dedupePlans(state.account);
     if (once !== state.account) commit(once);
+    if (plansDue(state.account).length) await askFills(state.account, { now: true });
     for (const plan of activePlans(state.account)) {
-      const due = planRuns(plan).filter(r => !state.account.orders.some(o => o.id === planOrderId(plan, r.month)));
-      if (!due.length) continue;
-      let bars = [];
-      try {
-        bars = await fetchBars(plan.symbol, due[0].t - 86_400_000);
-      } catch {
-        continue;
-      }
       const quote = state.quotes.get(plan.symbol);
-      for (const run of due) {
-        const bar = bars.find(b => b.t >= run.t);
-        if (!bar) break;
-        const currency = quote?.currency || plan.currency;
-        let twd = currency === BASE ? 1 : null;
-        if (!twd) {
-          const fx = await fetchBars(fxSymbol(currency), bar.t - 5 * 86_400_000).catch(() => []);
-          for (const b of fx) if (b.t <= bar.t) twd = b.c;
-          twd ||= state.rates[currency];
-        }
-        const r = runPlan(state.account, plan, run, { price: bar.o, twd, at: bar.t, quote }, Date.now());
+      for (const run of planRuns(plan)) {
+        const f = state.fills[planOrderId(plan, run.month)];
+        if (!f || state.account.orders.some(o => o.id === planOrderId(plan, run.month))) continue;
+        const r = runPlan(state.account, plan, run, { price: f.quote, twd: f.twd, at: f.t, quote }, Date.now());
         if (r.account === state.account) continue;
         commit(r.account);
         if (r.fill) accountNotice('fill', t('toastPlan', { name: nameOf(plan.symbol), qty: fmtQty(r.fill.qty), price: fmtPrice(r.fill.price, r.fill.currency), time: fmtDate(r.fill.t) }), { tag: `plan:${plan.id}:${run.month}`, hash: 'history' });
@@ -623,35 +615,11 @@ function checkBonds() {
   }
 }
 
-// Orders that stayed open while the page was closed: each is checked
-// against the price bars since it was placed, and filled at the first one
-// that reached its price, dated then (at that moment's exchange rate).
+// Orders that stayed open while the page was closed: the proxy fills each
+// from the price bars since it first saw it (stock-fill.js), dated then;
+// asked for before anything lapses.
 async function backfillOrders() {
-  const open = (state.account?.orders || []).filter(o => o.status === 'open' && !BONDS[o.symbol] && Date.now() - o.t > 60_000);
-  const results = await Promise.all(
-    open.map(async o => {
-      try {
-        const hit = backfillPrice(o, await fetchBars(o.symbol, o.t));
-        if (!hit) return null;
-        let twd = o.currency === BASE ? 1 : null;
-        if (!twd) {
-          const fx = await fetchBars(fxSymbol(o.currency), hit.t - 3 * 86_400_000).catch(() => []);
-          for (const b of fx) if (b.t <= hit.t) twd = b.c;
-          twd ||= state.rates[o.currency];
-        }
-        return twd ? { o, hit, twd } : null;
-      } catch {
-        return null;
-      }
-    })
-  );
-  for (const r of results.filter(Boolean).sort((a, b) => a.hit.t - b.hit.t)) {
-    const f = fillFromHistory(state.account, r.o.id, r.hit, r.twd, Date.now());
-    if (f.account !== state.account) commit(f.account);
-    if (f.fill) filledNotice(t('toastFilledAt', { side: t(f.fill.side), name: nameOf(f.fill.symbol), qty: fmtQty(f.fill.qty), price: fmtPrice(f.fill.price, f.fill.currency), time: dateTime(f.fill.t) }), f.fill);
-    else if (f.order?.status === 'rejected') accountNotice('order', t('toastRejected', { name: nameOf(f.order.symbol), why: t(`err_${f.order.reason}`) }), { tone: 'bad', tag: `order:${f.order.id}`, hash: 'history' });
-  }
-  if (state.account?.orders.some(o => o.forced && o.status === 'filled')) commit(repayAll(state.account, state.rates, state.fxOpen, Date.now()));
+  if (stockAccount.applyFills) await askFills(state.account, { now: true });
 }
 
 // A loan or short that broke the liquidation line while the page was closed
