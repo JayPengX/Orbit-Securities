@@ -1362,8 +1362,11 @@ function factsHtml(q) {
     ...(isTradable(q.kind) ? [[t('rulesFact'), marketRules(q)]] : []),
     ...(state.rates[q.currency] && q.currency !== BASE ? [[t('inTwd'), `${money(q.price * state.rates[q.currency], BASE, { digits: q.price * state.rates[q.currency] < 100 ? 2 : 0 })} ${t('perUnit', { unit: unitOf(q.symbol) })}`]] : [])
   ];
-  // Short facts two a row; a long one (hours, holidays, costs) the row's width.
-  return `<dl class="facts-grid">${rows.map(([k, v]) => `<div${String(v).length > 22 ? ' class="wide"' : ''}><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`).join('')}</dl>`;
+  // Short facts two a row; a long one (hours, holidays, costs) the row's
+  // width, each of its parts (` · `) a line of its own, never wrapped.
+  return `<dl class="facts-grid">${rows
+    .map(([k, v]) => (String(v).length > 22 ? `<div class="wide"><dt>${h(k)}</dt><dd>${String(v).split(' · ').map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`))
+    .join('')}</dl>`;
 }
 
 // Hours in Taiwan's time, and the market's own when it differs.
@@ -1893,7 +1896,7 @@ function renderTicket() {
       ${d.type !== 'market' && q.kind !== 'crypto' && q.kind !== 'fx' ? `<div class="q-seg tif" role="group">${['day', 'gtc'].map(x => `<button type="button" data-action="tif" data-tif="${x}" aria-pressed="${(d.tif || 'day') === x}">${h(t(`tif_${x}`, { n: GTC_DAYS }))}</button>`).join('')}</div>` : ''}
     </div>
     ${marginRate > 0 ? `<div class="q-seg credit-toggle" role="group"><button type="button" data-action="credit" data-credit="" aria-pressed="${!credit}">${h(t('cashBuy'))}</button><button type="button" data-action="credit" data-credit="1" aria-pressed="${credit}">${h(t('creditBuy', { n: Math.round(marginRate * 10) }))}</button></div>` : ''}
-    <p class="note">${h(typeHint)}</p>
+    <p class="note hint-lines">${typeHint.split(/(?<=[：；:;])\s*/).map(x => `<span>${h(x)}</span>`).join('')}</p>
     <div class="ticket-fields">
       <label class="field"><span>${h(t('quantity'))} (${h(unit)})</span><input id="t-qty" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>
       ${d.type === 'limit' ? `<label class="field"><span>${h(t('limitPrice'))} (${h(q.currency)})</span><input id="t-limit" inputmode="decimal" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
@@ -4143,7 +4146,8 @@ window.addEventListener('hashchange', () => {
 topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 
 // Big numbers shrink (to 60% at most) to stay on one line.
-const FIT_SELECTOR = '.stat-value, .big-price, .hero-value, .q-rec-big';
+// (And a fact or an order's hint, a line each.)
+const FIT_SELECTOR = '.stat-value, .big-price, .hero-value, .q-rec-big, .facts-grid dd, .hint-lines span';
 function fitNumbers(nodes) {
   for (const node of nodes) node.style.fontSize = '';
   const sizes = nodes.map(node => {

@@ -244,6 +244,8 @@ footer { padding: 10px 0 0; text-align: center; }
 /* The kit's sheet pads itself; the detail pads its body instead (its head
    runs edge to edge), so the sheet's own padding goes. */
 .sheet.q-sheet { padding: 0; width: min(760px, calc(100vw - 16px)); height: calc(100dvh - var(--q-top) - 16px); }
+/* On a phone it meets the sides and foot (the kit's .q-full), as tall as before. */
+@media (max-width: 719px) { .sheet.q-sheet.q-full { width: 100vw; height: calc(100dvh - var(--q-top) - 8px); } }
 #detail-body { padding: 0 16px calc(18px + env(safe-area-inset-bottom)); }
 #setup-body { position: relative; }
 .sheet-head {
@@ -311,7 +313,10 @@ footer { padding: 10px 0 0; text-align: center; }
 .facts-grid div { min-width: 0; padding: 9px 0; border-top: 1px solid var(--grid); }
 .facts-grid div.wide { grid-column: 1 / -1; }
 .facts-grid dt { font-size: 0.72rem; color: var(--text-muted); }
-.facts-grid dd { margin: 0; font-size: 0.86rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.facts-grid dd { margin: 0; font-size: 0.86rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.facts-grid dd span { display: block; }
+/* An order's hint: what it is, then each of its clauses, a line each. */
+.hint-lines span { display: block; white-space: nowrap; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 10px 14px; }
 .kpi { display: grid; min-width: 0; }
 .kpi-label { font-size: 0.74rem; color: var(--text-muted); font-weight: 600; }

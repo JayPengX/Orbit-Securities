@@ -82,7 +82,8 @@ top right are help, refresh and the account.
 
 - The price, the change, and whether the market is open, with local and Taiwan time. A closed market shows its next open.
 - Charts over 1D, 5D, 1M, 6M, YTD, 1Y, 5Y or everything, with a crosshair: as a line or **candlesticks with volume**, and **moving averages** (MA5, MA20, MA60) on either.
-- The facts: previous close, day and 52-week range, volume, currency, market, trading hours, trading costs, the price in NT$.
+- The sheet is the kit's full-height one: on a phone it meets the screen's sides and foot (`.q-full`), nothing behind showing down its sides.
+- The facts: previous close, day and 52-week range, volume, currency, market, trading hours, trading costs, the price in NT$. Each on one line (a long number smaller); a long one (costs, rules) one part a line. An order's hint the same: what it is, then each clause a line.
 - Your position: quantity, average cost, value, P/L.
 - **The ticket:**
   - buy or sell; market, limit or stop orders;
