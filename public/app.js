@@ -4149,7 +4149,10 @@ topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 // (And a fact or an order's hint, a line each.)
 const FIT_SELECTOR = '.stat-value, .big-price, .hero-value, .q-rec-big, .facts-grid dd, .hint-lines span';
 function fitNumbers(nodes) {
-  for (const node of nodes) node.style.fontSize = '';
+  for (const node of nodes) {
+    node.style.fontSize = '';
+    node.__fit = node.textContent;
+  }
   const sizes = nodes.map(node => {
     // (Fractional widths: whole pixels rounded a 64.4px number into a 64px
     // box, which then showed 11,7… instead of shrinking.)
@@ -4174,10 +4177,13 @@ function fitNumbers(nodes) {
 }
 if ('ResizeObserver' in window) {
   const resized = new ResizeObserver(entries => fitNumbers(entries.map(e => e.target)));
+  // After a redraw only the numbers new or changed (every one on every tab,
+  // measured and stepped down again at each redraw, was most of a tap's time);
+  // a width that changes is the ResizeObserver's.
   const watch = new MutationObserver(() => {
-    const nodes = [...document.querySelectorAll(FIT_SELECTOR)];
+    const nodes = [...document.querySelectorAll(FIT_SELECTOR)].filter(node => node.__fit !== node.textContent);
     for (const node of nodes) resized.observe(node);
-    fitNumbers(nodes);
+    if (nodes.length) fitNumbers(nodes);
   });
   watch.observe(document.body, { childList: true, subtree: true });
   // Fitted before the font came, a number widens when it comes while its box
