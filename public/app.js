@@ -1032,7 +1032,7 @@ function renderHomeRows() {
   const moversHtml =
     up.length || down.length
       ? `<section class="q-section home-row"><div class="q-section-head"><h2>${h(mt('moversTitle', 'moversTitleOn'))}</h2></div>
-          ${groups.length > 1 ? `<div class="segmented small mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : ''}
+          ${groups.length > 1 ? `<div class="q-seg small mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : ''}
           <div class="movers">
             <div class="movers-col"><p class="movers-head">${h(mt('moversUp', 'moversUpOn'))}</p>${up.map(moverRow).join('') || `<p class="muted">—</p>`}</div>
             <div class="movers-col"><p class="movers-head">${h(mt('moversDown', 'moversDownOn'))}</p>${down.map(moverRow).join('') || `<p class="muted">—</p>`}</div>
@@ -1063,7 +1063,7 @@ function renderMarkets() {
   if (state.category === 'watch' && !watch.length) state.category = 'overview';
   if (state.category === 'overview') state.category = watch.length ? 'watch' : 'tw';
   $('categories').innerHTML = chips
-    .map(c => `<button class="chip" type="button" data-action="cat" data-id="${c.id}" aria-pressed="${!state.query && state.category === c.id}">${h(L(c))}</button>`)
+    .map(c => `<button class="q-chip" type="button" data-action="cat" data-id="${c.id}" aria-pressed="${!state.query && state.category === c.id}">${h(L(c))}</button>`)
     .join('');
 
   if (state.query) return renderSearch();
@@ -1395,7 +1395,7 @@ function kpi(label, value, sub = '', dir = '') {
 function trackersHtml(symbol) {
   const list = TRACKERS[symbol] || [];
   return `<div class="card note-card"><p>${h(t('watchOnly'))}</p>${
-    list.length ? `<p class="muted">${h(t('trackWith'))}</p><div class="button-row">${list.map(s => `<button class="ghost-button" type="button" data-action="open" data-symbol="${h(s)}">${h(nameOf(s))} <small>${h(bareSymbol(s))}</small></button>`).join('')}</div>` : ''
+    list.length ? `<p class="muted">${h(t('trackWith'))}</p><div class="button-row">${list.map(s => `<button class="q-btn small" type="button" data-action="open" data-symbol="${h(s)}">${h(nameOf(s))} <small>${h(bareSymbol(s))}</small></button>`).join('')}</div>` : ''
   }</div>`;
 }
 
@@ -1415,7 +1415,7 @@ function alertCardHtml(symbol, q) {
   const rows = list
     .map(a =>
       a.on
-        ? `<li><span>${h(t(a.op === 'above' ? 'alertWhenAbove' : 'alertWhenBelow', { price: fmtPrice(a.price, q.currency) }))}</span><button class="ghost-button small" type="button" data-action="alert-off" data-id="${h(a.id)}">${h(t('remove'))}</button></li>`
+        ? `<li><span>${h(t(a.op === 'above' ? 'alertWhenAbove' : 'alertWhenBelow', { price: fmtPrice(a.price, q.currency) }))}</span><button class="q-btn small" type="button" data-action="alert-off" data-id="${h(a.id)}">${h(t('remove'))}</button></li>`
         : `<li class="muted"><span>✓ ${h(t('alertWentOff', { price: fmtPrice(a.hit.price, q.currency), time: dateTime(a.hit.t) }))}</span></li>`
     )
     .join('');
@@ -1425,8 +1425,8 @@ function alertCardHtml(symbol, q) {
     `
     ${rows ? `<ul class="tool-list">${rows}</ul>` : ''}
     <div class="fx-amount"><label class="field grow"><span>${h(t('alertPriceLabel'))} (${h(q.currency)})</span><input id="alert-price" inputmode="decimal" autocomplete="off" value="${h(state.alertPrice)}" placeholder="${h(fmtPrice(q.price, q.currency))}" /></label></div>
-    <div class="qty-presets">${presets.map(([label, v]) => `<button class="chip small" type="button" data-action="alert-preset" data-v="${v}">${h(label)}</button>`).join('')}</div>
-    <button class="primary-button" type="button" data-action="alert-add" ${price > 0 && Math.abs(price / q.price - 1) > 1e-6 ? '' : 'disabled'}>${h(price > 0 ? t(op === 'above' ? 'alertAddAbove' : 'alertAddBelow', { price: fmtPrice(price, q.currency) }) : t('alertAdd'))}</button>
+    <div class="qty-presets">${presets.map(([label, v]) => `<button class="q-chip small" type="button" data-action="alert-preset" data-v="${v}">${h(label)}</button>`).join('')}</div>
+    <button class="q-btn primary" type="button" data-action="alert-add" ${price > 0 && Math.abs(price / q.price - 1) > 1e-6 ? '' : 'disabled'}>${h(price > 0 ? t(op === 'above' ? 'alertAddAbove' : 'alertAddBelow', { price: fmtPrice(price, q.currency) }) : t('alertAdd'))}</button>
     ${'Notification' in window && !notifyOn() ? `<p class="note">${h(t('alertNotifyNote'))}</p>` : ''}`,
     list.some(a => a.on),
     'tool:alert'
@@ -1444,7 +1444,7 @@ function planCardHtml(symbol, q) {
       `<p>${h(t('planActive', { amount: money(plan.amount, BASE), day: plan.day }))}</p>
       <p class="muted">${h(t('planNext', { date: next ? fmtDate(next) : '—' }))}</p>
       ${planHistoryHtml(plan)}
-      <div class="button-row"><button class="ghost-button" type="button" data-action="plan-edit" data-id="${h(plan.id)}">${h(t('planEdit'))}</button><button class="ghost-button danger" type="button" data-action="plan-off" data-id="${h(plan.id)}">${h(t('planStop'))}</button></div>`,
+      <div class="button-row"><button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(plan.id)}">${h(t('planEdit'))}</button><button class="q-btn small danger tinted" type="button" data-action="plan-off" data-id="${h(plan.id)}">${h(t('planStop'))}</button></div>`,
       true,
       'tool:plan'
     );
@@ -1462,8 +1462,8 @@ function planCardHtml(symbol, q) {
     </div>
     ${perUnit > 0 && amount > 0 ? `<p class="muted">${h(t('planBuys', { units: num(units, units < 10 ? 2 : 0), unit: unitOf(symbol) }))}${q.currency !== BASE ? ` · ${h(t('planFx', { cur: q.currency }))}` : ''}</p>` : ''}
     ${state.account ? '' : `<p class="note">${h(t('needAccount'))}</p>`}
-    <button class="primary-button" type="button" data-action="plan-add" ${amount >= PLAN_MIN && state.account ? '' : 'disabled'}>${h(t(editing ? 'planSave' : 'planStart'))}</button>
-    ${editing ? `<button class="ghost-button" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button>` : ''}
+    <button class="q-btn primary" type="button" data-action="plan-add" ${amount >= PLAN_MIN && state.account ? '' : 'disabled'}>${h(t(editing ? 'planSave' : 'planStart'))}</button>
+    ${editing ? `<button class="q-btn small" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button>` : ''}
     <p class="note">${h(t('planNote', { min: money(PLAN_MIN, BASE) }))}</p>`,
     Boolean(editing),
     'tool:plan'
@@ -1673,7 +1673,7 @@ function financialsHtml(f, rc) {
   const growth = first.revenue > 0 ? last.revenue / first.revenue - 1 : null;
   return `<div class="about-fin">
     <div class="card-head"><h3 class="about-h">📊 ${h(t('finTitle'))} <small>(${h(rc)})</small></h3>
-      ${f.quarterly.length ? `<div class="segmented small" role="group"><button type="button" data-action="about-period" data-v="year" aria-pressed="${!quarterly}">${h(t('finYear'))}</button><button type="button" data-action="about-period" data-v="quarter" aria-pressed="${Boolean(quarterly)}">${h(t('finQuarter'))}</button></div>` : ''}
+      ${f.quarterly.length ? `<div class="q-seg small" role="group"><button type="button" data-action="about-period" data-v="year" aria-pressed="${!quarterly}">${h(t('finYear'))}</button><button type="button" data-action="about-period" data-v="quarter" aria-pressed="${Boolean(quarterly)}">${h(t('finQuarter'))}</button></div>` : ''}
     </div>
     <ul class="legend-inline"><li><i class="sw fin-rev"></i>${h(t('finRevenue'))}</li><li><i class="sw fin-earn"></i>${h(t('finEarnings'))}</li></ul>
     <svg class="chart-svg fin-chart" viewBox="0 0 ${W} ${H}" role="img"><line class="grid" x1="${pad.l}" x2="${W - pad.r}" y1="${Y(0)}" y2="${Y(0)}"/>${bars}</svg>
@@ -1885,24 +1885,24 @@ function renderTicket() {
     box,
     `<div class="card ticket">
     <div class="ticket-top">
-      <div class="segmented side-toggle" role="group">
+      <div class="q-seg side-toggle" role="group">
         <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t('buy'))}</button>
         <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(t('sell'))}</button>
       </div>
-      <div class="segmented" role="group">${['market', 'limit', 'stop'].map(x => `<button type="button" data-action="otype" data-otype="${x}" aria-pressed="${d.type === x}">${h(t(`otype_${x}`))}</button>`).join('')}</div>
-      ${d.type !== 'market' && q.kind !== 'crypto' && q.kind !== 'fx' ? `<div class="segmented tif" role="group">${['day', 'gtc'].map(x => `<button type="button" data-action="tif" data-tif="${x}" aria-pressed="${(d.tif || 'day') === x}">${h(t(`tif_${x}`, { n: GTC_DAYS }))}</button>`).join('')}</div>` : ''}
+      <div class="q-seg" role="group">${['market', 'limit', 'stop'].map(x => `<button type="button" data-action="otype" data-otype="${x}" aria-pressed="${d.type === x}">${h(t(`otype_${x}`))}</button>`).join('')}</div>
+      ${d.type !== 'market' && q.kind !== 'crypto' && q.kind !== 'fx' ? `<div class="q-seg tif" role="group">${['day', 'gtc'].map(x => `<button type="button" data-action="tif" data-tif="${x}" aria-pressed="${(d.tif || 'day') === x}">${h(t(`tif_${x}`, { n: GTC_DAYS }))}</button>`).join('')}</div>` : ''}
     </div>
-    ${marginRate > 0 ? `<div class="segmented credit-toggle" role="group"><button type="button" data-action="credit" data-credit="" aria-pressed="${!credit}">${h(t('cashBuy'))}</button><button type="button" data-action="credit" data-credit="1" aria-pressed="${credit}">${h(t('creditBuy', { n: Math.round(marginRate * 10) }))}</button></div>` : ''}
+    ${marginRate > 0 ? `<div class="q-seg credit-toggle" role="group"><button type="button" data-action="credit" data-credit="" aria-pressed="${!credit}">${h(t('cashBuy'))}</button><button type="button" data-action="credit" data-credit="1" aria-pressed="${credit}">${h(t('creditBuy', { n: Math.round(marginRate * 10) }))}</button></div>` : ''}
     <p class="note">${h(typeHint)}</p>
     <div class="ticket-fields">
       <label class="field"><span>${h(t('quantity'))} (${h(unit)})</span><input id="t-qty" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>
       ${d.type === 'limit' ? `<label class="field"><span>${h(t('limitPrice'))} (${h(q.currency)})</span><input id="t-limit" inputmode="decimal" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
       ${d.type === 'stop' ? `<label class="field"><span>${h(t('stopPrice'))} (${h(q.currency)})</span><input id="t-stop" inputmode="decimal" autocomplete="off" value="${h(d.stop)}" /></label>` : ''}
     </div>
-    <div class="qty-presets one-row">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button class="chip small" type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}">${h(label)}</button>`).join('')}</div>
+    <div class="qty-presets one-row">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button class="q-chip small" type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}">${h(label)}</button>`).join('')}</div>
     ${d.type !== 'market' && (band || tickSize(q.market, q.kind, q.price)) ? `<p class="muted">${h([band ? t('limitBand', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }) : '', tickSize(q.market, q.kind, q.price) ? t('tickIs', { tick: num(tickSize(q.market, q.kind, q.price), 4, 0) }) : ''].filter(Boolean).join(' · '))}</p>` : ''}
     <p class="muted">${h(d.side === 'buy' ? t('cashAvail', { amount: money(cash, q.currency) }) : t('sharesAvail', { qty: fmtQty(shares), unit }))}${q.market === 'TW' && q.kind !== 'metal' && t('lotNote') ? ` · ${h(t('lotNote'))}` : ''}${d.side === 'buy' && sources.length ? ` <button class="link-button" type="button" data-action="ticket-fx" data-from="${h(sources[0])}" data-to="${h(q.currency)}">${h(t('fxOpen'))}</button>` : ''}</p>
-    ${covers.length ? `<div class="qty-presets fx-cover">${covers.slice(0, 3).map(c => `<button class="chip small" type="button" data-action="topup" data-from="${h(c.from)}" data-cur="${h(q.currency)}" data-need="${c.need}">${h(t('fxCover', { pay: money(c.need, c.from), get: money(c.get, q.currency) }))}</button>`).join('')}</div>` : ''}
+    ${covers.length ? `<div class="qty-presets fx-cover">${covers.slice(0, 3).map(c => `<button class="q-chip small" type="button" data-action="topup" data-from="${h(c.from)}" data-cur="${h(q.currency)}" data-need="${c.need}">${h(t('fxCover', { pay: money(c.need, c.from), get: money(c.get, q.currency) }))}</button>`).join('')}</div>` : ''}
     ${d.side === 'sell' && heldMargin(d.symbol) > 0 ? `<p class="note margin-split">${h(t('sellSplit', { cash: fmtQty(Math.max(0, shares - heldMargin(d.symbol))), margin: fmtQty(heldMargin(d.symbol)), unit }))}</p>` : ''}
     ${
       est
@@ -1926,8 +1926,8 @@ function renderTicket() {
     ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
     ${
       topUp?.enough && est && !problems.length
-        ? `<button class="primary-button place ${d.side}" type="button" data-action="place-fx" data-from="${h(topUp.from)}" data-need="${topUp.need}" ${pricesLive() ? '' : 'disabled'}>${h(t('autoFx'))}</button>`
-        : `<button class="primary-button place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? t('placeBuy') : t('placeSell'))}</button>`
+        ? `<button class="q-btn primary place ${d.side}" type="button" data-action="place-fx" data-from="${h(topUp.from)}" data-need="${topUp.need}" ${pricesLive() ? '' : 'disabled'}>${h(t('autoFx'))}</button>`
+        : `<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? t('placeBuy') : t('placeSell'))}</button>`
     }
     ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
   </div>`
@@ -2075,7 +2075,7 @@ function overdraftHtml(v) {
   const rows = plan.map(x => `<li><span>${h(nameOf(x.symbol))}</span><span class="num">${h(t('coverSell', { qty: fmtQty(x.qty) }))}${x.all ? ` · ${h(t('coverAll'))}` : ''}</span><strong class="num">≈ ${h(money(x.twd, BASE))}</strong></li>`).join('');
   return `<div class="card overdraft-card">
     <div class="od-head"><strong>${h(t('odTitle', { v: money(owed, BASE) }))}</strong><small>${h(state.account.od ? t('odDeadline', { date: fmtDate(state.account.od.since + OD_GRACE) }) : t('odSub'))}</small></div>
-    ${coverPending(v) ? `<p class="note">${h(t('odPending'))}</p>` : plan.length ? `<ul class="od-plan">${rows}</ul><button class="primary-button block" type="button" data-action="cover" ${pricesLive() ? '' : 'disabled'}>${h(t(covered ? 'coverGo' : 'coverGoPart'))}</button>` : `<p class="note">${h(t('odNothing'))}</p>`}
+    ${coverPending(v) ? `<p class="note">${h(t('odPending'))}</p>` : plan.length ? `<ul class="od-plan">${rows}</ul><button class="q-btn primary block" type="button" data-action="cover" ${pricesLive() ? '' : 'disabled'}>${h(t(covered ? 'coverGo' : 'coverGoPart'))}</button>` : `<p class="note">${h(t('odNothing'))}</p>`}
   </div>`;
 }
 
@@ -2128,24 +2128,24 @@ function renderPortfolio() {
     ${marginCardHtml(v)}
     <div class="card nw-card">
       <div class="card-head"><h3 class="card-title">${h(t('history'))}</h3>
-        <div class="segmented small" role="group">${['pl', 'nw'].map(k => `<button type="button" data-action="nw-view" data-v="${k}" aria-pressed="${(state.nwView || 'pl') === k}">${h(t(`nwView_${k}`))}</button>`).join('')}</div>
+        <div class="q-seg small" role="group">${['pl', 'nw'].map(k => `<button type="button" data-action="nw-view" data-v="${k}" aria-pressed="${(state.nwView || 'pl') === k}">${h(t(`nwView_${k}`))}</button>`).join('')}</div>
       </div>
       <div id="nw-chart" class="chart-box"></div>
     </div>
     <div class="card">
       <div class="card-head"><h3 class="card-title">${h(t('positions'))} <span class="count">${v.positions.length}</span></h3>
-        ${v.positions.length > 1 ? `<div class="segmented small" role="group">${['value', 'pl', 'day'].map(k => `<button type="button" data-action="pos-sort" data-v="${k}" aria-pressed="${sort === k}">${h(t(`posSort_${k}`))}</button>`).join('')}</div>` : ''}
+        ${v.positions.length > 1 ? `<div class="q-seg small" role="group">${['value', 'pl', 'day'].map(k => `<button type="button" data-action="pos-sort" data-v="${k}" aria-pressed="${sort === k}">${h(t(`posSort_${k}`))}</button>`).join('')}</div>` : ''}
       </div>
       ${
         v.positions.length
           ? `<div class="pos-sum"><span>${h(t('holdings'))} <strong class="num">${h(money(v.longTWD - v.shortTWD, BASE))}</strong></span><span>${h(t('unrealized'))} <strong class="num ${dirClass(v.unrealized)}">${h(money(v.unrealized, BASE, { sign: true }))}</strong></span></div><div class="positions">${positions.map(positionRow).join('')}</div>`
-          : `<div class="empty">${h(t('noPositions'))}<div class="button-row center"><button class="ghost-button" type="button" data-action="goto" data-tab="markets">${h(t('goTrade'))}</button></div></div>`
+          : `<div class="empty">${h(t('noPositions'))}<div class="button-row center"><button class="q-btn small" type="button" data-action="goto" data-tab="markets">${h(t('goTrade'))}</button></div></div>`
       }
     </div>
     ${open.length ? `<div class="card"><h3 class="card-title">${h(t('openOrders'))} <span class="count">${open.length}</span></h3>${open.map(orderRow).join('')}</div>` : ''}
     <div class="card">
       <div class="card-head"><h3 class="card-title">${h(t('allocation'))}</h3>
-        <div class="segmented small" role="group">${['kind', 'currency', 'market'].map(k => `<button type="button" data-action="alloc" data-alloc="${k}" aria-pressed="${state.alloc === k}">${h(t(`alloc_${k}`))}</button>`).join('')}</div>
+        <div class="q-seg small" role="group">${['kind', 'currency', 'market'].map(k => `<button type="button" data-action="alloc" data-alloc="${k}" aria-pressed="${state.alloc === k}">${h(t(`alloc_${k}`))}</button>`).join('')}</div>
       </div>
       ${allocationHtml(v)}
     </div>
@@ -2225,13 +2225,13 @@ function plansListHtml() {
         <label class="field grow"><span>${h(t('planAmount'))} (NT$)</span><input id="plan-row-amount" inputmode="numeric" autocomplete="off" value="${h(state.plan.amount)}" /></label>
         <label class="field"><span>${h(t('planDay'))}</span><select id="plan-row-day">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}" ${String(i + 1) === state.plan.day ? 'selected' : ''}>${h(t('dayOfMonth', { n: i + 1 }))}</option>`).join('')}</select></label>
       </span>
-      <span class="button-row"><button class="primary-button small" type="button" data-action="plan-row-save" data-id="${h(p.id)}">${h(t('planSave'))}</button><button class="ghost-button small" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button></span></span></div>`;
+      <span class="button-row"><button class="q-btn primary small" type="button" data-action="plan-row-save" data-id="${h(p.id)}">${h(t('planSave'))}</button><button class="q-btn small" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button></span></span></div>`;
       }
       return `<div class="order-row">${icon('calendar', 'k-cash')}
       <span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(p.symbol)}">${h(nameOf(p.symbol))}</button></span>
       <span class="row-sub">${h(t('planActive', { amount: money(p.amount, BASE), day: p.day }))} · ${h(t('planNext', { date: next ? fmtDate(next) : '—' }))}${last ? ` · ${h(last.status === 'filled' ? t('planLast', { qty: fmtQty(last.qty), unit: unitOf(p.symbol) }) : t(`err_${last.reason}`))}` : ''}</span></span>
-      <button class="ghost-button small" type="button" data-action="plan-edit" data-id="${h(p.id)}" data-row="1">${h(t('planEdit'))}</button>
-      <button class="ghost-button small" type="button" data-action="plan-off" data-id="${h(p.id)}">${h(t('planStop'))}</button></div>`;
+      <button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(p.id)}" data-row="1">${h(t('planEdit'))}</button>
+      <button class="q-btn small" type="button" data-action="plan-off" data-id="${h(p.id)}">${h(t('planStop'))}</button></div>`;
     })
     .join('')}<p class="note">${h(t('plansNote'))}</p></div>`;
 }
@@ -2246,7 +2246,7 @@ function alertsListHtml() {
       return `<div class="order-row">${icon(a.on ? 'bell' : 'check', a.on ? 'k-fx' : '')}
       <span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(a.symbol)}">${h(nameOf(a.symbol))}</button></span>
       <span class="row-sub">${h(a.on ? t(a.op === 'above' ? 'alertWhenAbove' : 'alertWhenBelow', { price: fmtPrice(a.price, q?.currency) }) : t('alertWentOff', { price: fmtPrice(a.hit.price, q?.currency), time: dateTime(a.hit.t) }))}${gap ? ` · ${h(t('alertGap', { pct: gap }))}` : ''}</span></span>
-      ${a.on ? `<button class="ghost-button small" type="button" data-action="alert-off" data-id="${h(a.id)}">${h(t('remove'))}</button>` : ''}</div>`;
+      ${a.on ? `<button class="q-btn small" type="button" data-action="alert-off" data-id="${h(a.id)}">${h(t('remove'))}</button>` : ''}</div>`;
     })
     .join('')}</div>`;
 }
@@ -2322,8 +2322,8 @@ function callPanelHtml(v) {
     <li><strong>${h(t('callWayPledge'))}</strong> ${h(t('callWayPledgeSub'))}</li>
   </ol>`;
   const buttons = `<div class="button-row">
-    ${pay >= 1 ? `<button class="primary-button grow" type="button" data-action="call-pay" data-v="${pay}">${h(t('callPay', { v: money(pay, BASE) }))}</button>` : ''}
-    ${financed.length ? `<button class="ghost-button" type="button" data-action="open" data-symbol="${h(financed[0].symbol)}">${h(t('callSellGo', { name: nameOf(financed[0].symbol) }))}</button>` : ''}
+    ${pay >= 1 ? `<button class="q-btn primary grow" type="button" data-action="call-pay" data-v="${pay}">${h(t('callPay', { v: money(pay, BASE) }))}</button>` : ''}
+    ${financed.length ? `<button class="q-btn small" type="button" data-action="open" data-symbol="${h(financed[0].symbol)}">${h(t('callSellGo', { name: nameOf(financed[0].symbol) }))}</button>` : ''}
   </div>
   ${pay >= 1 && pay < need ? `<p class="note">${h(t('callPayShort', { v: money(pay, BASE), ratio: pct(after, { digits: 0, sign: false }) }))}</p>` : ''}
   ${need >= 1 && pay < 1 ? `<p class="note">${h(t('callNoCash'))}</p>` : ''}`;
@@ -2464,7 +2464,7 @@ function orderRow(o) {
     <span class="side-tag ${o.side}">${h(t(o.side))}</span>
     <span class="row-main"><span class="row-title">${h(nameOf(o.symbol, q))} <small>${h(fmtQty(o.qty))} ${h(unitOf(o.symbol))} ${h(price)}</small></span>
     <span class="row-sub">${h(dateTime(o.t))} · ${h(status)}${o.forced ? ` · ${h(t('forcedTag'))}` : ''}${o.reason ? ` · ${h(t(`err_${o.reason}`))}` : ''}</span></span>
-    ${o.status === 'open' && !o.forced ? `<button class="ghost-button small" type="button" data-action="cancel" data-id="${h(o.id)}">${h(t('cancel'))}</button>` : ''}
+    ${o.status === 'open' && !o.forced ? `<button class="q-btn small" type="button" data-action="cancel" data-id="${h(o.id)}">${h(t('cancel'))}</button>` : ''}
   </div>`;
 }
 
@@ -2481,7 +2481,7 @@ function renderFx() {
   const box = $('fx-body');
   const f = state.fx;
   const view = f.view || 'exchange';
-  const tabs = `<div class="segmented fx-views" role="tablist">${[
+  const tabs = `<div class="q-seg fx-views" role="tablist">${[
     ['exchange', t('fxViewExchange')],
     ['rates', t('fxViewRates')],
     ['loans', t('fxViewLoans')],
@@ -2524,7 +2524,7 @@ function exchangeHtml() {
         <div class="fx-side-top"><span>${h(t('fxYouPayLabel'))}</span><button class="link-button" type="button" data-action="fx-mode" data-mode="${pay ? 'pay' : 'get'}">${h(pay ? t('fxTypePay') : t('fxTypeGet'))}</button></div>
         <div class="fx-side-row"><select id="fx-from" class="fx-cur">${currencyOptions(f.from)}</select>${payBox}</div>
         <div class="fx-side-foot"><span class="muted">${h(t('fxAvailable', { amount: money(have, f.from) }))}</span>
-          ${pay ? '' : `<span class="fx-quick">${[0.25, 0.5, 1].map(x => `<button class="chip small" type="button" data-action="fx-pct" data-pct="${x}">${x === 1 ? h(t('all')) : `${x * 100}%`}</button>`).join('')}</span>`}
+          ${pay ? '' : `<span class="fx-quick">${[0.25, 0.5, 1].map(x => `<button class="q-chip small" type="button" data-action="fx-pct" data-pct="${x}">${x === 1 ? h(t('all')) : `${x * 100}%`}</button>`).join('')}</span>`}
         </div>
       </div>
       <button class="fx-swap" type="button" data-action="fx-swap" aria-label="${h(t('swap'))}">⇅</button>
@@ -2542,7 +2542,7 @@ function exchangeHtml() {
       ${tooMuch ? `<p class="warn">${h(t('notEnoughCur', { cur: f.from, have: money(have, f.from) }))}</p>` : ''}
       ${waiting > 0 ? `<p class="note">${h(t('unsettledNote', { amount: money(waiting, f.from), date: shortDate(settlesBy(state.account)[f.from]) }))}</p>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
-      <button class="primary-button block" type="button" data-action="fx-go" ${q && q.received > 0 && !tooMuch && f.from !== f.to && pricesLive() ? '' : 'disabled'}>${h(q && !tooMuch ? t('fxConfirm', { from: money(amount, f.from), to: money(q.received, f.to) }) : t('doExchange'))}</button>
+      <button class="q-btn primary block" type="button" data-action="fx-go" ${q && q.received > 0 && !tooMuch && f.from !== f.to && pricesLive() ? '' : 'disabled'}>${h(q && !tooMuch ? t('fxConfirm', { from: money(amount, f.from), to: money(q.received, f.to) }) : t('doExchange'))}</button>
       <p class="note">${h(state.fxOpen ? t('fxOpenNote') : t('fxClosedNote'))}${usd?.marketTime ? ` ${h(t('asOf', { time: dateTime(usd.marketTime) }))}` : ''}</p>
     </div>
   </div>`;
@@ -2558,7 +2558,7 @@ function ratesHtml() {
     <div class="rates">${Object.keys(CURRENCIES).filter(c => c !== BASE).map(rateRow).join('')}</div>
     <p class="rates-foot">${h(t('ratesFoot'))}</p>
   </div>
-  <button class="ghost-button block" type="button" data-action="fx-trade">${h(t('fxTradeButton'))}</button>`;
+  <button class="q-btn small block" type="button" data-action="fx-trade">${h(t('fxTradeButton'))}</button>`;
 }
 // Today's move as coloured text (up / down in the person's colours).
 function pctText(q) {
@@ -2610,14 +2610,14 @@ function growHtml() {
   return `<div class="fx-page">
     <div class="card loan-card">
       <div class="card-head"><h3 class="card-title">🏦 ${h(t('tdTitle'))}</h3>${v.savedTWD > 0 ? `<strong class="num">${h(money(v.savedTWD, BASE))}</strong>` : ''}</div>
-      <div class="segmented small td-terms" role="group">${TD_TERMS.map(x => `<button type="button" data-action="td-term" data-months="${x.months}" aria-pressed="${x.months === term.months}"><span>${h(t('tdMonths', { n: x.months }))}</span><small class="num">${h(pct(tdRate(x.months), { digits: 2, sign: false }))}</small></button>`).join('')}</div>
+      <div class="q-seg small td-terms" role="group">${TD_TERMS.map(x => `<button type="button" data-action="td-term" data-months="${x.months}" aria-pressed="${x.months === term.months}"><span>${h(t('tdMonths', { n: x.months }))}</span><small class="num">${h(pct(tdRate(x.months), { digits: 2, sign: false }))}</small></button>`).join('')}</div>
       <div class="fx-side">
         <label class="fx-side-row"><span class="fx-unit">NT$</span><input id="td-amount" class="fx-input num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(amount > 0 ? num(amount) : '')}" placeholder="${h(num(TD_MIN))}" aria-label="${h(t('amount'))}" /></label>
         <div class="fx-side-foot"><span class="muted">${h(t('tdHave', { v: money(free, BASE) }))}</span>${free >= TD_MIN ? `<button class="link" type="button" data-action="td-max">${h(t('tdAll'))}</button>` : ''}</div>
       </div>
       <label class="check-row"><input id="td-renew" type="checkbox" ${d.renew ? 'checked' : ''} /> <span>${h(t('tdRenew'))}</span></label>
       ${amount > 0 ? `<p class="muted">${h(amount < TD_MIN ? t('err_tdMin', { min: money(TD_MIN, BASE) }) : amount > free ? t('tdTooMuch') : t('tdWillEarn', { v: money(gross, BASE), date: fmtDate(addMonthsTPE(now, term.months)) }))}</p>` : ''}
-      <div class="button-row"><button class="primary-button grow" type="button" data-action="td-open" ${ok ? '' : 'disabled'}>${h(t('tdOpen'))}</button></div>
+      <div class="button-row"><button class="q-btn primary grow" type="button" data-action="td-open" ${ok ? '' : 'disabled'}>${h(t('tdOpen'))}</button></div>
       <p class="note">${h(t('tdNote', { early: pct(TD_EARLY, { digits: 0, sign: false }) }))}</p>
     </div>
     ${
@@ -2625,7 +2625,7 @@ function growHtml() {
         ? `<div class="card"><h3 class="card-title">${h(t('tdYours'))} <span class="count">${tds.length}</span></h3>${tds
             .map(td => {
               const full = Math.round((td.amount * td.rate * td.months) / 12);
-              return `<div class="order-row">${icon('lock', 'k-income')}<span class="row-main"><span class="row-title num">${h(money(td.amount, BASE))} · ${h(t('tdMonths', { n: td.months }))} ${h(pct(td.rate, { digits: 3, sign: false }))}</span><span class="row-sub">${h(t('tdEnds', { date: fmtDate(td.ends), v: money(full, BASE) }))}${td.renew ? ` · ${h(t('tdRenewTag'))}` : ''}</span></span><button class="ghost-button small" type="button" data-action="td-break" data-id="${h(td.id)}">${h(t('tdBreak'))}</button></div>`;
+              return `<div class="order-row">${icon('lock', 'k-income')}<span class="row-main"><span class="row-title num">${h(money(td.amount, BASE))} · ${h(t('tdMonths', { n: td.months }))} ${h(pct(td.rate, { digits: 3, sign: false }))}</span><span class="row-sub">${h(t('tdEnds', { date: fmtDate(td.ends), v: money(full, BASE) }))}${td.renew ? ` · ${h(t('tdRenewTag'))}` : ''}</span></span><button class="q-btn small" type="button" data-action="td-break" data-id="${h(td.id)}">${h(t('tdBreak'))}</button></div>`;
             })
             .join('')}</div>`
         : ''
@@ -2649,12 +2649,12 @@ function lendRowHtml(p, now) {
   const rate = p.kind === 'etf' ? 0.006 : 0.012;
   const yearNet = can ? lendFee({ qty: can, price: p.price, rate, t: 0 }, 365 * 86_400_000).net : 0;
   const why = p.financed > 0 ? t('lendWhyMargin') : can ? '' : p.qty - (p.lent || 0) < LEND_LOT ? t('lendWhyLot') : t('lendWhySettle');
-  return `<div class="order-row"><span class="side-tag buy">${h(t('lendTag'))}</span><span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(p.symbol)}">${h(nameOf(p.symbol))}</button></span><span class="row-sub">${h(can ? t('lendCan', { qty: fmtQty(can), rate: pct(rate * (1 - LEND_CUT), { digits: 2, sign: false }), v: money(yearNet, BASE) }) : why)}</span></span>${can ? `<button class="ghost-button small" type="button" data-action="lend" data-symbol="${h(p.symbol)}" data-qty="${can}">${h(t('lendGo'))}</button>` : ''}</div>`;
+  return `<div class="order-row"><span class="side-tag buy">${h(t('lendTag'))}</span><span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(p.symbol)}">${h(nameOf(p.symbol))}</button></span><span class="row-sub">${h(can ? t('lendCan', { qty: fmtQty(can), rate: pct(rate * (1 - LEND_CUT), { digits: 2, sign: false }), v: money(yearNet, BASE) }) : why)}</span></span>${can ? `<button class="q-btn small" type="button" data-action="lend" data-symbol="${h(p.symbol)}" data-qty="${can}">${h(t('lendGo'))}</button>` : ''}</div>`;
 }
 
 function lentRowHtml(l, now) {
   const so = lendFee(l, l.back || now).net;
-  return `<div class="order-row">${icon('hand', 'k-income')}<span class="row-main"><span class="row-title">${h(nameOf(l.symbol))} · ${h(fmtQty(l.qty))} ${h(unitOf(l.symbol))}</span><span class="row-sub">${h(l.back ? t('lendBack', { date: fmtDate(l.back) }) : t('lendSince', { date: fmtDate(l.t) }))} · ${h(t('lendSoFar', { v: money(so, BASE) }))}</span></span>${l.back ? '' : `<button class="ghost-button small" type="button" data-action="recall" data-id="${h(l.id)}">${h(t('lendRecall'))}</button>`}</div>`;
+  return `<div class="order-row">${icon('hand', 'k-income')}<span class="row-main"><span class="row-title">${h(nameOf(l.symbol))} · ${h(fmtQty(l.qty))} ${h(unitOf(l.symbol))}</span><span class="row-sub">${h(l.back ? t('lendBack', { date: fmtDate(l.back) }) : t('lendSince', { date: fmtDate(l.t) }))} · ${h(t('lendSoFar', { v: money(so, BASE) }))}</span></span>${l.back ? '' : `<button class="q-btn small" type="button" data-action="recall" data-id="${h(l.id)}">${h(t('lendRecall'))}</button>`}</div>`;
 }
 
 async function doOpenDeposit() {
@@ -2748,7 +2748,7 @@ function loansHtml() {
         <div class="fx-side-row"><select id="loan-cur" class="fx-cur">${currencyOptions(l.currency)}</select><input id="loan-amount" class="fx-input num" inputmode="decimal" autocomplete="off" value="${h(l.amount)}" placeholder="0" aria-label="${h(t('amount'))}" /></div>
         <div class="fx-side-foot"><span class="muted">${h(repaying ? (loan?.balance > 0 ? t('owed', { amount: money(loan.balance, l.currency) }) : t('noLoanCur', { cur: l.currency })) : t('loanTerms', { rate: pct(rate, { digits: 2, sign: false }), cap: money(capacityCur, l.currency) }))}</span>${!repaying && !plusAt() ? `<button class="q-plus-hint" type="button" data-action="plus">${h(t('loanPlus', { v: pct(Math.max(0, rate - PLUS.stock.loanCut), { digits: 2, sign: false }) }))}</button>` : ''}</div>
       </div>
-      <div class="button-row"><button class="primary-button grow" type="button" data-action="repay" ${canRepay ? '' : 'disabled'}>${h(t('repay'))}</button>${loan?.balance > 0 ? `<button class="ghost-button" type="button" data-action="repay-all" ${(avail.cash[l.currency] || 0) > 0 ? '' : 'disabled'}>${h(t('repayAll'))}</button>` : ''}</div>
+      <div class="button-row"><button class="q-btn primary grow" type="button" data-action="repay" ${canRepay ? '' : 'disabled'}>${h(t('repay'))}</button>${loan?.balance > 0 ? `<button class="q-btn small" type="button" data-action="repay-all" ${(avail.cash[l.currency] || 0) > 0 ? '' : 'disabled'}>${h(t('repayAll'))}</button>` : ''}</div>
       <p class="note">${h(t('loansIntroCredit'))}</p>
     </div>
     ${v.loans.length ? `<div class="card"><h3 class="card-title">${h(t('yourLoans'))}</h3><div class="wallets">${v.loans.map(x => `<div class="wallet debt"><span class="wallet-flag">${currencyInfo(x.currency).flag}</span><span class="wallet-main"><strong>${h(x.currency)}</strong><small>${h(t('loanRate', { rate: pct(x.rate, { digits: 2, sign: false }) }))} · ${h(t('interestSoFar', { amount: money(x.interest, x.currency, { digits: 2 }) }))}</small></span><span class="wallet-amt"><strong class="num down-ink">−${h(money(x.balance, x.currency))}</strong>${x.currency !== BASE ? `<small class="num">≈ −${h(money(x.twd, BASE))}</small>` : ''}</span></div>`).join('')}</div></div>` : ''}
@@ -2769,14 +2769,14 @@ function creditCardHtml(v) {
     return `<div class="card credit-card">
       <h3 class="card-title">${h(t('creditTitle'))}</h3>
       <p class="note">${h(t('creditWhy'))}</p>
-      <div class="chips credit-tiers">${CREDIT_TIERS.map(x => `<button class="chip" type="button" data-action="credit-tier" data-limit="${x}" aria-pressed="${x === pick}">${h(compactMoney(x, BASE))}</button>`).join('')}</div>
+      <div class="chips credit-tiers">${CREDIT_TIERS.map(x => `<button class="q-chip" type="button" data-action="credit-tier" data-limit="${x}" aria-pressed="${x === pick}">${h(compactMoney(x, BASE))}</button>`).join('')}</div>
       <ul class="credit-checks">
         ${row('age', need('age') ? t('creditAgeNo', { date: fmtDate(need('age').from) }) : t('creditAgeOk'))}
         ${row('trades', t('creditTrades', { n: year.trades, want: CREDIT_MIN_TRADES }))}
         ${row('turnover', t('creditTurnover', { have: compactMoney(year.turnoverTWD, BASE), want: compactMoney(pick * CREDIT_TURNOVER, BASE) }))}
         ${pick > CREDIT_TIERS[0] ? row('means', t('creditMeans', { want: compactMoney(pick * CREDIT_PROOF, BASE) })) : ''}
       </ul>
-      <button class="primary-button block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>
+      <button class="q-btn primary block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>
       <p class="note">${h(dayTradeSellFirst(state.account, now) ? t('dayTradeOk') : t('dayTradeNo'))}</p>
     </div>`;
   }
@@ -2787,9 +2787,9 @@ function creditCardHtml(v) {
   return `<div class="card credit-card">
     <h3 class="card-title">${h(t('creditTitle'))} <small class="muted">${h(t('creditLimitIs', { v: compactMoney(credit.limit, BASE) }))}</small></h3>
     ${bar(t('creditLoanUsed'), used.loan)}${bar(t('creditShortUsed'), used.short)}
-    ${better > credit.limit ? `<button class="ghost-button block" type="button" data-action="credit-open" data-limit="${better}">${h(t('creditRaise', { v: compactMoney(better, BASE) }))}</button>` : ''}
+    ${better > credit.limit ? `<button class="q-btn small block" type="button" data-action="credit-open" data-limit="${better}">${h(t('creditRaise', { v: compactMoney(better, BASE) }))}</button>` : ''}
     ${list.length
-      ? `<div class="credit-terms">${list.map(x => `<div class="credit-term"><span class="credit-term-main"><strong>${h(nameOf(x.symbol))}</strong><small>${h(x.side === 'loan' ? t('termLoan') : t('termShort'))} · ${h(t('termDue', { date: fmtDate(x.due) }))}</small></span>${x.canExtend ? `<button class="chip" type="button" data-action="extend" data-symbol="${h(x.symbol)}">${h(t('extend'))}</button>` : `<small class="muted">${h(t('extendFrom', { date: fmtDate(x.due - 30 * 86_400_000) }))}</small>`}</div>`).join('')}</div>`
+      ? `<div class="credit-terms">${list.map(x => `<div class="credit-term"><span class="credit-term-main"><strong>${h(nameOf(x.symbol))}</strong><small>${h(x.side === 'loan' ? t('termLoan') : t('termShort'))} · ${h(t('termDue', { date: fmtDate(x.due) }))}</small></span>${x.canExtend ? `<button class="q-chip" type="button" data-action="extend" data-symbol="${h(x.symbol)}">${h(t('extend'))}</button>` : `<small class="muted">${h(t('extendFrom', { date: fmtDate(x.due - 30 * 86_400_000) }))}</small>`}</div>`).join('')}</div>`
       : ''}
     <p class="note">${h(t('creditRules'))}</p>
   </div>`;
@@ -3029,7 +3029,7 @@ function renderHistory() {
     return;
   }
   const views = ['activity', 'orders', 'stats'];
-  const tabs = `<div class="segmented history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${state.historyView === x}">${h(t(`hview_${x}`))}</button>`).join('')}</div>`;
+  const tabs = `<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${state.historyView === x}">${h(t(`hview_${x}`))}</button>`).join('')}</div>`;
   if (state.historyView === 'tm') {
     box.innerHTML = `${tabs}${tmHtml()}`;
     renderTmChart();
@@ -3070,14 +3070,14 @@ function renderHistory() {
   const days = [...groups].sort((a, b) => (a[0] < b[0] ? 1 : -1));
   const appChips =
     f === 'apps' && apps.length > 1
-      ? `<div class="chips filter-chips app-chips">${['', ...apps].map(k => `<button class="chip" type="button" data-action="afilter" data-f="apps" data-app="${h(k)}" aria-pressed="${app === k}">${h(k ? APPS[k]?.short || k : t('af_all'))}</button>`).join('')}</div>`
+      ? `<div class="chips filter-chips app-chips">${['', ...apps].map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="apps" data-app="${h(k)}" aria-pressed="${app === k}">${h(k ? APPS[k]?.short || k : t('af_all'))}</button>`).join('')}</div>`
       : '';
   box.innerHTML = `${tabs}
     ${monthSummaryHtml(all)}
-    <div class="chips filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="chip" type="button" data-action="afilter" data-f="${k}" data-app="" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
+    <div class="chips filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" data-app="" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
     ${appChips}
     ${days.length ? `<div class="card list-card act-list">${days.map(([day, g]) => `<h3 class="day-head">${h(dayLabel(day))}</h3>${g.rows.map(activityRow).join('')}${[...g.apps].map(([a, list]) => appDayRow(a, list)).join('')}`).join('')}</div>` : `<p class="empty">${h(t('nothingYet'))}</p>`}
-    ${own.length > shown.length ? `<button class="ghost-button more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`;
+    ${own.length > shown.length ? `<button class="q-btn small more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`;
 }
 
 // The last 30 days at a glance: bought, sold, income and what trading cost, in NT$.
@@ -3304,9 +3304,9 @@ function tmHtml() {
       <label class="field"><span>${h(t('tmWhat'))}</span><select id="tm-symbol">${choices.map(sym => `<option value="${h(sym)}" ${sym === tm.symbol ? 'selected' : ''}>${h(nameOf(sym))} · ${h(bareSymbol(sym))}</option>`).join('')}</select></label>
       <label class="field"><span>${h(t('tmFrom'))}</span><select id="tm-start">${years.map(y => `<option value="${y}" ${String(y) === tm.start ? 'selected' : ''}>${y}</option>`).join('')}</select></label>
       <label class="field"><span>${h(tm.mode === 'monthly' ? t('tmMonthly') : t('tmAmount'))} (NT$)</span><input id="tm-amount" inputmode="numeric" autocomplete="off" value="${h(tm.amount)}" /></label>
-      <div class="segmented" role="group"><button type="button" data-action="tm-mode" data-v="lump" aria-pressed="${tm.mode === 'lump'}">${h(t('tmLump'))}</button><button type="button" data-action="tm-mode" data-v="monthly" aria-pressed="${tm.mode === 'monthly'}">${h(t('tmDca'))}</button></div>
+      <div class="q-seg" role="group"><button type="button" data-action="tm-mode" data-v="lump" aria-pressed="${tm.mode === 'lump'}">${h(t('tmLump'))}</button><button type="button" data-action="tm-mode" data-v="monthly" aria-pressed="${tm.mode === 'monthly'}">${h(t('tmDca'))}</button></div>
     </div>
-    <button class="primary-button" type="button" data-action="tm-go" ${tm.loading ? 'disabled' : ''}>${h(tm.loading ? t('tmLoading') : t('tmGo'))}</button>
+    <button class="q-btn primary" type="button" data-action="tm-go" ${tm.loading ? 'disabled' : ''}>${h(tm.loading ? t('tmLoading') : t('tmGo'))}</button>
     <div id="tm-result">${tmResultHtml()}</div>
   </div>`;
 }
@@ -3518,7 +3518,7 @@ function settingsEl() {
   const paint = () => {
     box.innerHTML = `<h3 class="q-sheet-h">${h(t('g_settings'))}</h3>
       <div class="q-rows settings-rows">
-        <div class="setting-row"><span>${h(t('updownLabel'))}</span><div class="segmented small" role="group"><button type="button" data-set="updown" data-v="tw" aria-pressed="${state.settings.updown === 'tw'}">${h(t('updownTw'))}</button><button type="button" data-set="updown" data-v="us" aria-pressed="${state.settings.updown === 'us'}">${h(t('updownUs'))}</button></div></div>
+        <div class="setting-row"><span>${h(t('updownLabel'))}</span><div class="q-seg small" role="group"><button type="button" data-set="updown" data-v="tw" aria-pressed="${state.settings.updown === 'tw'}">${h(t('updownTw'))}</button><button type="button" data-set="updown" data-v="us" aria-pressed="${state.settings.updown === 'us'}">${h(t('updownUs'))}</button></div></div>
         <p class="note">${h(t('notifyNote'))}</p>
       </div>`;
   };
@@ -3639,6 +3639,11 @@ document.addEventListener('click', event => {
   const a = el.dataset.action;
   const d = state.detail;
   switch (a) {
+    case 'clear-search':
+      $('search').value = '';
+      onSearchInput('');
+      $('search').focus();
+      break;
     case 'mover-group':
       state.moverGroup = el.dataset.v;
       renderHomeRows();

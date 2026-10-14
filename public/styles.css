@@ -149,48 +149,18 @@ footer { padding: 10px 0 0; text-align: center; }
 /* ---- Buttons, chips, fields --------------------------------------------------- */
 .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 12px; padding: 2px 16px; }
 .chips::-webkit-scrollbar { display: none; }
-.chip {
-  flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; background: var(--q-fill, var(--surface));
-  border-radius: 999px; padding: 6px 13px; font-size: 0.86rem; font-weight: 500; white-space: nowrap;
-}
-.chip.small { padding: 4px 10px; font-size: 0.8rem; }
-.chip small { color: var(--text-muted); font-variant-numeric: tabular-nums; }
-@media (hover: hover) { .chip:hover { border-color: var(--accent); } }
-.chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.q-chip small { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .chip-icon { font-size: 1rem; line-height: 1; }
-.segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--q-fill, var(--surface-sunken)); border-radius: 999px; flex-wrap: wrap; }
-.segmented button { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 0.84rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
-.segmented.small button { padding: 4px 10px; font-size: 0.78rem; }
-.segmented button[aria-pressed='true'] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 3px 8px rgba(0, 0, 0, 0.08); }
-.ghost-button {
-  border: 1px solid transparent; background: var(--q-fill, var(--surface)); border-radius: 999px; padding: 7px 14px; font-size: 0.85rem;
-  font-weight: 600; white-space: nowrap;
-}
-.ghost-button.small { padding: 4px 12px; font-size: 0.8rem; }
-.ghost-button.danger { color: var(--rise); }
-.ghost-button small { color: var(--text-muted); }
-@media (hover: hover) { .ghost-button:not(:disabled):hover { border-color: var(--accent); } }
-.primary-button {
-  font-weight: 700; font-size: 0.95rem; color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 999px; padding: 10px 22px;
-  transition: background 0.15s, transform 0.1s;
-}
-@media (hover: hover) { .primary-button:not(:disabled):hover { background: var(--accent-strong); } }
-.primary-button:active { transform: scale(0.97); }
+.q-seg.small > button { min-height: 28px; font-size: 13px; }
+.q-btn small { color: var(--text-muted); }
 .button-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .link { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .field { display: grid; gap: 4px; font-size: 0.78rem; color: var(--text-muted); font-weight: 600; min-width: 0; }
 .field.grow { flex: 1 1 160px; }
-.field input, .field select, .search-box input {
-  width: 100%; border: 1px solid transparent; background: var(--q-fill, var(--surface-raised)); border-radius: 12px; padding: 10px 12px;
-  font-size: 1rem; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 0;
-}
-.field input:focus, .field select:focus, .search-box input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.field input, .field select, .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
 
 /* ---- Markets ------------------------------------------------------------------- */
 .search-box { position: relative; margin-bottom: 14px; }
-.search-box svg { position: absolute; left: 13px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); fill: none; stroke: var(--text-muted); stroke-width: 2.2; stroke-linecap: round; }
-.search-box input::placeholder { overflow-wrap: anywhere; }
-.search-box input { overflow-wrap: anywhere; padding-right: 16px; padding-left: 40px; font-weight: 500; background: var(--surface); box-shadow: var(--shadow-sm); border-radius: 999px; }
 .tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(138px, 1fr); gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px 6px; }
 .tiles::-webkit-scrollbar { display: none; }
 .tile {
@@ -270,23 +240,12 @@ footer { padding: 10px 0 0; text-align: center; }
   .sym-badge { width: 38px; height: 38px; }
 }
 
-/* ---- Sheets (detail, setup) --------------------------------------------------------- */
-.sheet {
-  border: 0; padding: 0; width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); border-radius: 22px;
-  background: var(--page); color: var(--text-primary); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35); overflow-y: auto; overscroll-behavior: contain;
-}
-.sheet::backdrop { background: rgba(2, 6, 23, 0.55); backdrop-filter: blur(3px); }
+/* ---- Sheets (detail, setup): the kit's, at its tall size (iOS's large detent) ---- */
 /* The kit's sheet pads itself; the detail pads its body instead (its head
    runs edge to edge), so the sheet's own padding goes. */
-.sheet.q-sheet { padding: 0; }
-#detail-body { padding: 0 16px 18px; }
+.sheet.q-sheet { padding: 0; width: min(760px, calc(100vw - 16px)); height: calc(100dvh - var(--q-top) - 16px); }
+#detail-body { padding: 0 16px calc(18px + env(safe-area-inset-bottom)); }
 #setup-body { position: relative; }
-@media (max-width: 720px) {
-  .sheet { width: 100vw; max-width: 100vw; max-height: 94vh; max-height: 94dvh; margin: auto 0 0; border-radius: 22px 22px 0 0; }
-  .sheet[open] { animation: rise 0.22s ease-out; }
-  #detail-body { padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
-}
-@keyframes rise { from { transform: translateY(40px); opacity: 0.5; } to { transform: none; opacity: 1; } }
 .sheet-head {
   position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; margin: 0 -16px 4px;
   background: var(--q-sheet, var(--page));
@@ -368,8 +327,8 @@ footer { padding: 10px 0 0; text-align: center; }
 /* Each choice a full-width row of equal parts (buy or sell; the order's kind;
    how long it stands), one under the other: nothing wraps, nothing stacked on a pill. */
 .ticket-top { display: grid; gap: 8px; }
-.ticket-top .segmented, .ticket .credit-toggle { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; flex-wrap: nowrap; }
-.ticket-top .segmented button, .ticket .credit-toggle button { min-width: 0; padding: 8px 4px; }
+.ticket-top .q-seg, .ticket .credit-toggle { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; flex-wrap: nowrap; }
+.ticket-top .q-seg button, .ticket .credit-toggle button { min-width: 0; padding: 8px 4px; }
 .side-toggle button { font-size: 0.95rem; font-weight: 750; }
 .side-toggle .buy[aria-pressed='true'] { background: var(--up); color: #fff; }
 .side-toggle .sell[aria-pressed='true'] { background: var(--down); color: #fff; }
@@ -379,8 +338,7 @@ footer { padding: 10px 0 0; text-align: center; }
 .qty-presets { display: flex; gap: 6px; flex-wrap: wrap; }
 /* A quantity's quick picks: one row of equal chips (最多's amount in its tooltip: with it they ran onto a second row). */
 .qty-presets.one-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
-.qty-presets.one-row .chip { justify-content: center; min-width: 0; padding-inline: 4px; }
-.preview { display: grid; gap: 4px; margin: 0; padding: 10px 12px; background: var(--surface-raised); border-radius: 12px; font-size: 0.86rem; }
+.qty-presets.one-row .preview { display: grid; gap: 4px; margin: 0; padding: 10px 12px; background: var(--surface-raised); border-radius: 12px; font-size: 0.86rem; }
 .preview div { display: flex; justify-content: space-between; gap: 12px; }
 .preview dt { color: var(--text-secondary); }
 .preview dd { margin: 0; text-align: right; }
@@ -457,8 +415,8 @@ body[data-updown='us'] .hero-card .down { color: #fecaca; }
   .position-row .row-pl { order: 4; min-width: 0; }
 }
 /* Allocation: a ring with the total inside, its legend beside (under, on a phone). */
-.donut-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-.donut-wrap .stack-legend { flex: 1 1 200px; min-width: 0; }
+.donut-wrap { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 18px; }
+.donut-wrap .stack-legend { min-width: 0; }
 .donut { position: relative; flex: none; margin: 0 auto; }
 .donut svg { display: block; width: 100%; height: 100%; }
 .donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.2; }
@@ -505,8 +463,7 @@ body[data-updown='us'] .hero-card .down { color: #fecaca; }
 .fx-card { display: grid; gap: 10px; align-content: start; }
 .fx-card .card-title { margin-bottom: 0; }
 .fx-amount { display: flex; gap: 8px; align-items: end; }
-.fx-amount .chip { margin-bottom: 6px; }
-.swap { justify-self: center; width: 38px; height: 38px; border-radius: 50%; border: 1px solid transparent; background: var(--surface); font-size: 1.1rem; box-shadow: var(--shadow-sm); }
+.fx-amount .swap { justify-self: center; width: 38px; height: 38px; border-radius: 50%; border: 1px solid transparent; background: var(--surface); font-size: 1.1rem; box-shadow: var(--shadow-sm); }
 .rates { display: grid; }
 .rate-row { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 6px; border: 0; background: none; text-align: left; border-radius: 10px; min-width: 0; }
 .rate-row + .rate-row { border-top: 1px solid var(--grid); border-radius: 0; }
@@ -541,14 +498,16 @@ body[data-updown='us'] .hero-card .down { color: #fecaca; }
 .presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
 
 /* ---- Toasts --------------------------------------------------------------------------- */
-.toasts { position: fixed; left: 50%; bottom: calc(20px + var(--q-nav)); transform: translateX(-50%); z-index: 100; display: grid; gap: 8px; width: min(420px, calc(100vw - 32px)); pointer-events: none; }
-.toast { background: var(--text-primary); color: var(--page); border-radius: 12px; padding: 10px 14px; font-size: 0.86rem; box-shadow: var(--shadow); transition: opacity 0.4s, transform 0.4s; animation: rise 0.2s ease-out; }
+/* Toasts: the kit's glass (as .q-toast), stacked over the tab bar. */
+.toasts { position: fixed; left: 50%; bottom: calc(12px + var(--q-nav)); transform: translateX(-50%); z-index: 100; display: grid; justify-items: center; gap: 8px; width: min(420px, calc(100vw - 32px)); pointer-events: none; }
+.toast { max-width: 100%; padding: 12px 18px; border-radius: 22px; background: var(--q-glass-strong); -webkit-backdrop-filter: blur(30px) saturate(2); backdrop-filter: blur(30px) saturate(2); box-shadow: var(--q-glass-rim), var(--q-glass-drop); color: var(--q-text); font: 600 15px/20px var(--q-font); transition: opacity 0.3s, transform 0.4s var(--q-ease); animation: q-toast-pop var(--q-dur-bouncy) var(--q-spring-bouncy); }
+@keyframes q-toast-pop { from { opacity: 0; transform: translateY(24px) scale(0.9); } }
 .toast:has(.toast-more), .toast:has(ul) { pointer-events: auto; cursor: pointer; }
-.toast.good { border-left: 4px solid var(--accent); }
-.toast.bad { border-left: 4px solid var(--warn); }
-.toast-more { display: block; margin-top: 4px; opacity: 0.75; font-size: 0.78rem; }
-.toast ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
-.toast.out { opacity: 0; transform: translateY(8px); }
+.toast.good { color: var(--q-text); }
+.toast.bad { color: var(--q-red); }
+.toast-more { display: block; margin-top: 2px; color: var(--q-muted); font-size: 13px; font-weight: 500; }
+.toast ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-weight: 500; }
+.toast.out { opacity: 0; transform: translateY(12px) scale(0.96); }
 
 /* ---- Learn ----------------------------------------------------------------------------- */
 .missions { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
@@ -597,9 +556,7 @@ body[data-updown='us'] .hero-card .down { color: #fecaca; }
 .tm-card { display: grid; gap: 12px; }
 .tm-card h2 { font-size: 1.15rem; margin: 0; }
 .tm-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 10px; align-items: end; }
-.tm-form .segmented { align-self: end; }
-.tm-card > .primary-button { justify-self: start; }
-.tm-result { display: grid; gap: 10px; border-top: 1px solid var(--grid); padding-top: 12px; }
+.tm-form .tm-card > .tm-result { display: grid; gap: 10px; border-top: 1px solid var(--grid); padding-top: 12px; }
 .tm-line { font-weight: 700; margin: 0; }
 
 /* ---- Company card: quick read, results, analysts ---------------------------------------- */
@@ -682,12 +639,12 @@ a.activity-row { color: inherit; text-decoration: none; }
 .fx-input:focus { outline: none; }
 .fx-unit { flex: none; font-weight: 700; color: var(--text-secondary); }
 .fx-result { overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
-.fx-side-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.82rem; }
+.fx-side-foot { display: grid; justify-items: start; gap: 8px; font-size: 0.82rem; }
 .fx-quick { display: flex; gap: 6px; }
 .fx-swap { justify-self: center; width: 40px; height: 40px; margin: -20px 0; z-index: 1; border-radius: 50%; border: 1px solid transparent; background: var(--surface); color: var(--accent); font-size: 1.15rem; box-shadow: var(--shadow-sm); cursor: pointer; }
 .fx-preview { margin: 0; }
 .link-button { border: 0; background: none; padding: 0; color: var(--accent); font: 700 0.8rem var(--q-font); cursor: pointer; }
-.primary-button.block { width: 100%; }
+.q-btn.primary.block { width: 100%; }
 .button-row .grow { flex: 1 1 auto; }
 .loan-hero { display: grid; gap: 12px; }
 .loan-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -706,9 +663,7 @@ a.activity-row { color: inherit; text-decoration: none; }
 .loan-facts strong { font-size: 1rem; white-space: nowrap; }
 .loan-facts small { font-size: 0.72rem; color: var(--text-muted); }
 .loan-card { display: grid; gap: 12px; }
-.loan-card .segmented { display: flex; }
-.loan-card .segmented button { flex: 1 1 0; }
-.fx-side-row .fx-cur { flex: 0 1 auto; }
+.loan-card .loan-card .fx-side-row .fx-cur { flex: 0 1 auto; }
 .fx-side-row .fx-input, .fx-side-row .fx-result { flex: 1 1 0; }
 
 /* ---- Markets home: the account strip, movers, capped lists ---- */
