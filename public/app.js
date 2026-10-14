@@ -3639,11 +3639,6 @@ document.addEventListener('click', event => {
   const a = el.dataset.action;
   const d = state.detail;
   switch (a) {
-    case 'clear-search':
-      $('search').value = '';
-      onSearchInput('');
-      $('search').focus();
-      break;
     case 'mover-group':
       state.moverGroup = el.dataset.v;
       renderHomeRows();
