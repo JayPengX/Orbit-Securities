@@ -1177,20 +1177,28 @@ async function loadAbout(symbol) {
   }
 }
 
-async function loadChart() {
+// A chart that failed (Yahoo turning the proxy away now and then) is asked
+// again while its sheet stays open on it, quietly: once the kit's hold on
+// the failure is over (15 s), three times.
+const CHART_RETRY_MS = 16_000;
+async function loadChart(retry = 0) {
   const d = state.detail;
   if (!d) return;
   const { symbol, range } = d;
-  d.chart = null;
-  d.chartError = false;
-  renderChart();
+  if (!retry) {
+    d.chart = null;
+    d.chartError = false;
+    renderChart();
+  }
   try {
     const chart = await fetchChart(symbol, range);
     if (state.detail !== d || d.range !== range) return;
     d.chart = chart;
+    d.chartError = false;
   } catch {
-    if (state.detail !== d) return;
+    if (state.detail !== d || d.range !== range) return;
     d.chartError = true;
+    if (retry < 3) setTimeout(() => state.detail === d && d.range === range && d.chartError && loadChart(retry + 1), CHART_RETRY_MS);
   }
   renderChart();
 }
@@ -1259,14 +1267,16 @@ function renderChart() {
   if (!d || !box) return;
   const q = state.quotes.get(d.symbol);
   // (Its line kept the row's height while there's nothing to say: nothing moves when the chart comes.)
+  // A day's chart that can't be read is drawn from the quote's own line.
+  const dayLine = d.range === '1d' && q?.line?.length > 1 ? q.line : null;
   const said = $('detail-chart-head');
-  if (said && (d.chartError || !(d.chart?.points || (d.range === '1d' && q?.line?.length > 1)))) said.textContent = '';
-  if (d.chartError) {
+  if (said && !(d.chart?.points || dayLine)) said.textContent = '';
+  if (d.chartError && !dayLine) {
     box.innerHTML = `<p class="empty">${h(t('chartError'))}</p>`;
     return;
   }
   let points = d.chart?.points;
-  if (!points && d.range === '1d' && q?.line?.length > 1) points = q.line;
+  if (!points && dayLine) points = dayLine;
   if (!points || points.length < 2) {
     box.innerHTML = `<p class="empty">${h(d.chart ? t('chartEmpty') : t('loadingChart'))}</p>`;
     return;

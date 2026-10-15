@@ -210,7 +210,7 @@ Two devices' copies merge by uniting their logs:
 **Prices** come from Yahoo Finance's public endpoints (`public/lib/quotes.mjs`, the kit's `stock-quotes.mjs`, one copy with the proxy) through Shared-Proxy's data proxy (`/sports-proxy` on its one Worker), which adds CORS and caches:
 
 - `/v7/finance/spark`: up to 20 quotes per request, with today's line.
-- `/v8/finance/chart`: charts, dividends and splits.
+- `/v8/finance/chart`: charts, dividends and splits. Every chart is kept on the phone (a failed read draws the last one); one that still fails is asked again three times while its sheet is open (16 s apart), and a day's chart falls back to the quote's own line.
 - `/v1/finance/search`: search.
 - `/v10/finance/quoteSummary`: company and fund numbers (the Worker adds Yahoo's session cookie and crumb).
 
