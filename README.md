@@ -344,7 +344,7 @@ node ../Shared-Proxy/tools/preview.mjs securities --webkit
 - **Tests**: the account and its replay, credit, margin calls, savings,
   Plus, market rules, realism, holidays, i18n, the sheet.
 - **Deploy**: a push to `main` runs the tests, stamps versions
-  (`scripts/stamp-version.mjs`) and deploys `public/` to Pages; the kit
+  (`scripts/stamp-version.mjs`; the kit modules its first screen imports are listed as modulepreload (the kit's `preload.mjs`)) and deploys `public/` to Pages; the kit
   puts a new deploy in place at once.
 - **Logo tables**: `scripts/brand-logos.mjs` (Wikidata/Commons) and
   `scripts/tv-logos.mjs` (TradingView's CDN) rebuild them; don't edit
