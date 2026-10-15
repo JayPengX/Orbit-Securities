@@ -16,6 +16,8 @@ anything here). The Pass, the pool, Plus and the economy are the kit's and
 the Worker's (Shared-Proxy README §5–6). Quotes come through the data
 proxy's Yahoo tiers (Shared-Proxy README §4.4).
 
+**Without a connection** (the kit's `onlineOnly`): covered (沒有網路連線, 報價和交易需要網路連線, 重試), never old prices to trade on; back by itself once online. A slow connection waits for the sign-in on purpose (the account is merged before anything shows), with the kit's 網路連線很慢.
+
 ## Quadra
 
 | App | Part it plays |

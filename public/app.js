@@ -21,7 +21,8 @@ import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
-  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, notifyOn, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson
+  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, notifyOn, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
+  keepOffline, onlineOnly
 } from '#kit/quadra.mjs';
 import * as stockAccount from './lib/account.mjs';
 
@@ -4305,16 +4306,10 @@ window.addEventListener('offline', () => {
   state.online = false;
   renderStatus();
 });
-if ('serviceWorker' in navigator && window.isSecureContext) {
-  navigator.serviceWorker
-    .register('./sw.js')
-    .then(() => navigator.serviceWorker.ready)
-    .then(reg => {
-      const urls = [location.href.split('#')[0], ...performance.getEntriesByType('resource').map(e => e.name)].filter(u => u.startsWith(location.origin));
-      reg.active?.postMessage({ type: 'cache', urls });
-    })
-    .catch(() => {});
-}
+// Opens without a connection: the kit registers the worker and has it keep every file loaded.
+keepOffline();
+// Every screen is live (an old copy would read as now): no connection, the kit's cover, not the saved copy.
+onlineOnly({ zh: '報價和交易需要網路連線', en: 'Prices and trading need a connection.' });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !state.accountReady) return;
   // Back after a while: settle what happened meanwhile from the history first.
