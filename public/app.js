@@ -352,6 +352,8 @@ function fillsDue(open, plans, at) {
   return plans.length > 0 && at - fillAsk.at >= (stockAccount.FILL_ASK_EVERY || 0);
 }
 // True once the proxy has answered.
+// An order as the proxy is told of it (asking for its fill, or to cancel it).
+const spec = o => ({ id: o.id, symbol: o.symbol, side: o.side, type: o.type, qty: o.qty, limit: o.limit, stop: o.stop, t: o.t, after: o.after, expires: o.expires, market: o.market, kind: o.kind, currency: o.currency });
 async function askFills(account, { now = false } = {}) {
   const open = (account?.orders || []).filter(o => o.status === 'open' && !state.fills[o.id]);
   const plans = account ? plansDue(account) : [];
@@ -360,7 +362,6 @@ async function askFills(account, { now = false } = {}) {
   if (!now && (fillAsk.busy || at - fillAsk.at < FILL_ASK_MS || !fillsDue(open, plans, at))) return false;
   fillAsk = { at, busy: true };
   try {
-    const spec = o => ({ id: o.id, symbol: o.symbol, side: o.side, type: o.type, qty: o.qty, limit: o.limit, stop: o.stop, t: o.t, after: o.after, expires: o.expires, market: o.market, kind: o.kind, currency: o.currency });
     const planSpec = p => ({ id: p.id, symbol: p.symbol, day: p.day, amount: p.amount, on: p.on, currency: state.quotes.get(p.symbol)?.currency || p.currency, market: p.market, kind: p.kind });
     const sent = open.slice(0, 40);
     const res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'fill', orders: sent.map(spec), plans: plans.slice(0, 20).map(planSpec) }), timeout: 15_000 });
@@ -3698,7 +3699,7 @@ document.addEventListener('click', event => {
   q.go(link.dataset.go, link.dataset.hash || '');
 });
 
-document.addEventListener('click', event => {
+document.addEventListener('click', async event => {
   const el = event.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
@@ -3813,12 +3814,30 @@ document.addEventListener('click', event => {
       renderTicket();
       break;
     }
-    case 'cancel':
-      commit(cancelOrder(state.account, el.dataset.id));
-      toast(t('cancelled'), '');
+    case 'cancel': {
+      // The proxy rules on a cancel: an order its price bars reached since it
+      // last looked is filled, not cancelled (stock-fill.js; the money lock-down).
+      const order = state.account.orders.find(o => o.id === el.dataset.id && o.status === 'open');
+      if (!order) break;
+      let res = null;
+      try {
+        res = stockAccount.applyFills ? await workerJson('/stock', '', { body: JSON.stringify({ op: 'cancel', order: spec(order) }), timeout: 15_000 }) : { cancelled: true };
+      } catch {
+        toast(t('cancelNoNet'), 'bad');
+        break;
+      }
+      if (res?.fill) {
+        state.fills[order.id] = res.fill;
+        afterPrices();
+        toast(t('cancelFilled'), '');
+      } else if (res?.cancelled) {
+        commit(cancelOrder(state.account, order.id));
+        toast(t('cancelled'), '');
+      } else break;
       render();
       if (state.detail) renderDetail();
       break;
+    }
     case 'goto':
       closeDetail();
       showTab(el.dataset.tab);

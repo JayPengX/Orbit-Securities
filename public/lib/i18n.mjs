@@ -365,6 +365,8 @@ export const STRINGS = {
     forcedTag: '強制賣出',
     cancel: '取消',
     cancelled: '委託已取消',
+    cancelFilled: '委託已成交，無法取消',
+    cancelNoNet: '連上網路才能取消委託',
 
     maintenance: '融資維持率',
     buyShort: '買', sellShort: '賣', divShort: '息', repaidRowFor: '還款 · {name}', last30: '近 30 天', goGrow: '理財', posSort_value: '市值', posSort_pl: '報酬', posSort_day: '今日', marginTag: '融資', loanInterest: '融資利息', borrowFee: '借券費', statsThisMonth: '本月', statsYear: '近 12 個月', statsOn: '投入 {v}', statsMonthly: '每月損益（已實現＋股利利息）', worstTrade: '最大虧損', leastGain: '最小獲利', statsMovers: '個股損益排行', statsCosts: '費用與稅負', statsCostShare: '占成交金額 {v} 的 {pct}', ratesCurrency: '幣別', ratesChange: '漲跌', ratesFoot: '新台幣計價 · 點一列換匯', sumBought: '買進', sumSold: '賣出', sumIncome: '股利與利息', sumCosts: '手續費與稅',
@@ -1138,6 +1140,8 @@ export const STRINGS = {
     forcedTag: 'forced sale',
     cancel: 'Cancel',
     cancelled: 'Order cancelled',
+    cancelFilled: 'Already filled: it can’t be cancelled',
+    cancelNoNet: 'Connect to cancel an order',
 
     maintenance: 'Maintenance ratio',
     buyShort: 'B', sellShort: 'S', divShort: 'D', repaidRowFor: 'Repaid · {name}', last30: 'Last 30 days', goGrow: 'Savings', posSort_value: 'Value', posSort_pl: 'Return', posSort_day: 'Today', marginTag: 'Margin', loanInterest: 'Loan interest', borrowFee: 'Borrowing fees', statsThisMonth: 'This month', statsYear: '12 months', statsOn: 'on {v} put in', statsMonthly: 'Monthly P/L (realised + income)', worstTrade: 'Largest loss', leastGain: 'Smallest gain', statsMovers: 'P/L by stock', statsCosts: 'Fees and taxes', statsCostShare: '{pct} of {v} traded', ratesCurrency: 'Currency', ratesChange: 'Today', ratesFoot: 'In NT$ · tap a row to exchange', sumBought: 'Bought', sumSold: 'Sold', sumIncome: 'Dividends & interest', sumCosts: 'Fees & tax',
