@@ -205,7 +205,7 @@ Two devices' copies merge by uniting their logs:
 - An order takes its most advanced status, and one filled anywhere counts as filled.
 - A copy started over wins if it's the newer start.
 
-**Orders are filled by the proxy** (Shared-Proxy `stock-fill.js`; the owner, 2026-10-14): every order is placed waiting (its cash or shares held), the open ones are asked about after each refresh (with the monthly plans due), and the proxy fills each at its own fresh quote by the market's rules (`triggerPrice`), with its NT$ rate; the app applies exactly that fill (`applyFills`: the spread, costs, cash and shares as the account has them). The proxy keeps each order's terms and the moment it first saw it (that moment is when it was placed, for every rule). An order that waited across a session the page wasn't open for is filled by the proxy from the price bars since (once a session), dated then; the app asks before any order lapses, so one that met its price before its end still fills.
+**Orders are filled by the proxy** (Shared-Proxy `stock-fill.js`; the owner, 2026-10-14): every order is placed waiting (its cash or shares held), the proxy is asked at once when one is placed (beside the quote read), and after a refresh when one is due (the kit's `fillAskDue`: one not asked about yet, a session begun since, a price at or within 1% of its trigger; else every 10 minutes; the monthly plans due with them), and the proxy fills each by the market's rules, with its NT$ rate: seen for the first time, at its fresh quote (`triggerPrice`); after that, from the 5-minute bars since it last looked, at the order's terms, so when the phone asks changes no price; the app applies exactly that fill (`applyFills`: the spread, costs, cash and shares as the account has them). The proxy keeps each order's terms and the moment it first saw it (that moment is when it was placed, for every rule). An order that waited while the page was closed is filled by the proxy from those bars too, dated then; the app asks before any order lapses, so one that met its price before its end still fills.
 
 **Prices** come from Yahoo Finance's public endpoints (`public/lib/quotes.mjs`, the kit's `stock-quotes.mjs`, one copy with the proxy) through Shared-Proxy's data proxy (`/sports-proxy` on its one Worker), which adds CORS and caches:
 
@@ -245,7 +245,7 @@ Two devices' copies merge by uniting their logs:
 **Refreshes:**
 
 - Quotes for holdings, open orders, the watchlist, currencies and the strip every 45 seconds while the page is visible; the open list every 90.
-- Waiting orders are checked and today's net worth recorded after each refresh.
+- Today's net worth recorded after each refresh; waiting orders asked about when due (above).
 - Dividends and splits are checked twice a day for everything ever held.
 
 **Offline and installable:** opened from the home screen, the top bar starts below the status bar (`env(safe-area-inset-top)`) and is solid rather than see-through, which iPadOS smeared. `public/sw.js` keeps the page's own files (each stamped version once), and the last prices are saved, so the app opens without a connection and shows when its prices are from; trading and exchanging wait for live prices. It can be installed to a phone's home screen.

@@ -333,27 +333,45 @@ async function refresh({ list = false } = {}) {
 }
 
 // The proxy's fills for the open orders ({ orderId: { quote, t } }), asked
-// once at a time after each refresh; an answer with a new fill runs
-// afterPrices again (it's applied there).
+// once at a time; an answer with a new fill runs afterPrices again (it's
+// applied there). After a refresh, only when one is due (the kit's
+// fillAskDue: one not asked about yet, a session begun, a price at or near
+// its trigger; else every 10 minutes): the proxy fills from the bars since
+// it last looked, so asking later changes no price, only how soon it shows.
+// `now`: at once (opening, placing, a plan due).
 const FILL_ASK_MS = 3_000;
 let fillAsk = { at: 0, busy: false };
+// When each open order was last answered for.
+const fillAsked = new Map();
 // A monthly plan whose month is due and not bought yet (the proxy buys it).
 const plansDue = account => activePlans(account).filter(p => planRuns(p).some(r => !account.orders.some(o => o.id === planOrderId(p, r.month)) && !state.fills[planOrderId(p, r.month)]));
+function fillsDue(open, plans, at) {
+  const due = stockAccount.fillAskDue;
+  if (!due) return true;
+  if (open.some(o => due(o, state.quotes.get(o.symbol), fillAsked.get(o.id), at))) return true;
+  return plans.length > 0 && at - fillAsk.at >= (stockAccount.FILL_ASK_EVERY || 0);
+}
+// True once the proxy has answered.
 async function askFills(account, { now = false } = {}) {
   const open = (account?.orders || []).filter(o => o.status === 'open' && !state.fills[o.id]);
   const plans = account ? plansDue(account) : [];
-  if ((!open.length && !plans.length) || (!now && (fillAsk.busy || Date.now() - fillAsk.at < FILL_ASK_MS))) return;
-  fillAsk = { at: Date.now(), busy: true };
+  const at = Date.now();
+  if (!open.length && !plans.length) return true;
+  if (!now && (fillAsk.busy || at - fillAsk.at < FILL_ASK_MS || !fillsDue(open, plans, at))) return false;
+  fillAsk = { at, busy: true };
   try {
     const spec = o => ({ id: o.id, symbol: o.symbol, side: o.side, type: o.type, qty: o.qty, limit: o.limit, stop: o.stop, t: o.t, after: o.after, expires: o.expires, market: o.market, kind: o.kind, currency: o.currency });
     const planSpec = p => ({ id: p.id, symbol: p.symbol, day: p.day, amount: p.amount, on: p.on, currency: state.quotes.get(p.symbol)?.currency || p.currency, market: p.market, kind: p.kind });
-    const res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'fill', orders: open.slice(0, 40).map(spec), plans: plans.slice(0, 20).map(planSpec) }), timeout: 15_000 });
+    const sent = open.slice(0, 40);
+    const res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'fill', orders: sent.map(spec), plans: plans.slice(0, 20).map(planSpec) }), timeout: 15_000 });
+    for (const o of sent) fillAsked.set(o.id, at);
     const fresh = Object.entries(res?.fills || {}).filter(([id]) => !state.fills[id]);
-    if (!fresh.length) return;
+    if (!fresh.length) return true;
     for (const [id, f] of fresh) state.fills[id] = f;
     afterPrices();
     render();
     if (state.detail) renderDetail();
+    return true;
   } finally {
     fillAsk.busy = false;
   }
@@ -385,7 +403,7 @@ function afterPrices() {
   const ex = expireOrders(account, now);
   account = ex.account;
   for (const o of ex.expired) accountNotice('order', t('toastExpired', { name: nameOf(o.symbol) }), { tag: `order:${o.id}`, hash: 'history' });
-  if (stockAccount.applyFills) askFills(account);
+  if (stockAccount.applyFills) askFills(account).catch(() => {});
   for (const f of r.filled) filledNotice(t('toastFilled', { side: t(f.side), qty: fmtQty(f.qty), name: nameOf(f.symbol), price: fmtPrice(f.price, f.currency) }), f);
   for (const o of r.rejected) accountNotice('order', t('toastRejected', { name: nameOf(o.symbol), why: t(`err_${o.reason}`) }), { tone: 'bad', tag: `order:${o.id}`, hash: 'history' });
   if (r.filled.some(f => f.forced && !f.cover)) account = repayAll(account, state.rates, state.fxOpen, now);
@@ -1977,22 +1995,29 @@ function placeFromTicket() {
   render();
 }
 
-// Every order goes in at once and is held as a 委託單 until a fresh price
-// comes in (placeOrder's `fresh`): it fills at that, never at the figure the
-// screen showed. The quote is read now, again a few times if that fails;
-// the usual refresh fills it after that.
+// Every order goes in at once and is held as a 委託單 until the proxy fills
+// it at its own fresh price (placeOrder's `fresh`), never at the figure the
+// screen showed: the proxy is asked at once, with the quote read beside it,
+// again a few times if either fails; after that the usual asks (askFills).
+// (An older kit without the proxy's fills: filled at the fresh quote.)
 async function atFreshPrice(place) {
   const symbol = state.detail?.symbol;
   if (!symbol) return;
   place();
+  const waiting = () => (state.account?.orders || []).filter(o => o.status === 'open' && o.waitFresh && o.symbol === symbol).map(o => `${o.id}:${o.rev}`).join();
   for (let i = 0; i < 6; i++) {
-    try {
-      absorb(await fetchQuotes([symbol]));
+    const before = waiting();
+    const [quotes, asked] = await Promise.all([fetchQuotes([symbol]).catch(() => null), stockAccount.applyFills ? askFills(state.account, { now: true }).catch(() => false) : true]);
+    if (quotes) {
+      absorb(quotes);
       afterPrices();
+    }
+    // Redrawn when the quote came or an order changed (a fill already redrew).
+    if (quotes || waiting() !== before) {
       render();
       if (state.detail?.symbol === symbol) renderDetail();
-      if (!(state.account?.orders || []).some(o => o.status === 'open' && o.waitFresh && o.symbol === symbol)) return;
-    } catch {}
+    }
+    if (!waiting() || (quotes && asked && stockAccount.applyFills)) return;
     await new Promise(ok => setTimeout(ok, 5_000));
   }
 }
