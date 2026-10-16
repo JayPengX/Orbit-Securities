@@ -2396,40 +2396,47 @@ function allocationHtml(v) {
 
 // Net worth at the end of every day since the account opened, rebuilt from
 // the log and each day's closing prices and rates (so the chart needs no
-// visits). Loaded when the portfolio shows, again once the log changes.
+// visits). Loaded when the portfolio shows, again once the log changes: the
+// rebuild is one pass over the log (the kit's netWorthSeries), and the past
+// days' charts are read once a day (only a symbol or currency new to the
+// log is read again).
+const nwCharts = { key: '', points: new Map() };
+// The last point at or before `t` (points oldest first).
+function pointAt(points, t) {
+  let lo = 0;
+  let hi = points.length - 1;
+  let v = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid][0] <= t) (v = points[mid][1]), (lo = mid + 1);
+    else hi = mid - 1;
+  }
+  return v;
+}
 async function loadNetWorthHistory() {
   const account = state.account;
   if (!account || Date.now() - account.created < 86_400_000) return;
-  const key = `${account.id}:${account.events.length}:${taipeiDay(Date.now())}`;
+  const today = taipeiDay(Date.now());
+  const key = `${account.id}:${account.events.length}:${today}`;
   if (state.nwHistory?.key === key || state.nwHistory?.loading === key) return;
   state.nwHistory = { ...(state.nwHistory || {}), loading: key };
   const s = replay(account);
   const age = Date.now() - account.created;
   const range = age < 25 * 86_400_000 ? '1mo' : age < 170 * 86_400_000 ? '6mo' : age < 360 * 86_400_000 ? '1y' : '5y';
+  if (nwCharts.key !== `${account.id}:${today}:${range}`) Object.assign(nwCharts, { key: `${account.id}:${today}:${range}`, points: new Map() });
   const currencies = new Set();
   for (const e of account.events) for (const c of [e.currency, e.from, e.to]) if (c && c !== BASE) currencies.add(c);
-  const symbols = Object.keys(s.held);
-  const [charts, fx] = await Promise.all([
-    Promise.all(symbols.map(sym => fetchChart(sym, range).catch(() => null))),
-    Promise.all([...currencies].map(c => fetchChart(fxSymbol(c), range).catch(() => null)))
-  ]);
-  const series = new Map(symbols.map((sym, i) => [sym, charts[i]?.points || []]));
-  const rates = new Map([...currencies].map((c, i) => [c, fx[i]?.points || []]));
-  const at = (points, t) => {
-    let v = null;
-    for (const [tt, c] of points) {
-      if (tt > t) break;
-      v = c;
-    }
-    return v;
-  };
+  const wanted = [...Object.keys(s.held), ...[...currencies].map(fxSymbol)].filter(sym => !nwCharts.points.has(sym));
+  const got = await Promise.all(wanted.map(sym => fetchChart(sym, range).catch(() => null)));
+  // (A failed read is asked again next time, not kept as empty.)
+  wanted.forEach((sym, i) => got[i] && nwCharts.points.set(sym, got[i].points || []));
   const days = [];
   for (let d = Date.parse(`${taipeiDay(account.created)}T23:59:59+08:00`); d < Date.now(); d += 86_400_000) days.push(d);
   const history = netWorthSeries(
     account,
     days,
-    (sym, t) => at(series.get(sym) || [], t),
-    (cur, t) => (cur === BASE ? 1 : at(rates.get(cur) || [], t) ?? state.rates[cur] ?? null)
+    (sym, t) => pointAt(nwCharts.points.get(sym) || [], t),
+    (cur, t) => (cur === BASE ? 1 : pointAt(nwCharts.points.get(fxSymbol(cur)) || [], t) ?? state.rates[cur] ?? null)
   );
   state.nwHistory = { key, history };
   if (state.tab === 'portfolio') renderNetWorthChart(valuation(), snap());
