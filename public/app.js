@@ -1162,17 +1162,24 @@ async function openDetail(symbol) {
   if (!dialog.open) dialog.showModal();
   dialog.scrollTop = 0;
   renderDetail();
+  // The chart and the company's numbers start at once, beside the quote;
+  // a quote read in the last 25 seconds (the list's) isn't read again.
+  loadChart();
+  loadAbout(symbol);
+  const fresh = q0?.got > Date.now() - QUOTE_FRESH_MS;
   try {
-    absorb(await fetchQuotes([symbol]));
+    if (!fresh) absorb(await fetchQuotes([symbol]));
     const q = state.quotes.get(symbol);
     if (q) await ensureRates([q.currency]);
     if (q && state.detail?.symbol === symbol && !state.detail.limit) state.detail.limit = state.detail.stop = String(+q.price.toPrecision(6));
   } catch {}
-  if (state.detail?.symbol !== symbol) return;
+  if (state.detail?.symbol !== symbol || (fresh && q0 === state.quotes.get(symbol))) return;
   renderDetail();
-  loadChart();
+  // (Its kind known only now: the line drawn from the quote, the numbers asked.)
+  if (state.detail.range === '1d' && !state.detail.chart) loadChart();
   loadAbout(symbol);
 }
+const QUOTE_FRESH_MS = 25_000;
 
 // Kinds with a company or fund behind them (P/E, holdings).
 const ABOUT_KINDS = new Set(['stock', 'etf', 'bond', 'fund']);
@@ -1208,6 +1215,9 @@ async function loadChart(retry = 0) {
     d.chartError = false;
     renderChart();
   }
+  // A day's line is the quote's own (the same 5-minute closes, kept fresh by
+  // every refresh): no chart read, except for candles.
+  if (dayLineOf(d) && state.settings.chart !== 'candle') return;
   try {
     const chart = await fetchChart(symbol, range);
     if (state.detail !== d || d.range !== range) return;
@@ -1279,14 +1289,18 @@ function renderDetail() {
   if (q && isTradable(q.kind)) renderTicket();
 }
 
+const dayLineOf = d => {
+  const line = d.range === '1d' ? state.quotes.get(d.symbol)?.line : null;
+  return line?.length > 1 ? line : null;
+};
 function renderChart() {
   const d = state.detail;
   const box = $('detail-chart');
   if (!d || !box) return;
   const q = state.quotes.get(d.symbol);
   // (Its line kept the row's height while there's nothing to say: nothing moves when the chart comes.)
-  // A day's chart that can't be read is drawn from the quote's own line.
-  const dayLine = d.range === '1d' && q?.line?.length > 1 ? q.line : null;
+  // A day's line chart is the quote's own line (and a day's candles that can't be read).
+  const dayLine = dayLineOf(d);
   const said = $('detail-chart-head');
   if (said && !(d.chart?.points || dayLine)) said.textContent = '';
   if (d.chartError && !dayLine) {
@@ -1321,6 +1335,7 @@ function renderChart() {
   if (state.settings.chart === 'candle' && bars) {
     const { svg, frame } = candleChart(bars, { width, height, lines: mas, yFormat: v => fmtPrice(v, cur), xFormat });
     box.innerHTML = `${head}${svg}${legend}`;
+    delete box.dataset.drawn;
     attachCandleHover(box, bars, frame, b => {
       const ma = mas.map(m => {
         const p = m.points.find(x => x[0] === b.t);
@@ -1330,9 +1345,13 @@ function renderChart() {
     });
     return;
   }
+  // Drawn again only when what it shows changed (a sheet redraws with every refresh).
+  const drawn = [d.symbol, d.range, state.settings.chart, state.settings.ma, width, points.length, points.at(-1).join(), base, cur, bars?.length].join('|');
+  if (box.dataset.drawn === drawn && box.querySelector('svg')) return;
   const series = [{ points }, ...mas.map(m => ({ points: m.points, cls: m.cls }))];
   const { svg, frame } = lineChart(series, { width, height, base: d.range === '1d' ? base : null, dir, yFormat: v => fmtPrice(v, cur), xFormat });
   box.innerHTML = `${head}${svg}${legend}${state.settings.chart === 'candle' && !bars ? `<p class="note">${h(t('noCandles'))}</p>` : ''}`;
+  box.dataset.drawn = drawn;
   attachHover(box, series, frame, (i, tt, [v, ...ma]) => `<strong class="num">${fmtPrice(v, cur)}</strong><span>${h(when(tt))}</span><span class="chg ${dirClass(v - base)}">${pct(v / base - 1)}</span>${ma.map((x, k) => (x != null ? `<span>MA${mas[k].n} ${fmtPrice(x, cur)}</span>` : '')).join('')}`);
 }
 const MA_PERIODS = [5, 20, 60];
@@ -3939,6 +3958,8 @@ document.addEventListener('click', event => {
       state.settings.chart = el.dataset.v;
       saveSettings();
       redrawDetail();
+      // A day's candles need the chart's bars (its line is the quote's own).
+      if (state.detail && state.settings.chart === 'candle' && !state.detail.chart) loadChart();
       break;
     case 'about-period':
       state.aboutPeriod = el.dataset.v;
