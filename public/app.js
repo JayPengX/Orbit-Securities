@@ -1060,8 +1060,24 @@ function renderHomeRows() {
           </div></section>`
       : '';
   const acct = $('home-account');
-  if (acct) acct.innerHTML = summary;
+  if (acct) acct.innerHTML = summary + openNowHtml();
   box.innerHTML = [recRow(t('forYou'), recs.map(r => recCard(r.symbol, r.why)), { sub: t('forYouSub') }), ipoHtml(), moversHtml].join('');
+}
+
+// What's trading now (the economy review, 2026-10-18: a weekday evening felt
+// like nothing to do, with the US market and crypto open): each market by its
+// index's session, until when; a tap, its movers.
+const OPEN_MARKETS = [['tw', '^TWII'], ['us', '^GSPC'], ['jp', '^N225'], ['hk', '^HSI'], ['crypto', 'BTC-USD']];
+function openNowHtml() {
+  const now = Date.now();
+  const open = OPEN_MARKETS.map(([id, sym]) => ({ id, q: state.quotes.get(sym) })).filter(({ q }) => q && isOpen(q, now));
+  if (!open.length) return '';
+  // (One line: past two markets, their names alone.)
+  const few = open.length <= 2;
+  const until = q => (q.kind === 'crypto' ? t('open24h') : q.session?.end ? t('openUntil', { time: clock(q.session.end) }) : '');
+  return `<div class="open-strip"><span class="open-dot" aria-hidden="true"></span><span class="open-label">${h(t('openNow'))}</span>${open
+    .map(({ id, q }) => `<button type="button" class="open-mkt" data-action="mover-group" data-v="${h(id === 'jp' || id === 'hk' ? 'world' : id)}"><b>${h(t(`openMkt_${id}`))}</b>${few ? ` <span class="num">${h(until(q))}</span>` : ''}</button>`)
+    .join('')}</div>`;
 }
 
 // ---- 新股申購 (lib/ipo.mjs) ----
