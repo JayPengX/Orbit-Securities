@@ -2684,6 +2684,9 @@ function currencyOptions(selected, list = [BASE, ...Object.keys(CURRENCIES).filt
   const all = [...new Set([...list, ...Object.keys(snap()?.cash || {})])];
   return all.map(c => `<option value="${h(c)}" ${c === selected ? 'selected' : ''}>${currencyInfo(c).flag} ${h(c)} · ${h(L(currencyInfo(c)))}</option>`).join('');
 }
+// A currency picker: its face the flag and code (never cut), the system's own
+// list over it (each with its name) when tapped.
+const currencySelect = (id, selected) => `<span class="fx-cur"><span class="fx-cur-face">${currencyInfo(selected).flag} ${h(selected)}</span><select id="${id}" aria-label="${h(L(currencyInfo(selected)))}">${currencyOptions(selected)}</select></span>`;
 
 // 換匯・融資: three views, one at a time (exchange, the rates board, loans),
 // so the page is never one long scroll.
@@ -2732,7 +2735,7 @@ function exchangeHtml() {
     <div class="card fx-card">
       <div class="fx-side">
         <div class="fx-side-top"><span>${h(t('fxYouPayLabel'))}</span><button class="link-button" type="button" data-action="fx-mode" data-mode="${pay ? 'pay' : 'get'}">${h(pay ? t('fxTypePay') : t('fxTypeGet'))}</button></div>
-        <div class="fx-side-row"><select id="fx-from" class="fx-cur">${currencyOptions(f.from)}</select>${payBox}</div>
+        <div class="fx-side-row">${currencySelect('fx-from', f.from)}${payBox}</div>
         <div class="fx-side-foot"><span class="muted">${h(t('fxAvailable', { amount: money(have, f.from) }))}</span>
           ${pay ? '' : `<span class="fx-quick">${[0.25, 0.5, 1].map(x => `<button class="q-chip small" type="button" data-action="fx-pct" data-pct="${x}">${x === 1 ? h(t('all')) : `${x * 100}%`}</button>`).join('')}</span>`}
         </div>
@@ -2740,7 +2743,7 @@ function exchangeHtml() {
       <button class="fx-swap" type="button" data-action="fx-swap" aria-label="${h(t('swap'))}">⇅</button>
       <div class="fx-side">
         <div class="fx-side-top"><span>${h(t('fxYouGetLabel'))}</span></div>
-        <div class="fx-side-row"><select id="fx-to" class="fx-cur">${currencyOptions(f.to)}</select>${getBox}</div>
+        <div class="fx-side-row">${currencySelect('fx-to', f.to)}${getBox}</div>
         <div class="fx-side-foot"><span class="muted">${h(t('fxYouHave', { amount: money(haveTo, f.to) }))}</span></div>
       </div>
       <dl class="preview fx-preview">
@@ -2955,7 +2958,7 @@ function loansHtml() {
     <div class="card loan-card">
       <h3 class="card-title">${h(t('repay'))}</h3>
       <div class="fx-side">
-        <div class="fx-side-row"><select id="loan-cur" class="fx-cur">${currencyOptions(l.currency)}</select><input id="loan-amount" class="fx-input num" inputmode="decimal" autocomplete="off" value="${h(l.amount)}" placeholder="0" aria-label="${h(t('amount'))}" /></div>
+        <div class="fx-side-row">${currencySelect('loan-cur', l.currency)}<input id="loan-amount" class="fx-input num" inputmode="decimal" autocomplete="off" value="${h(l.amount)}" placeholder="0" aria-label="${h(t('amount'))}" /></div>
         <div class="fx-side-foot"><span class="muted">${h(repaying ? (loan?.balance > 0 ? t('owed', { amount: money(loan.balance, l.currency) }) : t('noLoanCur', { cur: l.currency })) : t('loanTerms', { rate: pct(rate, { digits: 2, sign: false }), cap: money(capacityCur, l.currency) }))}</span>${!repaying && !plusAt() ? `<button class="q-plus-hint" type="button" data-action="plus">${h(t('loanPlus', { v: pct(Math.max(0, rate - PLUS.stock.loanCut), { digits: 2, sign: false }) }))}</button>` : ''}</div>
       </div>
       <div class="button-row"><button class="q-btn primary grow" type="button" data-action="repay" ${canRepay ? '' : 'disabled'}>${h(t('repay'))}</button>${loan?.balance > 0 ? `<button class="q-btn small" type="button" data-action="repay-all" ${(avail.cash[l.currency] || 0) > 0 ? '' : 'disabled'}>${h(t('repayAll'))}</button>` : ''}</div>
@@ -2979,7 +2982,7 @@ function creditCardHtml(v) {
     return `<div class="card credit-card">
       <h3 class="card-title">${h(t('creditTitle'))}</h3>
       <p class="note">${h(t('creditWhy'))}</p>
-      <div class="chips credit-tiers">${CREDIT_TIERS.map(x => `<button class="q-chip" type="button" data-action="credit-tier" data-limit="${x}" aria-pressed="${x === pick}">${h(compactMoney(x, BASE))}</button>`).join('')}</div>
+      <div class="chips credit-tiers">${CREDIT_TIERS.map(x => `<button class="q-chip" type="button" data-action="credit-tier" data-limit="${x}" aria-pressed="${x === pick}" aria-label="${h(compactMoney(x, BASE))}">${h(compact(x))}</button>`).join('')}</div>
       <ul class="credit-checks">
         ${row('age', need('age') ? t('creditAgeNo', { date: fmtDate(need('age').from) }) : t('creditAgeOk'))}
         ${row('trades', t('creditTrades', { n: year.trades, want: CREDIT_MIN_TRADES }))}

@@ -649,7 +649,10 @@ a.activity-row { color: inherit; text-decoration: none; }
 .fx-side { display: grid; gap: 8px; padding: 14px; border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .fx-side-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); }
 .fx-side-row { display: flex; align-items: center; gap: 10px; }
-.fx-cur { width: auto; max-width: 62%; min-width: 0; padding: 8px 28px 8px 12px; border-radius: 999px; border: 1px solid transparent; background: var(--surface); color: var(--text-primary); font: 700 0.95rem var(--q-font); text-overflow: ellipsis; }
+.fx-cur { position: relative; flex: none; display: inline-flex; align-items: center; padding: 8px 30px 8px 12px; border-radius: 999px; background: var(--surface); color: var(--text-primary); font: 700 0.95rem var(--q-font); white-space: nowrap; }
+.fx-cur::after { content: ''; position: absolute; right: 13px; top: 50%; width: 7px; height: 7px; margin-top: -5px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); pointer-events: none; }
+.fx-cur select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
+.fx-cur:focus-within { outline: 2px solid var(--accent); outline-offset: 0; }
 .fx-input, .fx-result { min-width: 0; width: 100%; text-align: right; font-size: clamp(16px, 5vw, 1.6rem); font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; }
 .fx-input { overflow-x: auto; text-overflow: clip; border: 0; background: none; color: var(--text-primary); padding: 4px 0; font-family: var(--q-font); }
 .fx-input:focus { outline: none; }
@@ -679,7 +682,7 @@ a.activity-row { color: inherit; text-decoration: none; }
 .loan-facts strong { font-size: 1rem; white-space: nowrap; }
 .loan-facts small { font-size: 0.72rem; color: var(--text-muted); }
 .loan-card { display: grid; gap: 12px; }
-.loan-card .loan-card .fx-side-row .fx-cur { flex: 0 1 auto; }
+.loan-card .loan-card .fx-side-row .fx-cur { flex: none; }
 .fx-side-row .fx-input, .fx-side-row .fx-result { flex: 1 1 0; }
 
 /* ---- Markets home: the account strip, movers, capped lists ---- */
@@ -879,7 +882,8 @@ a.activity-row { color: inherit; text-decoration: none; }
 /* ---- The credit account (信用帳戶) ---- */
 .credit-card { display: grid; gap: 10px; }
 .credit-card .card-title small { font-weight: 600; margin-left: 6px; }
-.credit-tiers { flex-wrap: wrap; }
+.credit-tiers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 0 0 12px; padding: 0; overflow: visible; }
+.credit-tiers .q-chip { min-width: 0; padding-inline: 0; justify-content: center; white-space: nowrap; }
 .credit-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .credit-checks li { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
 .credit-checks li.no { color: var(--text-secondary); }
