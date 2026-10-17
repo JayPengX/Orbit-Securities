@@ -942,7 +942,7 @@ function quoteRow(symbol, { note = '' } = {}) {
     ${symbolBadge(symbol, q || info)}
     <span class="row-main"><span class="row-title">${h(nameOf(symbol, q))}${held ? `<span class="held-tag">${h(t('heldTag'))}</span>` : ''}</span><span class="row-sub">${flagOf(symbol, q)} ${h(sub)}</span></span>
     <span class="row-spark">${q ? sparkline(q.line, q.kind === 'crypto' ? null : q.prev) : ''}</span>
-    <span class="row-price"><strong class="num">${q ? fmtPrice(q.price, q.currency) : '…'}</strong><small>${q ? h(q.currency) : ''}${q ? statusDot(q) : ''}</small></span>
+    <span class="row-price"><strong class="num" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong><small>${q ? h(q.currency) : ''}${q ? statusDot(q) : ''}</small></span>
     ${pctPill(q)}
   </button>`;
 }
@@ -1040,7 +1040,7 @@ function renderHomeRows() {
       </button>
       ${overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="od-strip" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))} ›</button>` : `<div class="power-strip"><span>${h(t('buyingPower'))} <strong class="num">${h(money(buyingPower(v), BASE))}</strong></span></div>`}`
     : '';
-  const moverRow = q => `<button class="mover" type="button" data-action="open" data-symbol="${h(q.symbol)}">${symbolBadge(q.symbol, q)}<span class="mover-name">${h(nameOf(q.symbol, q))}</span><span class="mover-price num">${fmtPrice(q.price, q.currency)}</span>${pctPill(q)}</button>`;
+  const moverRow = q => `<button class="mover" type="button" data-action="open" data-symbol="${h(q.symbol)}">${symbolBadge(q.symbol, q)}<span class="mover-name">${h(nameOf(q.symbol, q))}</span><span class="mover-price num" data-q-live="mover:${h(q.symbol)}">${fmtPrice(q.price, q.currency)}</span>${pctPill(q)}</button>`;
   // 今日漲跌 a market at a time: the one trading now unless another was picked.
   const groups = MOVER_GROUPS.filter(g => movers(state.quotes, { up: true, n: 99, group: g }).length + movers(state.quotes, { up: false, n: 99, group: g }).length >= 3);
   const group = groups.includes(state.moverGroup) ? state.moverGroup : groups.includes(moverGroupNow()) ? moverGroupNow() : groups[0];
@@ -1069,7 +1069,7 @@ function renderMarkets() {
     const q = state.quotes.get(sym);
     return `<button class="tile" type="button" data-action="open" data-symbol="${h(sym)}">
       <span class="tile-name">${h(nameOf(sym, q))}</span>
-      <strong class="tile-price num">${q ? fmtPrice(q.price, q.currency) : '…'}</strong>
+      <strong class="tile-price num" data-q-live="tile:${h(sym)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong>
       <span class="tile-foot">${pctPill(q)}${q ? sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 64, height: 22 }) : ''}</span>
     </button>`;
   }).join('');
@@ -1257,7 +1257,7 @@ function renderDetail() {
     ${
       q
         ? `<div class="price-block">
-      <div><strong class="big-price num">${fmtPrice(q.price, q.currency)}</strong> <span class="cur">${h(q.currency)}${METALS[d.symbol] ? ` / ${h(unitOf(d.symbol))}` : ''}</span></div>
+      <div><strong class="big-price num" data-q-live="big:${h(d.symbol)}">${fmtPrice(q.price, q.currency)}</strong> <span class="cur">${h(q.currency)}${METALS[d.symbol] ? ` / ${h(unitOf(d.symbol))}` : ''}</span></div>
       <div>${changeHtml(q, { big: true })}</div>
       <div class="price-meta">${marketStatus(q)}</div>
       <div class="price-meta">${q.marketTime ? `<span>${h(t('asOf', { time: dateTime(q.marketTime) }))}</span> · ` : ''}${delayOf(q.market) ? `<span class="delay-tag" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="delay-tag live" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`}</div>
@@ -2169,7 +2169,7 @@ function renderPortfolio() {
   box.innerHTML = `
     <div class="card hero-card">
       <p class="hero-label">${h(t('netWorth'))}${incomplete ? ` <small>${h(t('pricesLoading'))}</small>` : ''}</p>
-      <strong class="hero-value num stat-value">${h(money(v.netWorth, BASE))}</strong>
+      <strong class="hero-value num stat-value" data-q-live="networth">${h(money(v.netWorth, BASE))}</strong>
       <div class="hero-lines">
         <span>${h(dayWord(v))} <strong class="num ${dirClass(v.dayChange)}">${h(money(v.dayChange, BASE, { sign: true }))}${dayBase ? ` · ${h(pct(v.dayChange / dayBase))}` : ''}</strong></span>
         <span>${h(t('totalReturn'))} <strong class="num ${dirClass(v.totalReturn)}">${h(money(v.totalReturn, BASE, { sign: true }))} · ${h(pct(v.totalReturnPct))}</strong></span>
