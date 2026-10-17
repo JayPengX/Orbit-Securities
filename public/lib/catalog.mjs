@@ -191,9 +191,9 @@ const FX = [
 const GOV_BONDS = Object.values(BONDS).map(b => [b.id, bondName(b, 'zh'), bondName(b, 'en'), 'govbond']);
 
 const INDEXES = [
-  ['^TWII', '台灣加權指數', 'TAIEX'], ['^GSPC', '標普500', 'S&P 500'], ['^IXIC', '那斯達克', 'Nasdaq Composite'],
-  ['^DJI', '道瓊工業', 'Dow Jones'], ['^SOX', '費城半導體', 'PHLX Semiconductor'], ['^RUT', '羅素2000', 'Russell 2000'], ['^VIX', 'VIX 恐慌指數', 'VIX'],
-  ['^N225', '日經225', 'Nikkei 225'], ['^HSI', '恒生指數', 'Hang Seng'], ['000001.SS', '上證指數', 'Shanghai Composite'], ['^KS11', '韓國綜合', 'KOSPI'],
+  ['^TWII', '台灣加權指數', 'TAIEX'], ['^GSPC', '標普500', 'S&P 500'], ['^IXIC', '那斯達克', 'Nasdaq'],
+  ['^DJI', '道瓊工業', 'Dow Jones'], ['^SOX', '費城半導體', 'PHLX Semis'], ['^RUT', '羅素2000', 'Russell 2000'], ['^VIX', 'VIX 恐慌指數', 'VIX'],
+  ['^N225', '日經225', 'Nikkei 225'], ['^HSI', '恒生指數', 'Hang Seng'], ['000001.SS', '上證指數', 'Shanghai'], ['^KS11', '韓國綜合', 'KOSPI'],
   ['^GDAXI', '德國DAX', 'DAX'], ['^FTSE', '英國富時100', 'FTSE 100'], ['^FCHI', '法國CAC 40', 'CAC 40'], ['^STOXX50E', '歐洲斯托克50', 'Euro Stoxx 50'],
   ['^BSESN', '印度孟買 Sensex', 'BSE Sensex'], ['^AXJO', '澳洲 ASX 200', 'ASX 200']
 ];

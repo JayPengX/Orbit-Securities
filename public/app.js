@@ -4396,7 +4396,7 @@ topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 
 // Big numbers shrink (to 60% at most) to stay on one line.
 // (And a fact or an order's hint, a line each.)
-const FIT_SELECTOR = '.stat-value, .big-price, .hero-value, .q-rec-big, .facts-grid dd, .hint-lines span';
+const FIT_SELECTOR = '.stat-value, .big-price, .hero-value, .q-rec-big, .q-rec-title, .q-rec-sub, .tile-name, .facts-grid dd, .hint-lines span';
 function fitNumbers(nodes) {
   for (const node of nodes) {
     node.style.fontSize = '';
