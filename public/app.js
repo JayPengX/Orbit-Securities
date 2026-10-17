@@ -22,8 +22,9 @@ import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
   APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, notifyOn, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
-  keepOffline, onlineOnly
+  keepOffline, onlineOnly, proxyJson
 } from '#kit/quadra.mjs';
+import { IPO_URL, IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as stockAccount from './lib/account.mjs';
 
 const $ = id => document.getElementById(id);
@@ -1060,7 +1061,131 @@ function renderHomeRows() {
       : '';
   const acct = $('home-account');
   if (acct) acct.innerHTML = summary;
-  box.innerHTML = [recRow(t('forYou'), recs.map(r => recCard(r.symbol, r.why)), { sub: t('forYouSub') }), moversHtml].join('');
+  box.innerHTML = [recRow(t('forYou'), recs.map(r => recCard(r.symbol, r.why)), { sub: t('forYouSub') }), ipoHtml(), moversHtml].join('');
+}
+
+// ---- 新股申購 (lib/ipo.mjs) ----
+// TWSE's list of public subscriptions, kept half an hour; read before the
+// loading screen lifts (boot), so the section never arrives after it.
+const ipoState = { list: null, at: 0, busy: null };
+const ipoKey = s => `${s.code}:${s.draw}`;
+function loadIpo() {
+  if (ipoState.busy) return ipoState.busy;
+  if (ipoState.list && Date.now() - ipoState.at < 30 * 60_000) return Promise.resolve();
+  ipoState.busy = (async () => {
+    try {
+      ipoState.list = parseIpoList(await proxyJson(IPO_URL, { ttl: 30 * 60_000 }));
+      ipoState.at = Date.now();
+      // A listed company's offer: its price now, for the gap.
+      const want = ipoState.list.filter(s => !s.ipo && ipoOpen(s) && !state.quotes.has(s.symbol)).map(s => s.symbol);
+      if (want.length) absorb(await fetchQuotes(want).catch(() => new Map()));
+      await checkIpoResults();
+    } catch {
+    } finally {
+      ipoState.busy = null;
+    }
+  })();
+  return ipoState.busy;
+}
+// The applications on the account (its events: the result's dated the day it lands).
+const ipoApplied = () => (state.account?.events || []).filter(e => e.type === 'ipo');
+const ipoOutcome = a => state.account.events.find(e => (e.type === 'ipowin' || e.type === 'ipoback') && e.code === a.code && e.draw === a.draw) || null;
+function ipoHtml() {
+  const list = ipoState.list;
+  if (!list || !state.account) return '';
+  const now = Date.now();
+  const applied = new Set(ipoApplied().map(a => `${a.code}:${a.draw}`));
+  const open = list.filter(s => ipoOpen(s, now) && !applied.has(ipoKey(s))).sort((a, b) => a.to - b.to);
+  // Mine: still drawing, or settled within the last two weeks.
+  const mine = ipoApplied()
+    .map(a => ({ a, out: ipoOutcome(a) }))
+    .filter(({ a, out }) => !out || now - out.t < 14 * 86_400_000 || out.t > now)
+    .sort((x, y) => y.a.draw - x.a.draw);
+  if (!open.length && !mine.length) return '';
+  // A listed company's offer: what a win is worth at today's price (the gap on the shares).
+  const gainOf = s => {
+    const q = state.quotes.get(s.symbol);
+    return !s.ipo && q?.price > 0 ? Math.round((q.price - s.price) * s.qty) : null;
+  };
+  // Its name and the button on one line, what it costs and when under it, full width (at 375 px the side column pushed the button off the card).
+  const openRow = s => {
+    const gain = gainOf(s);
+    return `<div class="ipo-row">
+      <span class="ipo-top"><span class="row-title">${h(s.name)} <em class="ipo-code num">${h(s.code)}</em> <em class="act-tag">${h(t(s.ipo ? (/櫃/.test(s.kind) ? 'ipoNewOtc' : 'ipoNew') : 'ipoMore'))}</em></span><button class="q-btn small primary" type="button" data-action="ipo-apply" data-key="${h(ipoKey(s))}">${h(t('ipoApply'))}</button></span>
+      <span class="row-sub num">${h(t('ipoPrice', { p: money(s.price, BASE), v: money(ipoHold(s), BASE) }))}</span>
+      <span class="row-meta">${h([t('ipoUntil', { date: shortDate(s.to) }), t('ipoDrawOn', { date: shortDate(s.draw) })].join(' · '))}</span>
+      ${gain != null ? `<span class="ipo-gain">${h(t('ipoGain'))} <strong class="num ${gain >= 0 ? 'up-ink' : 'down-ink'}">${h(money(gain, BASE, { sign: true }))}</strong></span>` : ''}
+    </div>`;
+  };
+  const mineRow = ({ a, out }) => {
+    const won = out?.type === 'ipowin';
+    const state_ = !out ? t('ipoDrawing', { date: shortDate(a.draw) }) : won ? (out.t > now ? t('ipoWonOn', { date: shortDate(out.t) }) : t('ipoWonIn')) : t('ipoLost');
+    return `<button class="ipo-row mine" type="button" data-action="open" data-symbol="${h(a.symbol)}">
+      <span class="row-main"><span class="row-title">${h(a.name)} <em class="ipo-code num">${h(a.code)}</em></span>
+      <span class="row-sub">${h(state_)}</span></span>
+      <span class="ipo-pill ${won ? 'won' : out ? 'lost' : ''}">${h(won ? t('ipoWonTag') : !out ? t('ipoDrawingTag') : t('ipoLostTag'))}</span>
+    </button>`;
+  };
+  return `<section class="q-section home-row ipo">
+    <div class="q-section-head"><h2>${h(t('ipoTitle'))}</h2></div>
+    <p class="row-sub-note">${h(t('ipoSub', { fee: money(IPO_FEE, BASE) }))}</p>
+    <div class="card ipo-list">${[...mine.map(mineRow), ...open.map(openRow)].join('')}</div>
+  </section>`;
+}
+// One application: the money there, the Worker told first (only one it saw
+// in the window counts), then the account's event at that moment.
+async function applyIpo(key) {
+  const s = ipoState.list?.find(x => ipoKey(x) === key);
+  if (!s || !ipoOpen(s) || !state.account) return;
+  const hold = ipoHold(s);
+  const cash = withdrawable(state.account, snap())[BASE] || 0;
+  if (cash < hold) return toast(t('ipoNoCash', { v: money(hold, BASE) }), 'bad');
+  const ok = await ask({
+    lang: locale,
+    icon: '🎟',
+    title: t('ipoAsk', { name: s.name, code: s.code }),
+    points: [
+      ['💰', t('ipoAskHold', { v: money(hold, BASE) }), t('ipoAskHoldSub', { qty: fmtQty(s.qty), p: fmtPrice(s.price, BASE), fee: money(IPO_FEE, BASE) })],
+      ['🎲', t('ipoAskDraw', { date: shortDate(s.draw) }), t('ipoAskDrawSub')],
+      ['📈', t('ipoAskWin', { date: shortDate(s.list ?? s.draw) }), t('ipoAskWinSub', { fee: money(IPO_WIN_FEE, BASE) })]
+    ],
+    ok: t('ipoApply'),
+    cancel: t('orderAskCancel')
+  });
+  if (!ok) return;
+  const res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'ipo', apps: [key] }), timeout: 15_000 }).catch(() => null);
+  const seen = res?.seen?.[key];
+  if (!seen) return toast(t('ipoNotSent'), 'bad');
+  if (state.account.events.some(e => e.type === 'ipo' && e.code === s.code && e.draw === s.draw)) return;
+  commit({ ...state.account, events: [...state.account.events, ipoApplyEvent(s, Math.min(seen, Date.now()))] });
+  toast(t('ipoDone', { name: s.name }), 'good');
+  render();
+}
+// After a draw: its outcome from the Worker, as the account's event (a
+// loss's money back the next day, a win's shares on the listing day).
+async function checkIpoResults() {
+  const list = ipoState.list;
+  if (!list || !state.account) return;
+  const now = Date.now();
+  const due = ipoApplied()
+    .filter(a => !ipoOutcome(a))
+    .map(a => ({ a, s: list.find(x => x.code === a.code && x.draw === a.draw) }))
+    .filter(({ s }) => s && ipoDrawn(s, now));
+  if (!due.length) return;
+  const res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'ipo', apps: due.map(({ s }) => ipoKey(s)) }), timeout: 15_000 }).catch(() => null);
+  let account = state.account;
+  for (const { a, s } of due) {
+    const d = res?.drawn?.[ipoKey(s)];
+    if (!d) continue;
+    const ev = d.won ? ipoWinEvent(a) : ipoBackEvent(a);
+    if (account.events.some(x => x.id === ev.id)) continue;
+    account = { ...account, events: [...account.events, ev] };
+    accountNotice('income', d.won ? t('ipoWonNote', { name: a.name, date: shortDate(ev.t) }) : t('ipoLostNote', { name: a.name }), { tone: d.won ? 'good' : '', tag: ev.id, hash: 'markets' });
+  }
+  if (account !== state.account) {
+    commit(account);
+    render();
+  }
 }
 
 function renderMarkets() {
@@ -3024,6 +3149,28 @@ function activityRow(e) {
       meta = fees([`${t('lendCutLabel')} ${money(e.cut, BASE)}`, e.withheld ? `${t('withheld')} ${money(e.withheld, BASE)}` : '', e.nhi ? `${t('nhi')} ${money(e.nhi, BASE)}` : '']);
       amount = `<strong class="num up-ink">+${h(money(e.net, BASE))}</strong>`;
       break;
+    // 新股申購: the application, a loss's money back, a win's shares.
+    case 'ipo':
+      lead = `<span class="act-sym">${symbolBadge(e.symbol, q)}<i class="act-side buy">${h(t('ipoShort'))}</i></span>`;
+      title = e.name || e.code;
+      line = t('ipoRowApply', { qty: fmtQty(e.qty), p: fmtPrice(e.price, BASE) });
+      meta = [`${t('ipoFeeLabel')} ${money(e.fee, BASE)}`];
+      amount = `<strong class="num">−${h(money(Math.round(e.price * e.qty) + e.fee, BASE))}</strong>`;
+      break;
+    case 'ipoback':
+      if (e.t > Date.now()) return '';
+      lead = icon('in', 'k-cash');
+      title = t('ipoBackRow', { name: ipoApplied().find(a => a.code === e.code && a.draw === e.draw)?.name || e.code });
+      amount = `<strong class="num up-ink">+${h(money(e.amount, BASE))}</strong>`;
+      break;
+    case 'ipowin':
+      if (e.t > Date.now()) return '';
+      lead = `<span class="act-sym">${symbolBadge(e.symbol, q)}<i class="act-side buy">${h(t('ipoShort'))}</i></span>`;
+      title = e.name || e.code;
+      line = t('ipoRowWon', { qty: fmtQty(e.qty), p: fmtPrice(e.price, BASE) });
+      meta = [`${t('ipoWinFeeLabel')} ${money(e.fee, BASE)}`];
+      amount = `<strong class="num">−${h(money(e.fee, BASE))}</strong>`;
+      break;
     case 'penalty':
       lead = icon('alert', 'k-bad');
       title = t('penaltyRow');
@@ -3071,7 +3218,7 @@ function activityTarget(e) {
 
 const ACTIVITY_FILTERS = {
   all: () => true,
-  trades: e => e.type === 'fill',
+  trades: e => e.type === 'fill' || e.type === 'ipo' || e.type === 'ipowin' || e.type === 'ipoback',
   fx: e => e.type === 'fx',
   income: e => ['div', 'split', 'interest', 'td', 'tdend', 'lend', 'recall', 'lendpay'].includes(e.type),
   loans: e => e.type === 'borrow' || e.type === 'repay' || e.type === 'link',
@@ -3708,6 +3855,9 @@ document.addEventListener('click', async event => {
     case 'mover-group':
       state.moverGroup = el.dataset.v;
       renderHomeRows();
+      break;
+    case 'ipo-apply':
+      applyIpo(el.dataset.key);
       break;
     case 'cat':
       state.category = el.dataset.id;
@@ -4349,6 +4499,9 @@ async function boot() {
           await new Promise(r => setTimeout(r, 1_500));
           await refresh({ list: true });
         }
+        // 新股申購 in before it lifts (2.5 s at most), not a section arriving after.
+        await Promise.race([loadIpo(), new Promise(r => setTimeout(r, Math.max(0, Math.min(2_500, BOOT_LIMIT_MS - 500 - (Date.now() - bootAt)))))]);
+        renderHomeRows();
         $('loading').hidden = true;
         checkBonds();
         checkCorporateActions();
@@ -4364,7 +4517,7 @@ if (!gated) boot();
 setTimeout(() => ($('loading').hidden = true), BOOT_LIMIT_MS);
 
 setInterval(() => {
-  if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds);
+  if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds).then(() => loadIpo().then(() => state.tab === 'markets' && renderHomeRows()));
 }, QUOTE_REFRESH_MS);
 // What the other apps did (bets, the pay, Plus) arrives with the wallet
 // (quadra.mjs checks it every minute); the account itself every few.
