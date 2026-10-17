@@ -3138,7 +3138,9 @@ function activityRow(e) {
       break;
     case 'deposit':
       lead = e.pool ? icon(APP_ICON_NAMES[e.app] || 'swap', `k-app app-${h(e.app || '')}`) : icon('in', 'k-cash');
-      title = e.pool ? describeEntry(e, locale) : e.id === 'deposit:start' || e.start ? t('openedWith') : e.income ? t('payday') : e.game ? t('gameIncome', { game: t(`sg_${e.game}`) }) : t('deposited');
+      // A pooled entry: what it was as the title, the app it came from beside its time (its icon says so too).
+      if (e.pool) [meta, title] = (([from, ...what]) => [[from], what.join(' · ') || from])(describeEntry(e, locale).split(' · '));
+      else title = e.id === 'deposit:start' || e.start ? t('openedWith') : e.income ? t('payday') : e.game ? t('gameIncome', { game: t(`sg_${e.game}`) }) : t('deposited');
       amount = `<strong class="num ${e.amount < 0 ? 'down-ink' : ''}">${e.amount < 0 ? '' : '+'}${h(money(e.amount, e.currency))}</strong>`;
       break;
     case 'td':
@@ -3253,7 +3255,7 @@ const ACTIVITY_FILTERS = {
 function appDayRow(app, list) {
   const sum = list.reduce((a, e) => a + (e.amount || 0), 0);
   return `<button type="button" class="activity-row" data-action="afilter" data-f="apps" data-app="${h(app)}">
-    ${icon(APP_ICON_NAMES[app] || 'swap', `k-app app-${h(app)}`)}<span class="row-main"><span class="row-title">${h(APPS[app]?.short || app)}</span><span class="row-sub">${h(t('appRecords', { n: list.length }))}</span></span>
+    ${icon(APP_ICON_NAMES[app] || 'swap', `k-app app-${h(app)}`)}<span class="row-main"><span class="row-title">${h(APPS[app]?.short || app)}</span><span class="row-sub">${h(t(list.length === 1 ? 'appRecord' : 'appRecords', { n: list.length }))}</span></span>
     <span class="row-amt"><strong class="num ${sum < 0 ? 'down-ink' : ''}">${sum < 0 ? '' : '+'}${h(money(sum, BASE))}</strong></span></button>`;
 }
 
