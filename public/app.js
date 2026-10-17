@@ -1553,9 +1553,10 @@ function factsHtml(q) {
     ...(state.rates[q.currency] && q.currency !== BASE ? [[t('inTwd'), `${money(q.price * state.rates[q.currency], BASE, { digits: q.price * state.rates[q.currency] < 100 ? 2 : 0 })} ${t('perUnit', { unit: unitOf(q.symbol) })}`]] : [])
   ];
   // Short facts two a row; a long one (hours, holidays, costs) the row's
-  // width, each of its parts (` · `) a line of its own, never wrapped.
+  // width, and one too long for even that each of its parts (` · `) a line
+  // of its own, never wrapped (a currency, "TWD · Taiwan dollar", one line).
   return `<dl class="facts-grid">${rows
-    .map(([k, v]) => (String(v).length > 22 ? `<div class="wide"><dt>${h(k)}</dt><dd>${String(v).split(' · ').map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`))
+    .map(([k, v]) => (String(v).length > 22 ? `<div class="wide"><dt>${h(k)}</dt><dd>${(String(v).length > 34 ? String(v).split(' · ') : [String(v)]).map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`))
     .join('')}</dl>`;
 }
 
@@ -1588,7 +1589,7 @@ function kpi(label, value, sub = '', dir = '') {
 function trackersHtml(symbol) {
   const list = TRACKERS[symbol] || [];
   return `<div class="card note-card"><p>${h(t('watchOnly'))}</p>${
-    list.length ? `<p class="muted">${h(t('trackWith'))}</p><div class="button-row">${list.map(s => `<button class="q-btn small" type="button" data-action="open" data-symbol="${h(s)}">${h(nameOf(s))} <small>${h(bareSymbol(s))}</small></button>`).join('')}</div>` : ''
+    list.length ? `<p class="muted">${h(t('trackWith'))}</p><div class="track-row">${list.map(s => `<button class="q-btn small" type="button" data-action="open" data-symbol="${h(s)}">${h(nameOf(s))} <small>${h(bareSymbol(s))}</small></button>`).join('')}</div>` : ''
   }</div>`;
 }
 
@@ -1882,12 +1883,14 @@ function targetHtml(f, q) {
   const hi = Math.max(tg.high, q.price);
   const x = v => `${((v - lo) / (hi - lo || 1)) * 100}%`;
   const cur = q.currency;
+  // A target is a round figure: to the cent at most (an average of 814.512 read as a quote).
+  const tp = v => fmtPrice(Math.round(v * 100) / 100, cur);
   const rating = RATINGS.includes(tg.rating) ? t(`rating_${tg.rating}`) : null;
   return `<div class="about-target">
     <h3 class="about-h">🎯 ${h(t('targetTitle'))}</h3>
-    <p>${h(t('targetLine', { n: tg.analysts || '?', mean: fmtPrice(tg.mean, cur), pct: pct(tg.mean / q.price - 1, { digits: 0 }) }))}${rating ? ` · ${h(t('ratingIs', { rating }))}` : ''}</p>
+    <p>${h(t('targetLine', { n: tg.analysts || '?', mean: tp(tg.mean), pct: pct(tg.mean / q.price - 1, { digits: 0 }) }))}${rating ? ` · ${h(t('ratingIs', { rating }))}` : ''}</p>
     <div class="target-bar"><span class="target-range" style="left:${x(tg.low)};right:calc(100% - ${x(tg.high)})"></span><i class="target-mean" style="left:${x(tg.mean)}" title="${h(t('targetMean'))}"></i><i class="target-now" style="left:${x(q.price)}" title="${h(t('targetNow'))}"></i></div>
-    <div class="target-scale num"><span>${h(t('targetLow'))} ${h(fmtPrice(tg.low, cur))}</span><span>${h(t('targetNow'))} ${h(fmtPrice(q.price, cur))}</span><span>${h(t('targetHigh'))} ${h(fmtPrice(tg.high, cur))}</span></div>
+    <div class="target-scale num"><span>${h(t('targetLow'))} ${h(tp(tg.low))}</span><span>${h(t('targetNow'))} ${h(fmtPrice(q.price, cur))}</span><span>${h(t('targetHigh'))} ${h(tp(tg.high))}</span></div>
   </div>`;
 }
 

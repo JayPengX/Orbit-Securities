@@ -154,6 +154,10 @@ footer { padding: 10px 0 0; text-align: center; }
 .q-seg.small > button { min-height: 28px; font-size: 13px; }
 .q-btn small { color: var(--text-muted); }
 .button-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* An index's funds that track it: a list, one a row, the name left and its code right (two to a row wrapped in English). */
+.track-row { display: grid; gap: 8px; }
+.track-row .q-btn { justify-content: space-between; gap: 10px; }
+.track-row .q-btn small { color: var(--text-secondary); font-weight: 600; }
 .link { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .field { display: grid; gap: 4px; font-size: 0.78rem; color: var(--text-muted); font-weight: 600; min-width: 0; }
 .field.grow { flex: 1 1 160px; }
