@@ -47,7 +47,8 @@ Live: https://jaypengx.github.io/Quadra-Securities/
   - day trading (either way) once the account is 3 months open with 10
     trades in the year, or has a credit account; the half tax then; what's
     sold first within the day's 當沖額度 (twice net worth);
-  - whole lots and odd lots as separate orders in Taiwan;
+  - a mixed Taiwan quantity (1,500 shares) placed in one tap as two
+    orders, 整股 and 盤中零股, at one price and type (`placeLots`);
   - a day order that met its price just before the close fills: it
     expires only once the proxy has answered after its end (`lib/orders.mjs`).
 - **Quadra Plus** (`PLUS.stock`): commission ×0.28 (the market's minimum
