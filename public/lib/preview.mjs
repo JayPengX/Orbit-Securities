@@ -3,7 +3,7 @@
 // end and interest, a loan of shares' fee. Each is worked out by the very
 // rules that then do it (the kit's stock-*), so the preview is what happens.
 import { estimate, replay } from './account.mjs';
-import { SHORT_INITIAL, isOddLot, localDayOf, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
+import { SHORT_INITIAL, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
 import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
 import * as credit from './credit.mjs';
 import { addMonths, lendFee, LEND_RATE, tdInterest, tdRate } from './savings.mjs';
@@ -46,15 +46,25 @@ export function plusCommission({ market, kind, side, gross, currency, qty, dayTr
 // limit left and the 90% deposit the cash covers; elsewhere (and a day trade
 // sold first), assets of SHORT_INITIAL of everything owed afterwards; a
 // day trade sold first, within the day's day-trade limit left too (`dayLeft`,
-// NT$). `unit`: one share's NT$ value now.
-export function shortRoom(v, { unit, price, kind, credit = null, cash = 0, dayLeft = null }) {
+// NT$). `unit`: one share's NT$ value now; `dayUnit`: one share's NT$ at the
+// price the day-trade limit counts it (dayTradePrice; `unit` if not given).
+export function shortRoom(v, { unit, price, kind, credit = null, cash = 0, dayLeft = null, dayUnit = unit }) {
   if (!v || v.margin !== 'ok' || !(unit > 0)) return 0;
   if (credit?.open) {
     const limit = Math.max(0, credit.limit - creditUsed(v).short);
     return roundQty(Math.max(0, Math.min(limit / price, Math.max(0, cash) / (SHORT_DEPOSIT * price))), kind);
   }
   const room = Math.max(0, (v.assets - SHORT_INITIAL * (v.debtTWD + v.shortTWD)) / (SHORT_INITIAL - 1));
-  return roundQty(Math.min(room, dayLeft ?? Infinity) / unit, kind);
+  return roundQty(Math.min(room / unit, dayLeft == null ? Infinity : dayLeft / (dayUnit > 0 ? dayUnit : unit)), kind);
+}
+
+// The price a day trade sold first is counted at against the day's limit
+// (當沖額度), as a broker counts it: a limit order at its limit; a market (or
+// stop) order at the most it could fill at, 漲停 (the price where there's no
+// band).
+export function dayTradePrice(quote, { type, limit } = {}) {
+  if (type === 'limit' && Number(limit) > 0) return Number(limit);
+  return priceLimits(quote)?.up ?? quote.price;
 }
 
 // The day's day-trade limit (當沖額度) on what's sold first: { limit, used,

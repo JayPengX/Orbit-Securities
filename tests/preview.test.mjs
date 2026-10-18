@@ -195,3 +195,25 @@ test('the ticket\'s 最大 is the most the cash holds (it was about 3.5% short),
   const btc = maxBuy({ holdFor: n => requiredCash({ type: 'limit', qty: n, limit: 60_000, waitFresh: 1 }, c, T0).reserve, spendable: 1000, price: 60_000, kind: 'crypto', market: 'CRYPTO' });
   assert.ok(btc > 0.0166 && btc < 0.01667);
 });
+
+test("the ticket's day-trade room counts at the order price: the limit, or 漲停 for a market order (it counted at the last price)", async () => {
+  const { dayTradeLeft, dayTradePrice } = await import('../public/lib/preview.mjs');
+  const a = trader(4, 12);
+  const q = quote('2330.TW', 1000);
+  const v = val(a, T0, [['2330.TW', q]]);
+  const left = dayTradeLeft(a, v.netWorth, T0).left;
+  assert.equal(dayTradePrice(q, { type: 'limit', limit: 1050 }), 1050);
+  assert.equal(dayTradePrice(q, { type: 'market' }), 1100); // 漲停: 1000 + 10%
+  assert.equal(dayTradePrice(q, { type: 'stop', stop: 990 }), 1100);
+  assert.equal(dayTradePrice({ ...q, market: 'US', currency: 'USD' }, { type: 'market' }), 1000); // no band: the price
+  // A limit sale at 1050: the room is what fits at 1050, and placeOrder agrees to the share.
+  const at = shortRoom(v, { unit: 1000, price: 1000, kind: 'stock', dayLeft: left, dayUnit: 1050 });
+  assert.equal(at, Math.floor(left / 1050));
+  assert.ok(at < left / 1000);
+  assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 1050, qty: at + 1 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'x' }).error, 'dayTradeLimit');
+  assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 1050, qty: at }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'y' }).error, undefined);
+  // A market sale at 漲停 (the most it could count), which the kit's check (at the price) always passes.
+  const mkt = shortRoom(v, { unit: 1000, price: 1000, kind: 'stock', dayLeft: left, dayUnit: 1100 });
+  assert.equal(mkt, Math.floor(left / 1100));
+  assert.equal(placeOrder(a, { side: 'sell', type: 'market', qty: mkt }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'z' }).error, undefined);
+});
