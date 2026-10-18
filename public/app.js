@@ -14,13 +14,14 @@ import { CATEGORIES, OVERVIEW, TRACKERS, catalogInfo, searchCatalog } from './li
 import { brandIcon, brandLogo } from './lib/brands.mjs';
 import { tvLogos } from './lib/tvlogos.mjs';
 import { TW_NAMES } from './lib/twnames.mjs';
+import { twHits, twFirst } from './lib/twsearch.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
 import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
-import { twPhase, afterHoursSend, atLimit, exDayTags } from './lib/twse.mjs';
+import { twPhase, afterHoursSend, atLimit, exDayTags, closeMatchOf as twseCloseMatchOf, orderWaitKind } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
@@ -1140,7 +1141,11 @@ function loadIpo() {
   if (ipoState.list && Date.now() - ipoState.at < 30 * 60_000) return Promise.resolve();
   ipoState.busy = (async () => {
     try {
-      ipoState.list = parseIpoList(await proxyJson(IPO_URL, { ttl: 30 * 60_000 }));
+      // This year's list, and early in a year last year's too (kit ipoUrls): a
+      // December draw still resolves, and its listing keeps its five days without a limit.
+      const urls = stockIpo.ipoUrls?.(Date.now()) ?? [IPO_URL];
+      const lists = await Promise.all(urls.map((u, i) => proxyJson(u, { ttl: 30 * 60_000 }).then(parseIpoList, e => (i ? [] : Promise.reject(e)))));
+      ipoState.list = [...new Map(lists.flat().map(s => [ipoKey(s), s])).values()];
       ipoState.at = Date.now();
       for (const q of state.quotes.values()) markListed(q);
       // A listed company's offer: its price now, for the gap.
@@ -1292,6 +1297,8 @@ function renderMarkets() {
 }
 const LIST_SHOWN = 15;
 
+// The catalogue's matches, then Taiwan's listings by code or Chinese name (lib/twsearch.mjs).
+const localHits = q => [...new Set([...searchCatalog(q, 40).map(i => i.symbol), ...twHits(q, TW_NAMES, ipoState.list)])].slice(0, 40);
 let searchTimer;
 function onSearchInput(value) {
   state.query = value.trim();
@@ -1300,7 +1307,7 @@ function onSearchInput(value) {
   if (!state.query) return;
   searchTimer = setTimeout(async () => {
     const q = state.query;
-    const local = searchCatalog(q, 40).map(i => i.symbol);
+    const local = localHits(q);
     state.search = { query: q, results: [], loading: true };
     renderSearch();
     let remote = [];
@@ -1308,7 +1315,7 @@ function onSearchInput(value) {
       remote = await searchSymbols(q);
     } catch {}
     if (state.query !== q) return;
-    const extra = remote.filter(r => !local.includes(r.symbol));
+    const extra = twFirst(remote.filter(r => !local.includes(r.symbol)));
     state.search = { query: q, results: extra, loading: false };
     const missing = [...local, ...extra.map(r => r.symbol)].filter(s => !state.quotes.has(s)).slice(0, 40);
     if (missing.length) {
@@ -1322,7 +1329,7 @@ function onSearchInput(value) {
 
 function renderSearch() {
   const q = state.query;
-  const local = searchCatalog(q, 40).map(i => i.symbol);
+  const local = localHits(q);
   const extra = state.search.query === q ? state.search.results : [];
   $('list-title').textContent = t('searchResults', { q });
   $('list-note').textContent = /[^\x20-\x7e]/.test(q) ? '' : t('searchNote');
@@ -2777,23 +2784,18 @@ function renderNetWorthChart(v, s) {
   attachHover(box, [{ points }, { points: shownDeposits }], frame, (i, tt, [nw, dep]) => `<strong class="num">${money(nw, BASE)}</strong><span>${h(fmtDate(tt))}</span><span class="chg ${dirClass(nw - dep)}">${money(nw - dep, BASE, { sign: true })}</span>`);
 }
 
-// A Taiwan whole-lot day order's 13:30 closing match, where the kit keeps it
-// open past the close (CLOSE_DECIDE) until that match is known: the close it
-// ends with, as the exchange has it. Null otherwise.
-function closeMatchOf(o) {
-  if (o.tif !== 'day' || o.market !== 'TW' || o.after || !o.expires || !['stock', 'etf', 'bond'].includes(o.kind) || isOddLot(o.market, o.kind, o.qty)) return null;
-  const match = stockCredit.closingAuction?.(o.expires)?.match;
-  return match && o.expires > match ? match : null;
-}
+// (lib/twse.mjs closeMatchOf: a whole-lot day order's 13:30 closing match.)
+const closeMatchOf = o => twseCloseMatchOf(o, stockCredit.closingAuction);
 function orderRow(o) {
   const q = state.quotes.get(o.symbol);
   const price = o.type === 'limit' ? t('atLimit', { p: fmtPrice(o.limit, o.currency) }) : o.type === 'stop' ? t('atStop', { p: fmtPrice(o.stop, o.currency) }) : t('atMarket');
   const closeAt = o.status === 'open' ? closeMatchOf(o) : null;
   const ends = closeAt ?? o.expires;
+  const wait = orderWaitKind(o, closeAt, Date.now());
   const status =
-    o.status === 'open' && o.after
+    wait === 'after'
       ? t('afterWait', { time: clock(o.after) })
-      : closeAt && Date.now() >= closeAt
+      : wait === 'closeMatch'
         ? t('closeMatchWait', { time: clock(closeAt) })
         : o.status === 'open'
           ? (q && !isOpen(q) ? t('waitingOpen') : t('waitingPrice')) + (ends ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(ends) : weekdayClock(ends) })}` : '')

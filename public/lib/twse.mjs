@@ -4,7 +4,7 @@
 // (試撮 again); then the after-hours sessions, 盤後零股 taking orders from
 // 13:40 and 盤後定價 from 14:00, each matched once at 14:30.
 import { isTradingDay, localDay } from './holidays.mjs';
-import { MARKET_TZ, marketOf, priceLimits, tickSize } from './markets.mjs';
+import { MARKET_TZ, marketOf, priceLimits, tickSize, isOddLot } from './markets.mjs';
 
 const at = (day, hm) => Date.parse(`${day}T${hm}:00+08:00`);
 const PHASES = [
@@ -64,4 +64,22 @@ export function exDayTags(events, now = Date.now()) {
     out.set(e.symbol, !was || was === e.type ? e.type : 'both');
   }
   return out;
+}
+
+// A Taiwan whole-lot day order's 13:30 closing match, where the kit keeps it
+// open past the close (CLOSE_DECIDE) until that match is known: the close it
+// ends with, as the exchange has it. Null otherwise, and on a kit without
+// `closingAuction` (stock-credit.mjs).
+export function closeMatchOf(o, closingAuction) {
+  if (o.tif !== 'day' || o.market !== 'TW' || o.after || !o.expires || !['stock', 'etf', 'bond'].includes(o.kind) || isOddLot(o.market, o.kind, o.qty)) return null;
+  const match = closingAuction?.(o.expires)?.match;
+  return match && o.expires > match ? match : null;
+}
+// What an open order's row says it waits for: 'after' (an after-hours order
+// not yet sent), 'closeMatch' (past 13:30, the closing match not known yet:
+// 等待 13:30 收盤撮合結果), or null (waiting for a price).
+export function orderWaitKind(o, closeAt, now) {
+  if (o.status !== 'open') return null;
+  if (o.after) return 'after';
+  return closeAt && now >= closeAt ? 'closeMatch' : null;
 }

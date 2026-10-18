@@ -290,3 +290,22 @@ test("the app reads the held kit's new exports through the module, never by name
   assert.match(app, /stockAccount\.callPaid\?\.\(/);
   assert.match(app, /stockIpo\.listedOn\?\.\(/);
 });
+
+test('a whole-lot day order past 13:30 waits for the closing match, on a kit that keeps it open', async () => {
+  const { closeMatchOf, orderWaitKind } = await import('../public/lib/twse.mjs');
+  const day = '2026-10-19';
+  const at = hm => Date.parse(`${day}T${hm}:00+08:00`);
+  const order = { status: 'open', tif: 'day', market: 'TW', kind: 'stock', qty: 2000, expires: at('14:30') };
+  if (typeof SC.closingAuction === 'function') {
+    const closeAt = closeMatchOf(order, SC.closingAuction);
+    assert.equal(closeAt, at('13:30'));
+    assert.equal(orderWaitKind(order, closeAt, at('13:29')), null);
+    assert.equal(orderWaitKind(order, closeAt, at('13:31')), 'closeMatch');
+  }
+  // An odd lot, an after-hours order or an older kit: no closing-match wait.
+  const fake = () => ({ match: at('13:30') });
+  assert.equal(closeMatchOf({ ...order, qty: 500 }, fake), null);
+  assert.equal(closeMatchOf(order, undefined), null);
+  assert.equal(orderWaitKind({ ...order, after: at('14:00') }, null, at('13:45')), 'after');
+  assert.equal(orderWaitKind({ ...order, status: 'filled' }, at('13:30'), at('13:45')), null);
+});
