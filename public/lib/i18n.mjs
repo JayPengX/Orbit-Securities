@@ -295,6 +295,7 @@ export const STRINGS = {
     dayTradeNo: '先賣後買的現股當沖：開戶滿 3 個月、最近一年成交 10 筆以上，或有信用帳戶，才能做。',
     err_dayTradeLimit: '超過今日當沖額度 {limit}：還可以先賣 {room}。',
     err_split: '遇股票分割',
+    dayTradeLeft: '今日當沖額度還有 {left}（共 {limit}）。',
     err_margin: '維持率不足，不能再借。',
     err_noLoan: '這個幣別沒有借款。',
 
@@ -1057,6 +1058,7 @@ export const STRINGS = {
     dayTradeNo: 'Day trading by selling first needs the account open 3 months with 10 trades in the last year, or a credit account.',
     err_dayTradeLimit: 'Over today’s day-trade limit of {limit}: {room} left to sell first.',
     err_split: 'stock split',
+    dayTradeLeft: 'Today’s day-trade limit: {left} left of {limit}.',
     err_margin: 'Maintenance ratio too low to borrow more.',
     err_noLoan: 'No loan in this currency.',
 

@@ -17,7 +17,7 @@ import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestT
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/timemachine.mjs';
-import { ticketEstimate, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from './lib/preview.mjs';
+import { ticketEstimate, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft } from './lib/preview.mjs';
 import { expireAsked } from './lib/orders.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
@@ -2024,10 +2024,12 @@ function ticketInfo() {
   const marginBuy = null;
   // How much can be sold short on top of what's held.
   let room = 0;
+  // A day trade sold first: within the day's day-trade limit (當沖額度) left.
+  const dayRoom = twDayShort && d.side === 'sell' ? dayTradeLeft(state.account, valuation()?.netWorth ?? 0, now) : null;
   // (Borrowing shares needs the credit account; in Taiwan a day trade sold first doesn't.)
   if (d.side === 'sell' && isShortable(q.kind) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
-    room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: q.price, kind: q.kind, credit: shortCredit(state.account, q.market, now), cash });
-  return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, marginBuy, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort };
+    room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: q.price, kind: q.kind, credit: shortCredit(state.account, q.market, now), cash, dayLeft: dayRoom?.left ?? null });
+  return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, marginBuy, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
 }
 
 function renderTicket() {
@@ -2038,7 +2040,7 @@ function renderTicket() {
     morph(box, `<div class="card ticket"><p>${h(t('needAccount'))}</p><div class="spinner"></div></div>`);
     return;
   }
-  const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, marginBuy, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort } = ticketInfo();
+  const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, marginBuy, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom } = ticketInfo();
   const open = isOpen(q);
   const unit = unitOf(d.symbol);
   const presets =
@@ -2122,7 +2124,7 @@ function renderTicket() {
         ${est.commission && !plusAt() && plusFee < est.commission ? `<button class="q-plus-hint fee-plus" type="button" data-action="plus">${h(t('feePlus', { v: money(plusFee, q.currency) }))}</button>` : ''}`
         : ''
     }
-    ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money((qty - shares) * q.price * SHORT_DEPOSIT, q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}</p>` : ''}
+    ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money((qty - shares) * q.price * SHORT_DEPOSIT, q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}${!twCredit && q.market === 'TW' && dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>` : ''}
     ${q.market === 'TW' && afterHours(Date.now()) ? `<p class="note">${h(t('afterHoursNote'))}</p>` : ''}
     ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
     ${topUp?.enough ? `<p class="note">${h(t('autoFxLine', { pay: money(topUp.need, BASE), get: money(topUp.get, q.currency) }))}</p>` : ''}
@@ -2968,6 +2970,8 @@ function creditCardHtml(v) {
     const pick = CREDIT_TIERS.includes(state.creditTier) ? state.creditTier : CREDIT_TIERS[0];
     const check = creditCheck(state.account, pick, v.netWorth, now);
     const need = key => check.needs.find(n => n.key === key);
+    const dayOk = dayTradeSellFirst(state.account, now);
+    const dayRoom = dayOk ? dayTradeLeft(state.account, v.netWorth, now) : null;
     const row = (key, text) => `<li class="${need(key) ? 'no' : 'ok'}">${icon(need(key) ? 'alert' : 'check')}<span>${h(text)}</span></li>`;
     return `<div class="card credit-card">
       <h3 class="card-title">${h(t('creditTitle'))}</h3>
@@ -2980,7 +2984,7 @@ function creditCardHtml(v) {
         ${pick > CREDIT_TIERS[0] ? row('means', t('creditMeans', { want: compactMoney(pick * CREDIT_PROOF, BASE) })) : ''}
       </ul>
       <button class="q-btn primary block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>
-      <p class="note">${h(dayTradeSellFirst(state.account, now) ? t('dayTradeOk') : t('dayTradeNo'))}</p>
+      <p class="note">${h(dayOk ? t('dayTradeOk') : t('dayTradeNo'))}${dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>
     </div>`;
   }
   const used = creditUsed(v);
