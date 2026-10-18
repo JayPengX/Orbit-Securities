@@ -292,7 +292,9 @@ export const STRINGS = {
     toastTermDue: '{name} 的融資／融券到期，已處分。', toastNoCredit: '沒有信用帳戶：{name} 的融資／借券已由券商處分。',
     toastDayCover: '{name} 當沖賣出沒有在收盤前買回，已幫你買回。',
     dayTradeOk: '可以先賣後買的現股當沖（收盤前要買回）。',
-    dayTradeNo: '先賣後買的現股當沖：證券帳戶滿一年、最近一年成交 10 筆以上才能做。',
+    dayTradeNo: '先賣後買的現股當沖：開戶滿 3 個月、最近一年成交 10 筆以上，或有信用帳戶，才能做。',
+    err_dayTradeLimit: '超過今日當沖額度 {limit}：還可以先賣 {room}。',
+    err_split: '遇股票分割',
     err_margin: '維持率不足，不能再借。',
     err_noLoan: '這個幣別沒有借款。',
 
@@ -1052,7 +1054,9 @@ export const STRINGS = {
     toastTermDue: '{name}’s margin or short was due: closed.', toastNoCredit: 'No credit account: the broker closed {name}’s margin or short.',
     toastDayCover: '{name} sold first as a day trade wasn’t bought back by the close: bought back for you.',
     dayTradeOk: 'You can day trade selling first (buy back before the close).',
-    dayTradeNo: 'Day trading by selling first needs the account open a year with 10 trades in the last year.',
+    dayTradeNo: 'Day trading by selling first needs the account open 3 months with 10 trades in the last year, or a credit account.',
+    err_dayTradeLimit: 'Over today’s day-trade limit of {limit}: {room} left to sell first.',
+    err_split: 'stock split',
     err_margin: 'Maintenance ratio too low to borrow more.',
     err_noLoan: 'No loan in this currency.',
 
