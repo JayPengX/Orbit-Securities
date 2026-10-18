@@ -16,7 +16,7 @@ import { tvLogos } from './lib/tvlogos.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF, SHORT_DEPOSIT } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
-import { movingAverage, pointAt } from './lib/timemachine.mjs';
+import { movingAverage, pointAt } from './lib/series.mjs';
 import { ticketEstimate, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, startPrice, lotSplit, maxBuy } from './lib/preview.mjs';
 import { expireAsked } from './lib/orders.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';

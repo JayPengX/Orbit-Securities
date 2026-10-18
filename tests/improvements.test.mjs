@@ -5,7 +5,7 @@ import {
   newAccount, replay, setPlan, dedupePlans, planRuns, nextPlanRun, runPlan, activePlans, setAlert, checkAlerts, alertHitInBars, markAlertHit, activeAlerts,
   mergeAccounts, planDue
 } from '../public/lib/account.mjs';
-import { timeMachine, movingAverage, valueAt } from '../public/lib/timemachine.mjs';
+import { movingAverage } from '../public/lib/series.mjs';
 import { parseFundamentals, parseChart } from '../public/lib/quotes.mjs';
 import { candleChart } from '../public/lib/chart.mjs';
 
@@ -89,23 +89,7 @@ test('plans and alerts merge across devices, the latest change winning', () => {
   assert.equal(m.alerts.a.price, 700);
 });
 
-test('time machine: a lump sum, monthly buying, drawdown and the bank', () => {
-  const m = t => Date.parse(`${t}-01T00:00:00Z`);
-  const points = [['2020-01', 100], ['2020-02', 50], ['2020-03', 80], ['2021-01', 120], ['2022-01', 200]].map(([d, p]) => [m(d), p]);
-  const now = m('2022-01') + DAY;
-  const lump = timeMachine({ points, amount: 100_000, start: m('2020-01'), now, price: 200 });
-  assert.equal(lump.putIn, 100_000);
-  assert.ok(Math.abs(lump.value - 200_000) < 1e-6);
-  assert.ok(Math.abs(lump.maxDrawdown + 0.5) < 1e-9);
-  assert.ok(lump.annual > 0.4 && lump.annual < 0.42);
-  const monthly = timeMachine({ points, amount: 10_000, start: m('2020-01'), mode: 'monthly', now, price: 200 });
-  assert.equal(monthly.putIn, 50_000);
-  const units = 100 + 200 + 125 + 10_000 / 120 + 50;
-  assert.ok(Math.abs(monthly.value - units * 200) < 1e-6);
-  assert.ok(monthly.bank > 50_500 && monthly.bank < 51_500);
-  const usd = timeMachine({ points, fx: [[m('2020-01'), 30], [m('2021-06'), 28]], amount: 30_000, start: m('2020-01'), now, price: 200, rate: 28 });
-  assert.ok(Math.abs(usd.value - 10 * 200 * 28) < 1e-6);
-  assert.equal(valueAt(points, m('2020-02') + 5), 50);
+test('moving averages over the last n points', () => {
   assert.deepEqual(movingAverage([[1, 1], [2, 2], [3, 3], [4, 4]], 3), [[3, 2], [4, 3]]);
 });
 

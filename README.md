@@ -15,7 +15,7 @@ Live: https://jaypengx.github.io/Quadra-Securities/
   - **資產:** net worth over time, allocation, positions, cash in every
     currency, income.
   - **換匯・融資:** exchange, the rates board, margin loans.
-  - **紀錄:** activity, orders, stats, the time machine.
+  - **紀錄:** activity, orders, stats (against 0050, VOO, BTC and gold).
 - **The detail sheet:** charts (line or candles, MA5/20/60), the facts,
   your position, the ticket (market, limit, stop; quick sizes; a cost
   preview; one-tap exchange or 融資買進 when short), price alerts, 定期定額,
@@ -78,7 +78,7 @@ Live: https://jaypengx.github.io/Quadra-Securities/
 | `quotes.mjs`, `catalog.mjs` | Yahoo reads; the curated lists |
 | `chart.mjs`, `format.mjs`, `i18n.mjs` | Charts; number formats; text |
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |
-| `foryou.mjs`, `timemachine.mjs` | 為你推薦 (only what can be bought); the time machine |
+| `foryou.mjs`, `series.mjs` | 為你推薦 (only what can be bought); a price series at a moment, moving averages |
 | `orders.mjs`, `preview.mjs` | When a day order expires; what a screen shows before it's done (the ticket's estimate, the most a short can sell, Plus's commission, a 定存's end), by the same rules that then do it |
 | `../app.js` | Rendering and wiring |
 

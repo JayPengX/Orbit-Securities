@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { money, price, pct, qty, compact, num, cleanNumber, escapeHtml, setFormatLocale } from '../public/lib/format.mjs';
-import { pointAt, valueAt, movingAverage } from '../public/lib/timemachine.mjs';
+import { pointAt, movingAverage } from '../public/lib/series.mjs';
 import { pack, unpack } from '../public/lib/codec.mjs';
 
 test('money: NT$ without decimals, a sign only where a figure shows (never +NT$0 or −NT$0)', () => {
@@ -73,17 +73,14 @@ test('what a number field keeps: digits and the first point only', () => {
   assert.equal(escapeHtml(`<a href="x">'&'</a>`), '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;');
 });
 
-test('a series read at a moment: the last point at or before it (null before it starts; valueAt the first)', () => {
+test('a series read at a moment: the last point at or before it (null before it starts)', () => {
   const pts = [[10, 1], [20, 2], [30, 3]];
   assert.equal(pointAt(pts, 5), null);
-  assert.equal(valueAt(pts, 5), 1);
   for (const [t, want] of [[10, 1], [15, 1], [20, 2], [29, 2], [30, 3], [99, 3]]) {
     assert.equal(pointAt(pts, t), want);
-    assert.equal(valueAt(pts, t), want);
   }
   assert.equal(pointAt([], 5), null);
   assert.equal(pointAt(null, 5), null);
-  assert.equal(valueAt([], 5), null);
   // Many points: the same as a walk from the start.
   const many = Array.from({ length: 1000 }, (_, i) => [i * 7, i]);
   for (const t of [0, 6, 7, 3500, 6993, 7000]) assert.equal(pointAt(many, t), many.filter(p => p[0] <= t).at(-1)?.[1] ?? null);
