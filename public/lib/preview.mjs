@@ -5,6 +5,7 @@
 import { estimate, replay } from './account.mjs';
 import { SHORT_INITIAL, isOddLot, localDayOf, roundQty, tradeCosts } from './markets.mjs';
 import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
+import * as credit from './credit.mjs';
 import { addMonths, lendFee, LEND_RATE, tdInterest, tdRate } from './savings.mjs';
 
 const DAY = 86_400_000;
@@ -43,17 +44,23 @@ export function plusCommission({ market, kind, side, gross, currency, qty, dayTr
 // How many more can be sold short than are held, by the rule the order is
 // checked against: in Taiwan with the credit account (融券), the credit
 // limit left and the 90% deposit the cash covers; elsewhere (and a day trade
-// sold first), assets of SHORT_INITIAL of everything owed afterwards.
-// `unit`: one share's NT$ value now.
-export function shortRoom(v, { unit, price, kind, credit = null, cash = 0 }) {
+// sold first), assets of SHORT_INITIAL of everything owed afterwards; a
+// day trade sold first, within the day's day-trade limit left too (`dayLeft`,
+// NT$). `unit`: one share's NT$ value now.
+export function shortRoom(v, { unit, price, kind, credit = null, cash = 0, dayLeft = null }) {
   if (!v || v.margin !== 'ok' || !(unit > 0)) return 0;
   if (credit?.open) {
     const limit = Math.max(0, credit.limit - creditUsed(v).short);
     return roundQty(Math.max(0, Math.min(limit / price, Math.max(0, cash) / (SHORT_DEPOSIT * price))), kind);
   }
   const room = Math.max(0, (v.assets - SHORT_INITIAL * (v.debtTWD + v.shortTWD)) / (SHORT_INITIAL - 1));
-  return roundQty(room / unit, kind);
+  return roundQty(Math.min(room, dayLeft ?? Infinity) / unit, kind);
 }
+
+// The day's day-trade limit (當沖額度) on what's sold first: { limit, used,
+// left } in NT$, or null on a kit without it (read through the module: a
+// phone may run an older kit).
+export const dayTradeLeft = (account, netWorthTWD, now = Date.now()) => credit.dayTradeRoom?.(account, netWorthTWD, now) ?? null;
 // (The credit account for a Taiwan short, or none: it's only Taiwan's that sets 融券's terms.)
 export const shortCredit = (account, market, now = Date.now()) => (market === 'TW' ? creditAccount(account, now) : null);
 

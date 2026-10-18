@@ -131,3 +131,22 @@ test('the history charts read a range that covers the account', () => {
   assert.equal(historyRange(200 * DAY), '1y');
   assert.equal(historyRange(800 * DAY), '5y');
 });
+
+test('the most a day trade can sell first stays within the day-trade limit left', async () => {
+  const { dayTradeLeft } = await import('../public/lib/preview.mjs');
+  const a = trader(4, 12);
+  const q = quote('2330.TW', 1000);
+  const v = val(a, T0, [['2330.TW', q]]);
+  const room = dayTradeLeft(a, v.netWorth, T0);
+  assert.equal(room.used, 0);
+  assert.equal(room.left, room.limit);
+  assert.equal(room.limit, Math.floor((v.netWorth * 2) / 100_000) * 100_000);
+  // 150% of assets alone would allow far more than the limit.
+  const free = shortRoom(v, { unit: 1000, price: 1000, kind: 'stock' });
+  const capped = shortRoom(v, { unit: 1000, price: 1000, kind: 'stock', dayLeft: room.left });
+  assert.ok(free > capped);
+  assert.equal(capped, room.left / 1000);
+  // And placeOrder agrees: one share more is refused.
+  assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: capped + 1 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'x' }).error, 'dayTradeLimit');
+  assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: capped }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'y' }).error, undefined);
+});
