@@ -380,7 +380,7 @@ export const STRINGS = {
     cancelFilled: '委託已成交，無法取消',
     cancelNoNet: '連上網路才能取消委託',
 
-    maintenance: '融資維持率',
+    maintenance: '整戶擔保維持率',
     buyShort: '買', sellShort: '賣', divShort: '息', repaidRowFor: '還款 · {name}', last30: '近 30 天', goGrow: '理財', posSort_value: '市值', posSort_pl: '報酬', posSort_day: '今日', marginTag: '融資', loanInterest: '融資利息', borrowFee: '借券費', statsThisMonth: '本月', statsYear: '近 12 個月', statsOn: '投入 {v}', statsMonthly: '每月損益（已實現＋股利利息）', worstTrade: '最大虧損', leastGain: '最小獲利', statsMovers: '個股損益排行', statsCosts: '費用與稅負', statsCostShare: '占成交金額 {v} 的 {pct}', ratesCurrency: '幣別', ratesChange: '漲跌', ratesFoot: '新台幣計價 · 點一列換匯', sumBought: '買進', sumSold: '賣出', sumIncome: '股利與利息', sumCosts: '手續費與稅',
     marginOk: '維持率正常',
     callShort: '追繳',
