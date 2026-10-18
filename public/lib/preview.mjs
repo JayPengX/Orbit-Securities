@@ -114,6 +114,12 @@ export function lotSplit(market, kind, qty) {
   const board = Math.floor(qty / 1000) * 1000;
   return { board, odd: qty - board };
 }
+// A Taiwan holding as brokers show it next to its shares: 張 (lots of
+// 1,000) and the 股 left over. Null under one lot, where 股 says it all.
+export function boardLots(qty) {
+  const n = Math.abs(Math.round(qty));
+  return n < 1000 ? null : { lots: Math.floor(n / 1000), odd: n % 1000 };
+}
 // Taiwan's 盤中零股 takes limit orders only (TWSE): an order with an odd-lot
 // part, alone or after its whole lots, must be a limit order.
 export function oddLotNeedsLimit(market, kind, qty, type) {

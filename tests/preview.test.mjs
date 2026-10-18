@@ -5,7 +5,7 @@ import { tradeCosts, SHORT_INITIAL } from '../public/lib/markets.mjs';
 import { LEND_RATE, TD_TERMS, tdRate } from '../public/lib/savings.mjs';
 import { PLUS } from '#kit/plus.mjs';
 import { ticketEstimate, isDayTradeSell, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from '../public/lib/preview.mjs';
-import { oddLotNeedsLimit } from '../public/lib/preview.mjs';
+import { oddLotNeedsLimit, boardLots } from '../public/lib/preview.mjs';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -338,4 +338,11 @@ test('盤中零股 takes limit orders only: a market or stop order with an odd-l
   assert.equal(oddLotNeedsLimit('TW', 'stock', 500, 'limit'), false);
   assert.equal(oddLotNeedsLimit('TW', 'stock', 2000, 'market'), false);
   assert.equal(oddLotNeedsLimit('US', 'stock', 5, 'market'), false);
+});
+
+test('a Taiwan holding in 張 and 股: under a lot nothing extra, a short counted the same', () => {
+  assert.equal(boardLots(500), null);
+  assert.deepEqual(boardLots(1000), { lots: 1, odd: 0 });
+  assert.deepEqual(boardLots(2500), { lots: 2, odd: 500 });
+  assert.deepEqual(boardLots(-1500), { lots: 1, odd: 500 });
 });

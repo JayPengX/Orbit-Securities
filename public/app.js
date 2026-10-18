@@ -17,7 +17,7 @@ import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestT
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
-import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit } from './lib/preview.mjs';
+import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
@@ -2471,12 +2471,19 @@ function alertsListHtml() {
     .join('')}</div>`;
 }
 
+// 1,500 股 (1 張 500 股): Taiwan's stocks and ETFs, a lot or more.
+function lotsNote(p, q) {
+  const kind = q?.kind || catalogInfo(p.symbol)?.kind;
+  const lots = (q?.market || p.market) === 'TW' && (kind === 'stock' || kind === 'etf') ? boardLots(p.qty) : null;
+  if (!lots) return '';
+  return ` (${lots.odd ? t('lotsOdd', { lots: fmtQty(lots.lots), odd: fmtQty(lots.odd) }) : t('lotsWhole', { lots: fmtQty(lots.lots) })})`;
+}
 function positionRow(p) {
   const q = p.quote;
   return `<button class="row position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
     <span class="row-main"><span class="row-title">${h(nameOf(p.symbol, q))}${p.short ? `<span class="held-tag short">${h(t('shortTag'))}</span>` : ''}${p.financed > 0 ? `<span class="held-tag">${h(t('marginTag'))}</span>` : ''}${p.lent ? `<span class="held-tag">${h(t('lentTag', { qty: fmtQty(p.lent) }))}</span>` : ''}</span>
-      <span class="row-sub">${h(p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}`)} · ${h(t('avgShort'))} ${h(fmtPrice(p.avg, p.currency))} · ${h(pct(p.weight, { digits: 1, sign: false }))}</span>
+      <span class="row-sub">${h(p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}${lotsNote(p, q)}`)} · ${h(t('avgShort'))} ${h(fmtPrice(p.avg, p.currency))} · ${h(pct(p.weight, { digits: 1, sign: false }))}</span>
       <span class="row-meta">${h(t('nowShort'))} ${h(fmtPrice(p.price, p.currency))} ${h(p.currency)} · <span class="${dirClass(p.dayTWD)}">${h(t('todayShort'))} ${h(money(p.dayTWD, BASE, { sign: true }))}</span></span></span>
     <span class="pos-right"><strong class="num">${h(money(p.valueTWD, BASE))}</strong><span class="pl-pill ${p.pl > 0 ? 'up' : p.pl < 0 ? 'down' : ''}">${h(pct(p.plPct))}</span><small class="num ${dirClass(p.pl)}">${h(money(p.pl, BASE, { sign: true }))}</small></span>
   </button>`;
