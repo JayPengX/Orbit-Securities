@@ -114,6 +114,11 @@ export function lotSplit(market, kind, qty) {
   const board = Math.floor(qty / 1000) * 1000;
   return { board, odd: qty - board };
 }
+// Taiwan's 盤中零股 takes limit orders only (TWSE): an order with an odd-lot
+// part, alone or after its whole lots, must be a limit order.
+export function oddLotNeedsLimit(market, kind, qty, type) {
+  return type !== 'limit' && isOddLot(market, kind, qty);
+}
 // The orders a quantity goes in as (整零合併, as Taiwan's broker apps do it):
 // a mixed one is two, the whole lots then the odd lot; any other, itself.
 export function lotParts(market, kind, qty) {

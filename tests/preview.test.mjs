@@ -5,6 +5,7 @@ import { tradeCosts, SHORT_INITIAL } from '../public/lib/markets.mjs';
 import { LEND_RATE, TD_TERMS, tdRate } from '../public/lib/savings.mjs';
 import { PLUS } from '#kit/plus.mjs';
 import { ticketEstimate, isDayTradeSell, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from '../public/lib/preview.mjs';
+import { oddLotNeedsLimit } from '../public/lib/preview.mjs';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -329,4 +330,12 @@ test("融資 on the ticket: only with an open credit account and no default, and
   assert.equal(ticketMax(a, { quote: q, order: { type: 'market' }, ref: 501, spendable: 5_000_000, margin: 0.6, valuation: lent, now: T0 }), 600);
   // No 融資: the cash alone, no cap.
   assert.ok(ticketMax(a, { quote: q, order: { type: 'market' }, ref: 501, spendable: 5_000_000, valuation, now: T0 }) > 9000);
+});
+
+test('盤中零股 takes limit orders only: a market or stop order with an odd-lot part is refused, whole lots are not', () => {
+  assert.equal(oddLotNeedsLimit('TW', 'stock', 500, 'market'), true);
+  assert.equal(oddLotNeedsLimit('TW', 'stock', 1500, 'stop'), true);
+  assert.equal(oddLotNeedsLimit('TW', 'stock', 500, 'limit'), false);
+  assert.equal(oddLotNeedsLimit('TW', 'stock', 2000, 'market'), false);
+  assert.equal(oddLotNeedsLimit('US', 'stock', 5, 'market'), false);
 });
