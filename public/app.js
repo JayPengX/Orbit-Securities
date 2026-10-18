@@ -23,7 +23,7 @@ import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
-  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, notifyOn, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
+  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
   keepOffline, onlineOnly, proxyJson
 } from '#kit/quadra.mjs';
 import { IPO_URL, IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
@@ -998,11 +998,10 @@ const kindOrCat = id => {
   const cat = CATEGORIES.find(c => c.id === id);
   return cat ? L(cat) : t(`kind_${id}`);
 };
-function recRow(title, cards, { sub = '', cat = '' } = {}) {
+function recRow(title, cards, { cat = '' } = {}) {
   if (!cards.length) return '';
   return `<section class="q-section home-row">
     <div class="q-section-head"><h2>${h(title)}</h2>${cat ? `<button type="button" data-action="cat" data-id="${h(cat)}">${h(t('seeAll'))}</button>` : ''}</div>
-    ${sub ? `<p class="row-sub-note">${h(sub)}</p>` : ''}
     <div class="q-recs">${cards.join('')}</div>
   </section>`;
 }
@@ -1061,7 +1060,7 @@ function renderHomeRows() {
       : '';
   const acct = $('home-account');
   if (acct) acct.innerHTML = summary + openNowHtml();
-  box.innerHTML = [recRow(t('forYou'), recs.map(r => recCard(r.symbol, r.why)), { sub: t('forYouSub') }), ipoHtml(), moversHtml].join('');
+  box.innerHTML = [recRow(t('forYou'), recs.map(r => recCard(r.symbol, r.why))), ipoHtml(), moversHtml].join('');
 }
 
 // What's trading now (the economy review, 2026-10-18: a weekday evening felt
@@ -1231,7 +1230,7 @@ function renderMarkets() {
   const cat = CATEGORIES.find(c => c.id === state.category);
   const symbols = state.category === 'watch' ? watch : cat.items.map(i => i[0]);
   $('list-title').textContent = state.category === 'watch' ? t('watchlist') : L(cat);
-  $('list-note').textContent = cat?.id === 'index' || cat?.id === 'metal' ? t('watchOnlyNote') : cat?.id === 'crypto' ? t('cryptoNote') : cat?.id === 'fx' ? t('fxTradeNote') : '';
+  $('list-note').textContent = cat?.id === 'index' || cat?.id === 'metal' ? t('watchOnlyNote') : '';
   // A long list opens on its first rows; the rest a tap away.
   const cap = state.listAll === state.category ? Infinity : LIST_SHOWN;
   const more = symbols.length - Math.min(cap, symbols.length);
@@ -1274,7 +1273,7 @@ function renderSearch() {
   const local = searchCatalog(q, 40).map(i => i.symbol);
   const extra = state.search.query === q ? state.search.results : [];
   $('list-title').textContent = t('searchResults', { q });
-  $('list-note').textContent = /[^\x20-\x7e]/.test(q) ? t('searchChineseNote') : t('searchNote');
+  $('list-note').textContent = /[^\x20-\x7e]/.test(q) ? '' : t('searchNote');
   const rows = [...local.map(s => quoteRow(s)), ...extra.map(r => quoteRow(r.symbol, { note: r.exchange }))];
   $('quote-list').innerHTML =
     rows.join('') ||
@@ -1544,9 +1543,7 @@ function bondFacts(q) {
 
 function factsHtml(q) {
   if (BONDS[q.symbol] && q.bond) {
-    return `<dl class="facts-grid">${bondFacts(q).map(([k, v]) => `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`).join('')}</dl>${
-      q.bond.live ? '' : `<p class="note">${h(t('referenceNote'))}</p>`
-    }`;
+    return `<dl class="facts-grid">${bondFacts(q).map(([k, v]) => `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`).join('')}</dl>`;
   }
   const rows = [
     [t('prevClose'), fmtPrice(q.prev, q.currency)],
@@ -1629,8 +1626,7 @@ function alertCardHtml(symbol, q) {
     ${rows ? `<ul class="tool-list">${rows}</ul>` : ''}
     <div class="fx-amount"><label class="field grow"><span>${h(t('alertPriceLabel'))} (${h(q.currency)})</span><input id="alert-price" inputmode="decimal" autocomplete="off" value="${h(state.alertPrice)}" placeholder="${h(fmtPrice(q.price, q.currency))}" /></label></div>
     <div class="qty-presets">${presets.map(([label, v]) => `<button class="q-chip small" type="button" data-action="alert-preset" data-v="${v}">${h(label)}</button>`).join('')}</div>
-    <button class="q-btn primary" type="button" data-action="alert-add" ${price > 0 && Math.abs(price / q.price - 1) > 1e-6 ? '' : 'disabled'}>${h(price > 0 ? t(op === 'above' ? 'alertAddAbove' : 'alertAddBelow', { price: fmtPrice(price, q.currency) }) : t('alertAdd'))}</button>
-    ${'Notification' in window && !notifyOn() ? `<p class="note">${h(t('alertNotifyNote'))}</p>` : ''}`,
+    <button class="q-btn primary" type="button" data-action="alert-add" ${price > 0 && Math.abs(price / q.price - 1) > 1e-6 ? '' : 'disabled'}>${h(price > 0 ? t(op === 'above' ? 'alertAddAbove' : 'alertAddBelow', { price: fmtPrice(price, q.currency) }) : t('alertAdd'))}</button>`,
     list.some(a => a.on),
     'tool:alert'
   );
@@ -1765,7 +1761,7 @@ function aboutHtml(symbol, q) {
   const summary = f?.summary
     ? `<details class="summary-text"><summary>${h(t('whatItDoes'))}</summary>${local ? `<p>${h(a.summaryLocal)}</p><details class="summary-orig"><summary>${h(t('originalText'))}</summary><p lang="en">${h(f.summary)}</p></details>` : `<p lang="en">${h(f.summary)}</p>`}${f.website ? `<p><a href="${h(f.website)}" target="_blank" rel="noopener">${h(f.website.replace(/^https?:\/\//, ''))}</a></p>` : ''}</details>`
     : '';
-  return fold(icon, title, `${body}${summary}<p class="note">${h(t('aboutSource'))}</p>`, true, 'about');
+  return fold(icon, title, `${body}${summary}`, true, 'about');
 }
 
 // One quick read: a label, a verdict and the number behind it.
@@ -2017,7 +2013,6 @@ function ticketInfo() {
   const v0 = credit ? valuation() : null;
   const marginOk = !credit || v0?.margin === 'ok';
   const lent = credit && est ? Math.round(est.total * marginRate * 100) / 100 : 0;
-  const marginBuy = null;
   // How much can be sold short on top of what's held.
   let room = 0;
   // A day trade sold first: within the day's day-trade limit (當沖額度) left.
@@ -2025,7 +2020,7 @@ function ticketInfo() {
   // (Borrowing shares needs the credit account; in Taiwan a day trade sold first doesn't.)
   if (d.side === 'sell' && isShortable(q.kind) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
     room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: q.price, kind: q.kind, credit: shortCredit(state.account, q.market, now), cash, dayLeft: dayRoom?.left ?? null });
-  return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, marginBuy, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
+  return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
 }
 
 function renderTicket() {
@@ -2036,7 +2031,7 @@ function renderTicket() {
     morph(box, `<div class="card ticket"><p>${h(t('needAccount'))}</p><div class="spinner"></div></div>`);
     return;
   }
-  const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, marginBuy, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom } = ticketInfo();
+  const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom } = ticketInfo();
   const open = isOpen(q);
   const unit = unitOf(d.symbol);
   const presets =
@@ -2072,7 +2067,7 @@ function renderTicket() {
   else if (shorting && !twCredit && !twDayShort && (q.market === 'TW' || (q.kind !== 'fx' && !creditAccount(state.account, Date.now()).open))) problems.push(t('err_creditNeeded'));
   else if (shorting && qty > shares + shortRoom + 1e-9) problems.push(t('shortTooBig', { max: fmtQty(shares + shortRoom) }));
   if (credit && !marginOk) problems.push(t('err_margin'));
-  if (short > 0 && !topUp?.enough && !marginBuy) problems.push(t('notEnoughCash', { cur: q.currency, have: money(cash, q.currency), short: money(short, q.currency) }));
+  if (short > 0 && !topUp?.enough) problems.push(t('notEnoughCash', { cur: q.currency, have: money(cash, q.currency), short: money(short, q.currency) }));
   if (d.qty && Math.abs(roundQty(qty, q.kind) - qty) > qtyStep(q.kind) * 1e-3) problems.push(t('err_qtyStep'));
   // Taiwan: whole lots and odd lots go in as separate orders.
   const split = lotSplit(q.market, q.kind, qty);
@@ -2109,7 +2104,7 @@ function renderTicket() {
     </div>
     <div class="qty-presets one-row">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button class="q-chip small" type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}">${h(label)}</button>`).join('')}</div>
     ${d.type !== 'market' && (band || tickSize(q.market, q.kind, q.price)) ? `<p class="muted">${h([band ? t('limitBand', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }) : '', tickSize(q.market, q.kind, q.price) ? t('tickIs', { tick: num(tickSize(q.market, q.kind, q.price), 4, 0) }) : ''].filter(Boolean).join(' · '))}</p>` : ''}
-    <p class="muted">${h(d.side === 'buy' ? t('cashAvail', { amount: money(cash, q.currency) }) : t('sharesAvail', { qty: fmtQty(shares), unit }))}${q.market === 'TW' && q.kind !== 'metal' && t('lotNote') ? ` · ${h(t('lotNote'))}` : ''}${d.side === 'buy' && sources.length ? ` <button class="link-button" type="button" data-action="ticket-fx" data-from="${h(sources[0])}" data-to="${h(q.currency)}">${h(t('fxOpen'))}</button>` : ''}</p>
+    <p class="muted">${h(d.side === 'buy' ? t('cashAvail', { amount: money(cash, q.currency) }) : t('sharesAvail', { qty: fmtQty(shares), unit }))}${d.side === 'buy' && sources.length ? ` <button class="link-button" type="button" data-action="ticket-fx" data-from="${h(sources[0])}" data-to="${h(q.currency)}">${h(t('fxOpen'))}</button>` : ''}</p>
     ${covers.length ? `<div class="qty-presets fx-cover">${covers.slice(0, 3).map(c => `<button class="q-chip small" type="button" data-action="topup" data-from="${h(c.from)}" data-cur="${h(q.currency)}" data-need="${c.need}">${h(t('fxCover', { pay: money(c.need, c.from), get: money(c.get, q.currency) }))}</button>`).join('')}</div>` : ''}
     ${d.side === 'sell' && heldMargin(d.symbol) > 0 ? `<p class="note margin-split">${h(t('sellSplit', { cash: fmtQty(Math.max(0, shares - heldMargin(d.symbol))), margin: fmtQty(heldMargin(d.symbol)), unit }))}</p>` : ''}
     ${
@@ -2393,7 +2388,6 @@ function cashCardHtml(v, heldTWD, unsettledNow, heldFor) {
       ${settlingTWD > 0.5 ? `<span class="cash-stat"><small>${h(t('cashSettling'))}</small><strong class="num">${h(money(settlingTWD, BASE))}</strong></span>` : ''}
     </div>
     <div class="wallets">${v.cash.map(c => walletRow(c, heldFor(c), unsettledNow[c.currency] || 0, settleAt[c.currency])).join('')}${v.loans.map(loanWalletRow).join('')}</div>
-    <p class="note">${h(t('poolNote'))}</p>
   </div>`;
 }
 
@@ -2448,7 +2442,7 @@ function plansListHtml() {
       <button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(p.id)}" data-row="1">${h(t('planEdit'))}</button>
       <button class="q-btn small" type="button" data-action="plan-off" data-id="${h(p.id)}">${h(t('planStop'))}</button></div>`;
     })
-    .join('')}<p class="note">${h(t('plansNote'))}</p></div>`;
+    .join('')}</div>`;
 }
 
 function alertsListHtml() {
@@ -2937,7 +2931,7 @@ function loansHtml() {
       <div class="loan-bar" role="img" aria-label="${h(t('loanUsed', { pct: pct(used, { digits: 0, sign: false }) }))}"><i style="width:${(used * 100).toFixed(1)}%"></i></div>
       <div class="loan-legend"><span>${h(t('loanUsed', { pct: pct(used, { digits: 0, sign: false }) }))}</span><span></span></div>
       <div class="loan-facts">
-        <div><span class="muted">${h(t('collateral'))}</span><strong class="num">${h(money(v.collateral, BASE))}</strong><small>${h(t('collateralSub'))}</small></div>
+        <div><span class="muted">${h(t('collateral'))}</span><strong class="num">${h(money(v.collateral, BASE))}</strong></div>
         <div><span class="muted">${h(t('interestAccrued'))}</span><strong class="num">${h(money(v.interestTWD || 0, BASE, { digits: (v.interestTWD || 0) < 10 ? 2 : 0 }))}</strong></div>
       </div>
       ${v.debtTWD > 0 ? gauge(v.ratio) : ''}
@@ -3639,7 +3633,6 @@ function settingsEl() {
     box.innerHTML = `<h3 class="q-sheet-h">${h(t('g_settings'))}</h3>
       <div class="q-rows settings-rows">
         <div class="setting-row"><span>${h(t('updownLabel'))}</span><div class="q-seg small" role="group"><button type="button" data-set="updown" data-v="tw" aria-pressed="${state.settings.updown === 'tw'}">${h(t('updownTw'))}</button><button type="button" data-set="updown" data-v="us" aria-pressed="${state.settings.updown === 'us'}">${h(t('updownUs'))}</button></div></div>
-        <p class="note">${h(t('notifyNote'))}</p>
       </div>`;
   };
   box.addEventListener('click', async e => {

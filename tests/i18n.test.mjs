@@ -38,3 +38,13 @@ test('every key the page asks for exists', () => {
   const missing = [...used].filter(k => !zh.has(k));
   assert.deepEqual(missing, []);
 });
+
+test('no string is empty: a blank key only kept a dead branch alive (lotNote, forYouSub, plansNote, ...)', async () => {
+  const { STRINGS } = await import('../public/lib/i18n.mjs');
+  for (const lang of ['zh', 'en']) assert.deepEqual(Object.entries(STRINGS[lang]).filter(([, s]) => s === '').map(([k]) => k), [], lang);
+});
+
+test('the old margin-buy flag is gone (it was always null, and its 融資買進 string unshown)', () => {
+  assert.doesNotMatch(app, /\bmarginBuy\b/);
+  assert.ok(!zh.has('marginBuy') && !en.has('marginBuy'));
+});
