@@ -214,10 +214,10 @@ test('a margin loan that broke the line while away is sold then, at that momentâ
   const q = { symbol: 'X.TW', name: 'X', kind: 'stock', market: 'TW', currency: 'TWD', price: 100, prev: 100, session: { start: at - 3_600_000, end: at + 3_600_000 }, marketTime: at };
   const rates = { TWD: 1 };
   let a = newAccount(100_000, at, 'm');
-  a = placeOrder(a, { side: 'buy', qty: 990 }, { quote: q, rates, now: at, id: 'b1' }).account;
+  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 100, qty: 990 }, { quote: q, rates, now: at, id: 'b1' }).account;
   const v = valuate(replay(a, at), new Map([['X.TW', q]]), rates);
   a = borrow(a, { currency: 'TWD', amount: Math.floor(v.capacity) }, { valuation: v, rates, now: at + 1, id: 'l' }).account;
-  a = placeOrder(a, { side: 'buy', qty: Math.floor(v.capacity / 101) }, { quote: q, rates, now: at + 2, id: 'b2' }).account;
+  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 100, qty: Math.floor(v.capacity / 101) }, { quote: q, rates, now: at + 2, id: 'b2' }).account;
   // Away: it falls 65% on day 3, then recovers to 100 by day 6.
   const path = [[2, 90], [3, 35], [4, 70], [6, 100]].map(([d, p]) => [at + d * DAY, p]);
   const priceAt = (sym, t) => path.filter(([tt]) => tt <= t).at(-1)?.[1] ?? 100;

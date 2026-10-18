@@ -13,11 +13,11 @@ import { fetchQuotes, fetchChart, fetchBars, fetchCorporateActions, fetchFundame
 import { CATEGORIES, OVERVIEW, TRACKERS, catalogInfo, searchCatalog } from './lib/catalog.mjs';
 import { brandIcon, brandLogo } from './lib/brands.mjs';
 import { tvLogos } from './lib/tvlogos.mjs';
-import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF, SHORT_DEPOSIT } from './lib/credit.mjs';
+import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
-import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots } from './lib/preview.mjs';
+import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
@@ -2008,14 +2008,15 @@ function ticketInfo() {
   // no borrowing cash to cover a shortfall.
   const v0 = credit ? valuation() : null;
   const marginOk = !credit || v0?.margin === 'ok';
-  const lent = credit && est ? Math.round(est.total * marginRate * 100) / 100 : 0;
+  // What 融資 lends: each order's trade value × 成數, the part under NT$1,000 not lent (the kit's rule).
+  const lent = credit && est ? lotsLoan(q, qty, ref, marginRate) : 0;
   // How much can be sold short on top of what's held.
   let room = 0;
   // A day trade sold first: within the day's day-trade limit (當沖額度) left.
   const dayRoom = twDayShort && d.side === 'sell' ? dayTradeLeft(state.account, valuation()?.netWorth ?? 0, now) : null;
   // (Borrowing shares needs the credit account; in Taiwan a day trade sold first doesn't.)
   if (d.side === 'sell' && isShortable(q.kind) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
-    room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: q.price, kind: q.kind, credit: shortCredit(state.account, q.market, now), cash, dayLeft: dayRoom?.left ?? null, dayUnit: dayTradePrice(q, d) * state.rates[q.currency] });
+    room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: quotaPrice(q, d, now), kind: q.kind, credit: shortCredit(state.account, q.market, now), cash, dayLeft: dayRoom?.left ?? null, dayUnit: dayTradePrice(q, d, now) * state.rates[q.currency], held: shares, market: q.market });
   return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
 }
 
@@ -2109,13 +2110,13 @@ function renderTicket() {
         ? `<dl class="preview">${lines.map(([k, v]) => `<div><dt>${h(k)}</dt><dd class="num">${h(v)}</dd></div>`).join('')}
         <div class="preview-total"><dt>${h(d.side === 'buy' ? t('totalCost') : t('totalProceeds'))}</dt><dd class="num"><strong>${h(money(est.total, q.currency))}</strong>${rate && q.currency !== BASE ? `<small>≈ ${h(money(est.total * rate, BASE))}</small>` : ''}</dd></div>
         ${credit ? `<div><dt>${h(t('creditLent', { n: Math.round(marginRate * 10) }))}</dt><dd class="num">${h(money(lent, q.currency))}</dd></div><div><dt>${h(t('creditOwn'))}</dt><dd class="num"><strong>${h(money(est.total - lent, q.currency))}</strong></dd></div>` : ''}
-        ${req && req.buffer > 0 ? `<div class="preview-held"><dt>${h(t('heldUntilFill'))}<small>${h(t('bufferNote'))}</small></dt><dd class="num"><strong>${h(money(need, q.currency))}</strong></dd></div>` : ''}
+        ${req && req.buffer > 0 ? `<div class="preview-held"><dt>${h(t('heldUntilFill'))}<small>${h(d.type !== 'limit' && quotaPrice(q, d) > q.price ? t('bufferNoteUp', { up: fmtPrice(quotaPrice(q, d), q.currency) }) : t('bufferNote'))}</small></dt><dd class="num"><strong>${h(money(need, q.currency))}</strong></dd></div>` : ''}
         ${d.side === 'buy' ? `<div class="preview-have ${short > 0 ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, q.currency))}</dd></div>` : ''}</dl>
         ${welcome ? `<p class="fee-welcome">${h(t('feeWelcome'))}</p>` : ''}
         ${est.commission && !plusAt() && plusFee < est.commission ? `<button class="q-plus-hint fee-plus" type="button" data-action="plus">${h(t('feePlus', { v: money(plusFee, q.currency) }))}</button>` : ''}`
         : ''
     }
-    ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money((qty - shares) * q.price * SHORT_DEPOSIT, q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}${!twCredit && q.market === 'TW' && dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>` : ''}
+    ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money(lotsDeposit(q.market, q.kind, shares, qty - shares, quotaPrice(q, d)), q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}${!twCredit && q.market === 'TW' && dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>` : ''}
     ${q.market === 'TW' && afterHours(Date.now()) ? `<p class="note">${h(t('afterHoursNote'))}</p>` : ''}
     ${split ? `<p class="note lot-split">${h(t('lotSplitNote', { board: fmtQty(split.board), odd: fmtQty(split.odd) }))}</p>` : ''}
     ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
@@ -2263,6 +2264,8 @@ function errorText(r) {
     }
     case 'lot':
       return t('err_lot', { lot: fmtQty(r.lot) });
+    case 'mixedLot':
+      return t('err_mixedLot', { lots: fmtQty(r.lots), odd: fmtQty(r.odd) });
     case 'tPlus1':
       return t('err_tPlus1', { can: fmtQty(r.can) });
     case 'tdMin':
@@ -3797,7 +3800,8 @@ document.addEventListener('click', async event => {
       let sold = 0;
       for (const x of plan) {
         const quote = state.quotes.get(x.symbol);
-        const r = place(account, { symbol: x.symbol, side: 'sell', type: 'market', qty: x.qty }, { quote, rates: state.rates, valuation: valuate(replay(account), state.quotes, state.rates), now: Date.now() });
+        // (A sale to cover: the broker splits whole and odd lots itself.)
+        const r = place(account, { symbol: x.symbol, side: 'sell', type: 'market', qty: x.qty, cover: true }, { quote, rates: state.rates, valuation: valuate(replay(account), state.quotes, state.rates), now: Date.now() });
         if (r.account) {
           account = r.account;
           sold++;

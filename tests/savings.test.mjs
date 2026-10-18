@@ -63,7 +63,9 @@ test('interest and fees over NT$20,000 at once: 10% withheld and the health prem
 test('lending shares: whole settled lots only, locked while lent, the fee paid on return less the broker’s cut', () => {
   let a = newAccount(3_000_000, T0 - DAY, 'acc');
   const q = quote('2330.TW', 1_000);
-  a = placeOrder(a, { side: 'buy', type: 'market', qty: 2_500 }, { quote: q, rates: RATES, now: T0, id: 'b1' }).account;
+  // 2,500 shares: two orders, 2 lots and 500 odd shares (a limit order).
+  a = placeOrder(a, { side: 'buy', type: 'market', qty: 2_000 }, { quote: q, rates: RATES, now: T0, id: 'b1' }).account;
+  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 1_000, qty: 500 }, { quote: q, rates: RATES, now: T0, id: 'b2' }).account;
   // Not settled yet (T+2).
   assert.equal(lendableQty(a, '2330.TW', T0 + HOUR), 0);
   const later = T0 + 4 * DAY;

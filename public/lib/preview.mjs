@@ -2,7 +2,8 @@
 // most a short can sell, Plus's price on the same trade, a time deposit's
 // end and interest, a loan of shares' fee. Each is worked out by the very
 // rules that then do it (the kit's stock-*), so the preview is what happens.
-import { defaulted, estimate, placeOrder, replay, requiredCash } from './account.mjs';
+import { available, defaulted, estimate, placeOrder, replay, requiredCash } from './account.mjs';
+import * as kit from './account.mjs';
 import { SHORT_INITIAL, collateralRate, dealPrice, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
 import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
 import * as credit from './credit.mjs';
@@ -10,6 +11,21 @@ import { addMonths, lendFee, LEND_RATE, tdInterest, tdRate } from './savings.mjs
 
 const DAY = 86_400_000;
 const YEAR = 365 * DAY;
+const EPS = 1e-9;
+
+// The kit's own figures, read through the module (a phone may run an older
+// kit; each fallback is that kit's rule):
+// - the price an order's amount is counted at (額度, deposits): its limit,
+//   a Taiwan market or stop order's limit-up (漲停), else the last price;
+export function quotaPrice(quote, { type, limit } = {}, now = Date.now()) {
+  if (type === 'limit' && Number(limit) > 0) return Number(limit);
+  return (kit.limitUpFor ? kit.limitUpFor({ type }, quote, now) : null) ?? quote.price;
+}
+// - what 融資 lends on a purchase (Taiwan: the trade's value × 成數, the
+//   part under NT$1,000 not lent);
+export const marginLoan = (market, currency, gross, total, rate) => (kit.marginLoan ? kit.marginLoan(market, currency, gross, total, rate) : Math.round(total * rate * 100) / 100);
+// - 融券's deposit on a sale of `value` (90%, up to the next NT$100).
+export const shortDeposit = value => (credit.shortDeposit ? credit.shortDeposit(value) : Math.round(SHORT_DEPOSIT * value));
 
 // A Taiwan sale that pays the day-trade tax (half): a day trade sold first
 // (現股當沖), or shares bought today by an account that may day trade
@@ -48,21 +64,39 @@ export function plusCommission({ market, kind, side, gross, currency, qty, dayTr
 // day trade sold first, within the day's day-trade limit left too (`dayLeft`,
 // NT$). `unit`: one share's NT$ value now; `dayUnit`: one share's NT$ at the
 // price the day-trade limit counts it (dayTradePrice; `unit` if not given).
-export function shortRoom(v, { unit, price, kind, credit = null, cash = 0, dayLeft = null, dayUnit = unit }) {
+// 融券 counts at `price` (quotaPrice: the limit, or 漲停 for a market order),
+// its deposit each order's own (a Taiwan quantity of whole and odd lots is two
+// orders, the shares `held` sold by the first; `market` says whose lots).
+export function shortRoom(v, { unit, price, kind, credit = null, cash = 0, dayLeft = null, dayUnit = unit, held = 0, market = 'TW' }) {
   if (!v || v.margin !== 'ok' || !(unit > 0)) return 0;
   if (credit?.open) {
     const limit = Math.max(0, credit.limit - creditUsed(v).short);
-    return roundQty(Math.max(0, Math.min(limit / price, Math.max(0, cash) / (SHORT_DEPOSIT * price))), kind);
+    let n = roundQty(Math.max(0, Math.min(limit / price, Math.max(0, cash) / (SHORT_DEPOSIT * price))), kind);
+    while (n > 0 && lotsDeposit(market, kind, held, n, price) > cash + EPS) n = roundQty(n - qtyStep(kind), kind);
+    return n;
   }
   const room = Math.max(0, (v.assets - SHORT_INITIAL * (v.debtTWD + v.shortTWD)) / (SHORT_INITIAL - 1));
   return roundQty(Math.min(room / unit, dayLeft == null ? Infinity : dayLeft / (dayUnit > 0 ? dayUnit : unit)), kind);
+}
+
+// 融券's deposit on selling `short` more than the `held` shares at `price`:
+// each order's own (a mixed quantity is two orders, the first selling the
+// shares held first), added up.
+export function lotsDeposit(market, kind, held, short, price) {
+  let have = Math.max(0, held);
+  return lotParts(market, kind, have + short).reduce((sum, part) => {
+    const n = Math.max(0, part - have);
+    have = Math.max(0, have - part);
+    return sum + (n > 0 ? shortDeposit(n * price) : 0);
+  }, 0);
 }
 
 // The price a day trade sold first is counted at against the day's limit
 // (當沖額度), as a broker counts it: a limit order at its limit; a market (or
 // stop) order at the most it could fill at, 漲停 (the price where there's no
 // band).
-export function dayTradePrice(quote, { type, limit } = {}) {
+export function dayTradePrice(quote, { type, limit } = {}, now = Date.now()) {
+  if (kit.limitUpFor) return quotaPrice(quote, { type, limit }, now);
   if (type === 'limit' && Number(limit) > 0) return Number(limit);
   return priceLimits(quote)?.up ?? quote.price;
 }
@@ -159,20 +193,56 @@ export function lotsHold(order, quote, now = Date.now()) {
   return { reserve: held.reduce((n, x) => n + x.reserve, 0), buffer: held.reduce((n, x) => n + x.buffer, 0) };
 }
 
+// What 融資 lends on the ticket's buy of `qty` at `price`: each order's own
+// loan (a mixed quantity is two orders), added up.
+export function lotsLoan(quote, qty, price, rate) {
+  if (!(rate > 0) || !(qty > 0)) return 0;
+  return lotParts(quote.market, quote.kind, qty).reduce((sum, n) => {
+    const est = estimate({ market: quote.market, kind: quote.kind, currency: quote.currency, side: 'buy', qty: n, price });
+    return sum + marginLoan(quote.market, quote.currency, est.gross, est.total, rate);
+  }, 0);
+}
+
 // Places `req` as those orders, each on the account the one before left.
-// A mixed quantity is first checked whole (what's checked per order, such
-// as 融資's credit limit, counts both): when the whole would fail, neither
-// goes in. When the odd lot fails after the whole lots went in, the whole
-// lots stand (two orders, as at a broker). `place`: placeOrder or the
-// app's wrapper of it.
+// A mixed quantity (which the kit refuses as one order) is first tried as
+// its two orders on a copy, and what each order checks only against the
+// account as it was (融資's and 融券's credit limits) is checked for both
+// together: when either would fail, neither goes in. When the odd lot still
+// fails after the whole lots went in, the whole lots stand (two orders, as
+// at a broker). `place`: placeOrder or the app's wrapper of it.
 // { account (null: nothing changed), parts: [{ qty, r }], failed: { qty, r } | null }.
 const refused = r => Boolean((r.error && !r.account) || r.order?.status === 'rejected');
+function lotsCheck(account, req, opts, parts, place) {
+  let next = account;
+  for (const [i, n] of parts.entries()) {
+    const r = place(next, { ...req, qty: n }, i && opts.id ? { ...opts, id: `${opts.id}:${i}` } : opts);
+    if (refused(r)) return r;
+    if (r.account) next = r.account;
+  }
+  const q = opts.quote;
+  const now = opts.now ?? Date.now();
+  const c = creditAccount(account, now);
+  if (q.market !== 'TW' || !c.open || !opts.valuation) return null;
+  const at = quotaPrice(q, req, now);
+  const used = creditUsed(opts.valuation);
+  const over = (amount, room) => (amount > room + EPS ? { error: 'creditLimit', room: Math.max(0, Math.floor(room)), limit: c.limit } : null);
+  if (req.side === 'buy' && req.margin) {
+    const rate = collateralRate(q.kind, q.market, q.symbol);
+    return over(parts.reduce((sum, n) => sum + marginLoan('TW', q.currency, at * n, at * n, rate), 0), c.limit - used.loan);
+  }
+  if (req.side === 'sell') {
+    const have = Math.max(0, available(account, replay(account, now)).qty[q.symbol] || 0);
+    const short = Math.max(0, Number(req.qty) - have);
+    if (short > EPS) return over(short * at, c.limit - used.short);
+  }
+  return null;
+}
 export function placeLots(account, req, opts, place = placeOrder) {
   const qty = Number(req.qty);
   const parts = opts.quote ? lotParts(opts.quote.market, opts.quote.kind, qty) : [qty];
   if (parts.length > 1) {
-    const whole = place(account, req, opts);
-    if (whole.error && !whole.account) return { account: null, parts: [], failed: { qty, r: whole } };
+    const whole = lotsCheck(account, req, opts, parts, place);
+    if (whole) return { account: null, parts: [], failed: { qty, r: whole } };
   }
   const done = [];
   let next = account;
@@ -193,7 +263,7 @@ export function placeLots(account, req, opts, place = placeOrder) {
 // lotsHold's reserve, 融資's own part only) fits `spendable`. `price`: one
 // unit's price, for the search's top. `cap`: a quantity it can't pass
 // (融資 within the credit limit left).
-export function maxBuy({ holdFor, spendable, price, kind, margin = 0, cap = Infinity }) {
+export function maxBuy({ holdFor, spendable, price, kind, margin = 0, cap = Infinity, fits = () => true }) {
   if (!(spendable > 0) || !(price > 0)) return 0;
   const step = qtyStep(kind);
   // In steps: the top a little past what the cash buys on its own part.
@@ -201,7 +271,8 @@ export function maxBuy({ holdFor, spendable, price, kind, margin = 0, cap = Infi
   let hi = Math.ceil(spendable / (price * Math.max(0.05, 1 - margin)) / step) + 1;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (holdFor(roundQty(mid * step, kind)) <= spendable + 1e-9) lo = mid;
+    const n = roundQty(mid * step, kind);
+    if (holdFor(n) <= spendable + 1e-9 && fits(n)) lo = mid;
     else hi = mid - 1;
   }
   return roundQty(Math.min(lo * step, cap), kind);
@@ -219,11 +290,16 @@ export function marginRateFor(account, quote, side, now = Date.now()) {
 // `ref`: what `spendable` holds (lotsHold, held for a fresh price as every
 // order from the ticket is); on 融資 (`margin`, its rate) one's own part
 // only and, in Taiwan, within the credit limit left as placeOrder counts it
-// (the last price × shares × rate against the limit less what's lent).
+// (each order's loan at its quotaPrice, added up, against the limit less
+// what's lent).
 export function ticketMax(account, { quote, order, ref, spendable, margin = 0, valuation = null, now = Date.now() }) {
   if (!(ref > 0)) return 0;
   const holdFor = n => lotsHold({ type: order.type, qty: n, limit: Number(order.limit), stop: Number(order.stop), waitFresh: 1, margin }, quote, now).reserve;
-  const room = margin > 0 && quote.market === 'TW' ? creditAccount(account, now).limit - creditUsed(valuation).loan : Infinity;
-  const cap = margin > 0 ? Math.max(0, room) / (quote.price * margin) : Infinity;
-  return maxBuy({ holdFor, spendable, price: dealPrice(quote.market, 'buy', ref), kind: quote.kind, margin, cap });
+  // A Taiwan market or stop order: whole lots only (an odd lot takes limit orders).
+  const whole = n => (order.type !== 'limit' && isOddLot(quote.market, quote.kind, n) ? Math.floor(n / 1000) * 1000 : n);
+  if (!(margin > 0 && quote.market === 'TW')) return whole(maxBuy({ holdFor, spendable, price: dealPrice(quote.market, 'buy', ref), kind: quote.kind, margin }));
+  const room = creditAccount(account, now).limit - creditUsed(valuation).loan;
+  const at = quotaPrice(quote, order, now);
+  const fits = n => lotParts(quote.market, quote.kind, n).reduce((sum, part) => sum + marginLoan('TW', quote.currency, at * part, at * part, margin), 0) <= room + EPS;
+  return whole(maxBuy({ holdFor, spendable, price: dealPrice(quote.market, 'buy', ref), kind: quote.kind, margin, fits }));
 }
