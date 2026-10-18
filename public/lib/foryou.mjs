@@ -12,7 +12,8 @@
 //   - popularity: a small prior for the well-known names.
 // Held and watched symbols are left out (they're on the portfolio already).
 import { CATEGORIES, catalogInfo } from './catalog.mjs';
-import { isTradable } from './markets.mjs';
+import { isTradable, localDayOf } from './markets.mjs';
+import { isTradingDay } from './holidays.mjs';
 import { rank } from '#kit/quadra.mjs';
 
 // The well-known names, a prior for new accounts.
@@ -137,12 +138,13 @@ function whyOf(item) {
 export const MOVER_GROUPS = ['tw', 'us', 'crypto', 'world'];
 export const moverGroupOf = q => (q.market === 'TW' ? 'tw' : q.market === 'US' ? 'us' : q.market === 'CRYPTO' || q.kind === 'crypto' ? 'crypto' : ['FX', 'BOND', 'METAL'].includes(q.market) ? null : 'world');
 // The market worth showing first: the one trading now (Taiwan by day in
-// Taipei, the US by night), else the last one that did.
+// Taipei, the US by night), else the last one that did (a weekend or a
+// Taiwan holiday: the US's night before).
 export function moverGroupNow(now = Date.now()) {
   const tpe = new Date(now + 8 * 3_600_000);
   const h = tpe.getUTCHours() + tpe.getUTCMinutes() / 60;
   const day = tpe.getUTCDay();
-  if (day === 0 || day === 6) return 'us';
+  if (day === 0 || day === 6 || !isTradingDay('TW', localDayOf(now, 'TW'))) return 'us';
   return h >= 7 && h < 20 ? 'tw' : 'us';
 }
 

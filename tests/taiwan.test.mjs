@@ -167,6 +167,8 @@ test("today's movers by market: Taiwan by day in Taipei, the US by night and at 
   assert.equal(moverGroupNow(tpe('2026-10-14', '19:59')), 'tw');
   assert.equal(moverGroupNow(tpe('2026-10-14', '22:00')), 'us');
   assert.equal(moverGroupNow(tpe('2026-10-17', '10:00')), 'us'); // a Saturday
+  // A Taiwan holiday on a weekday (2026-10-26, 光復節): the US, which traded overnight.
+  assert.equal(moverGroupNow(tpe('2026-10-26', '10:00')), 'us');
   assert.equal(moverGroupOf({ market: 'TW' }), 'tw');
   assert.equal(moverGroupOf({ market: 'CRYPTO', kind: 'crypto' }), 'crypto');
   assert.equal(moverGroupOf({ market: 'FX' }), null);
