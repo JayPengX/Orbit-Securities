@@ -2528,8 +2528,9 @@ function alertsListHtml() {
 }
 
 // 1,500 股 (1 張 500 股): Taiwan's stocks and ETFs, a lot or more.
-// A ' · ' line that wraps between its parts, never inside one (an amount left alone on a line).
-const keepParts = text => text.split(' · ').map(x => `<span class="keep">${h(x)}</span>`).join(' · ');
+// A ' · ' line that wraps between its parts, never inside one (an amount left
+// alone on a line), each '·' kept with the part before it (no line starts with one).
+const keepParts = text => text.split(' · ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} ·` : x)}</span>`).join(' ');
 function lotsNote(p, q) {
   const kind = q?.kind || catalogInfo(p.symbol)?.kind;
   const lots = (q?.market || p.market) === 'TW' && (kind === 'stock' || kind === 'etf') ? boardLots(p.qty) : null;
