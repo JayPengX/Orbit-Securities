@@ -31,6 +31,7 @@ import {
 } from '#kit/quadra.mjs';
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_URL, IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
+import * as kitUI from '#kit/ui.mjs';
 import * as stockAccount from './lib/account.mjs';
 // (Read through the module, with a fallback, for what an older kit lacks.)
 import * as stockCredit from './lib/credit.mjs';
@@ -1100,24 +1101,30 @@ function dayWord(v, now = Date.now()) {
   const loc = locale === 'zh' ? 'zh-TW' : 'en-US';
   return now - d.at < 6 * 86_400_000 ? new Intl.DateTimeFormat(loc, { weekday: 'short', timeZone: d.tz }).format(d.at) : new Intl.DateTimeFormat(loc, { month: 'numeric', day: 'numeric', timeZone: d.tz }).format(d.at);
 }
+const headHtml = (title, over = '') => `<header class="q-page-head"><p class="q-over">${over}</p><h1>${h(title)}</h1></header>`;
+const ico = name => kitUI.icons?.[name] ?? '';
 function renderHomeRows() {
   const box = $('home-rows');
   if (!box) return;
+  // Searching: the head and the search field stay; the rails and the hero step aside.
+  $('panel-markets')?.classList.toggle('searching', !!state.query);
   if (state.query) {
     box.innerHTML = '';
-    if ($('home-account')) $('home-account').innerHTML = '';
     return;
   }
   const held = Object.keys(snap()?.positions || {});
   const recs = forYou({ quotes: state.quotes, held, watched: watched(state.account), wallet: state.wallet, aff: affinityMap(), n: 10 });
   const v = state.account ? valuation() : null;
   const base = v ? v.netWorth - v.dayChange : 0;
+  const dayDir = v ? dirClass(v.dayChange) : 'flat';
   const summary = v
-    ? `<button class="acct-strip" type="button" data-action="goto" data-tab="portfolio">
-        <span class="acct-main"><small>${h(t('netWorth'))}${plusAt() ? ' <b class="acct-plus">✦ PLUS</b>' : ''}</small><strong class="num">${h(money(v.netWorth, BASE))}</strong></span>
-        <span class="acct-day ${dirClass(v.dayChange)}"><small>${h(dayWord(v))}</small><strong class="num">${h(money(v.dayChange, BASE, { sign: true }))}</strong><em class="num">${base ? h(pct(v.dayChange / base)) : '—'}</em></span>
+    ? `<button class="q-hero-card q-press home-hero" type="button" data-action="goto" data-tab="portfolio">
+        <span class="q-hc-eyebrow">${ico('wallet')}<span>${h(t('netWorth'))}</span>${plusAt() ? '<b class="acct-plus">PLUS</b>' : ''}</span>
+        <strong class="q-hc-big num">${h(money(v.netWorth, BASE))}</strong>
+        <span class="hc-line"><span class="q-tag solid hc-chg ${dayDir}">${h(dayWord(v))} ${h(money(v.dayChange, BASE, { sign: true }))}${base ? ` · ${h(pct(v.dayChange / base))}` : ''}</span></span>
+        <span class="q-hc-sub">${h(t('buyingPower'))} <b class="num">${h(money(buyingPower(v), BASE))}</b></span>
       </button>
-      ${overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="od-strip" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))} ›</button>` : `<div class="power-strip"><span>${h(t('buyingPower'))} <strong class="num">${h(money(buyingPower(v), BASE))}</strong></span></div>`}`
+      ${overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="od-strip" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))} ›</button>` : ''}`
     : '';
   const moverRow = q => `<button class="mover" type="button" data-action="open" data-symbol="${h(q.symbol)}">${symbolBadge(q.symbol, q)}<span class="mover-name">${h(nameOf(q.symbol, q))}</span><span class="mover-price num" data-q-live="mover:${h(q.symbol)}">${fmtPrice(q.price, q.currency)}</span>${pctPill(q)}</button>`;
   // 今日漲跌 a market at a time: the one trading now unless another was picked.
@@ -1138,7 +1145,7 @@ function renderHomeRows() {
           </div></section>`
       : '';
   const acct = $('home-account');
-  if (acct) acct.innerHTML = summary + openNowHtml();
+  if (acct) acct.innerHTML = homeHeadHtml() + summary;
   box.innerHTML = [recRow(t('forYou'), recs.map(r => recCard(r.symbol, r.why))), ipoHtml(), moversHtml].join('');
 }
 
@@ -1146,16 +1153,17 @@ function renderHomeRows() {
 // like nothing to do, with the US market and crypto open): each market by its
 // index's session, until when; a tap, its movers.
 const OPEN_MARKETS = [['tw', '^TWII'], ['us', '^GSPC'], ['jp', '^N225'], ['hk', '^HSI'], ['crypto', 'BTC-USD']];
-function openNowHtml() {
+function homeHeadHtml() {
   const now = Date.now();
   const open = OPEN_MARKETS.map(([id, sym]) => ({ id, q: state.quotes.get(sym) })).filter(({ q }) => q && isOpen(q, now));
-  if (!open.length) return '';
-  // (One line: past two markets, their names alone.)
-  const few = open.length <= 2;
-  const until = q => (q.kind === 'crypto' ? t('open24h') : q.session?.end ? t('openUntil', { time: clock(closeOf(q, now)) }) : '');
-  return `<div class="open-strip"><span class="open-dot" aria-hidden="true"></span><span class="open-label">${h(t('openNow'))}</span>${open
-    .map(({ id, q }) => `<button type="button" class="open-mkt" data-action="mover-group" data-v="${h(id === 'jp' || id === 'hk' ? 'world' : id)}"><b>${h(t(`openMkt_${id}`))}</b>${few ? ` <span class="num">${h(until(q))}</span>` : ''}</button>`)
-    .join('')}</div>`;
+  const over = open.length
+    ? `<span class="q-tag green"><span class="open-dot" aria-hidden="true"></span>${h(t('openNow'))}</span>${open
+        .map(({ id }) => `<button type="button" class="q-tag open-mkt" data-action="mover-group" data-v="${h(id === 'jp' || id === 'hk' ? 'world' : id)}">${h(t(`openMkt_${id}`))}</button>`)
+        .join('')}`
+    : state.loaded
+      ? `<span class="q-tag">${h(t('marketClosed'))}</span>`
+      : '';
+  return `<header class="q-page-head"><p class="q-over home-over">${over}</p><h1>${h(t('tab_markets'))}</h1></header>`;
 }
 
 // ---- 新股申購 (lib/ipo.mjs) ----
@@ -1222,29 +1230,30 @@ function ipoHtml() {
     const q = state.quotes.get(s.symbol);
     return !s.ipo && q?.price > 0 ? Math.round((q.price - s.price) * s.qty) : null;
   };
-  // Its name and the button on one line, what it costs and when under it, full width (at 375 px the side column pushed the button off the card).
+  // One row card: a tile, the name with its tags, the price and dates under it, the button on its right.
   const openRow = s => {
     const gain = gainOf(s);
-    return `<div class="ipo-row">
-      <span class="ipo-top"><span class="row-title">${h(s.name)} <em class="ipo-code num">${h(s.code)}</em> <em class="act-tag">${h(t(s.ipo ? (/櫃/.test(s.kind) ? 'ipoNewOtc' : 'ipoNew') : 'ipoMore'))}</em></span><button class="q-btn small primary" type="button" data-action="ipo-apply" data-key="${h(ipoKey(s))}">${h(t('ipoApply'))}</button></span>
-      <span class="row-sub num">${h(t('ipoPrice', { p: money(s.price, BASE), v: money(ipoHold(s), BASE) }))}</span>
-      <span class="row-meta">${h([t('ipoUntil', { date: shortDate(s.to) }), t('ipoDrawOn', { date: shortDate(s.draw) })].join(' · '))}</span>
-      ${gain != null ? `<span class="ipo-gain">${h(t('ipoGain'))} <strong class="num ${gain >= 0 ? 'up-ink' : 'down-ink'}">${h(money(gain, BASE, { sign: true }))}</strong></span>` : ''}
+    return `<div class="q-ritem ipo-item">
+      <span class="q-tile" style="--t:var(--q-indigo)">${ico('ticket')}</span>
+      <span class="q-ritem-text"><span class="q-ritem-title">${h(s.name)} <em class="ipo-code num">${h(s.code)}</em></span>
+        <small class="num ipo-sub">${h(t('ipoPrice', { p: money(s.price, BASE), v: money(ipoHold(s), BASE) }))}</small>
+        <small class="ipo-sub">${h([t('ipoUntil', { date: shortDate(s.to) }), t('ipoDrawOn', { date: shortDate(s.draw) })].join(' · '))}</small>
+        <span class="q-tags"><span class="q-tag indigo">${h(t(s.ipo ? (/櫃/.test(s.kind) ? 'ipoNewOtc' : 'ipoNew') : 'ipoMore'))}</span></span>${gain != null ? `<small class="ipo-sub">${h(t('ipoGain'))} <b class="num ${gain >= 0 ? 'up-ink' : 'down-ink'}">${h(money(gain, BASE, { sign: true }))}</b></small>` : ''}</span>
+      <button class="q-btn small primary" type="button" data-action="ipo-apply" data-key="${h(ipoKey(s))}">${h(t('ipoApply'))}</button>
     </div>`;
   };
   const mineRow = ({ a, out }) => {
     const won = out?.type === 'ipowin';
     const state_ = !out ? t('ipoDrawing', { date: shortDate(a.draw) }) : won ? (out.t > now ? t('ipoWonOn', { date: shortDate(out.t) }) : t('ipoWonIn')) : t('ipoLost');
-    return `<button class="ipo-row mine" type="button" data-action="open" data-symbol="${h(a.symbol)}">
-      <span class="row-main"><span class="row-title">${h(a.name)} <em class="ipo-code num">${h(a.code)}</em></span>
-      <span class="row-sub">${h(state_)}</span></span>
-      <span class="ipo-pill ${won ? 'won' : out ? 'lost' : ''}">${h(won ? t('ipoWonTag') : !out ? t('ipoDrawingTag') : t('ipoLostTag'))}</span>
+    return `<button class="q-ritem chevron" type="button" data-action="open" data-symbol="${h(a.symbol)}">
+      <span class="q-tile" style="--t:${won ? 'var(--up)' : out ? 'var(--q-gray, #8e8e93)' : 'var(--q-orange)'}">${ico(won ? 'trophy' : out ? 'check' : 'clock')}</span>
+      <span class="q-ritem-text"><span class="q-ritem-title">${h(a.name)} <em class="ipo-code num">${h(a.code)}</em></span><small>${h(state_)}</small></span>
+      <span class="q-tag ${won ? 'red solid' : out ? '' : 'orange'}">${h(won ? t('ipoWonTag') : !out ? t('ipoDrawingTag') : t('ipoLostTag'))}</span>
     </button>`;
   };
   return `<section class="q-section home-row ipo">
     <div class="q-section-head"><h2>${h(t('ipoTitle'))}</h2></div>
-    <p class="row-sub-note">${h(t('ipoSub', { fee: money(IPO_FEE, BASE) }))}</p>
-    <div class="card ipo-list">${[...mine.map(mineRow), ...open.map(openRow)].join('')}</div>
+    <div class="q-rowcard ipo-list">${[...mine.map(mineRow), ...open.map(openRow)].join('')}</div>
   </section>`;
 }
 // One application: the money there, the Worker told first (only one it saw
@@ -1310,7 +1319,7 @@ function renderMarkets() {
     return `<button class="tile" type="button" data-action="open" data-symbol="${h(sym)}">
       <span class="tile-name">${h(nameOf(sym, q))}</span>
       <strong class="tile-price num" data-q-live="tile:${h(sym)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong>
-      <span class="tile-foot">${pctPill(q)}${q ? sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 64, height: 22 }) : ''}</span>
+      <span class="tile-foot">${pctPill(q)}</span>${q ? `<span class="tile-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 128, height: 30 })}</span>` : ''}
     </button>`;
   }).join('');
 
@@ -2570,7 +2579,8 @@ function renderPortfolio() {
   const positions = [...v.positions].sort((x, y) => (sort === 'pl' ? y.plPct - x.plPct : sort === 'day' ? y.dayTWD - x.dayTWD : Math.abs(y.valueTWD) - Math.abs(x.valueTWD)));
   const dayBase = v.netWorth - v.dayChange;
   box.innerHTML = `
-    <div class="card hero-card">
+    ${headHtml(t('tab_portfolio'), `<span class="q-tag ${dirClass(v.totalReturn)}">${h(t('totalReturn'))} ${h(pct(v.totalReturnPct))}</span>${v.positions.length ? `<span class="q-tag">${v.positions.length} ${h(t('positions'))}</span>` : ''}`)}
+    <div class="card hero-card q-hero-card">
       <p class="hero-label">${h(t('netWorth'))}${incomplete ? ` <small>${h(t('pricesLoading'))}</small>` : ''}</p>
       <strong class="hero-value num stat-value" data-q-live="networth">${h(money(v.netWorth, BASE))}</strong>
       <div class="hero-lines">
@@ -2594,13 +2604,13 @@ function renderPortfolio() {
       </div>
       <div id="nw-chart" class="chart-box"></div>
     </div>
-    <div class="card">
+    <div class="card pos-card">
       <div class="card-head"><h3 class="card-title">${h(t('positions'))} <span class="count">${v.positions.length}</span></h3>
         ${v.positions.length > 1 ? `<div class="q-seg small" role="group">${['value', 'pl', 'day'].map(k => `<button type="button" data-action="pos-sort" data-v="${k}" aria-pressed="${sort === k}">${h(t(`posSort_${k}`))}</button>`).join('')}</div>` : ''}
       </div>
       ${
         v.positions.length
-          ? `<div class="pos-sum"><span>${h(t('holdings'))} <strong class="num">${h(money(v.longTWD - v.shortTWD, BASE))}</strong></span><span>${h(t('unrealized'))} <strong class="num ${dirClass(v.unrealized)}">${h(money(v.unrealized, BASE, { sign: true }))}</strong></span></div><div class="positions">${positions.map(positionRow).join('')}</div>`
+          ? `<div class="pos-sum"><span>${h(t('holdings'))} <strong class="num">${h(money(v.longTWD - v.shortTWD, BASE))}</strong></span><span>${h(t('unrealized'))} <strong class="num ${dirClass(v.unrealized)}">${h(money(v.unrealized, BASE, { sign: true }))}</strong></span></div><div class="positions q-rowcard">${positions.map(positionRow).join('')}</div>`
           : `<div class="empty">${h(t('noPositions'))}<div class="button-row center"><button class="q-btn small" type="button" data-action="goto" data-tab="markets">${h(t('goTrade'))}</button></div></div>`
       }
     </div>
@@ -2740,12 +2750,12 @@ function exTagHtml(symbol) {
 }
 function positionRow(p) {
   const q = p.quote;
-  return `<button class="row position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
+  return `<button class="q-ritem row position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
     <span class="row-main"><span class="row-title">${h(nameOf(p.symbol, q))}${p.short ? `<span class="held-tag short">${h(t('shortTag'))}</span>` : ''}${p.financed > 0 ? `<span class="held-tag">${h(t('marginTag'))}</span>` : ''}${p.lent ? `<span class="held-tag">${h(t('lentTag', { qty: fmtQty(p.lent) }))}</span>` : ''}${exTagHtml(p.symbol)}${alertTag(p.symbol)}</span>
       <span class="row-sub">${h(p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}${lotsNote(p, q)}`)} · ${h(t('avgShort'))} ${h(fmtPrice(p.avg, p.currency))} · ${h(pct(p.weight, { digits: 1, sign: false }))}</span>
       <span class="row-meta">${h(t('nowShort'))} ${h(fmtPrice(p.price, p.currency))} ${h(p.currency)} · <span class="${dirClass(p.dayTWD)}">${h(t('todayShort'))} ${h(money(p.dayTWD, BASE, { sign: true }))}</span></span></span>
-    <span class="pos-right"><strong class="num">${h(money(p.valueTWD, BASE))}</strong><span class="pl-pill ${p.pl > 0 ? 'up' : p.pl < 0 ? 'down' : ''}">${h(pct(p.plPct))}</span><small class="num ${dirClass(p.pl)}">${h(money(p.pl, BASE, { sign: true }))}</small></span>
+    <span class="pos-right"><strong class="num">${h(money(p.valueTWD, BASE))}</strong><span class="q-tag ${p.pl > 0 ? 'red' : p.pl < 0 ? 'green' : ''} pl-pill ${p.pl > 0 ? 'up' : p.pl < 0 ? 'down' : ''}">${h(pct(p.plPct))}</span><small class="num ${dirClass(p.pl)}">${h(money(p.pl, BASE, { sign: true }))}</small></span>
   </button>`;
 }
 
@@ -2988,7 +2998,7 @@ function renderFx() {
   ]
     .map(([k, label]) => `<button type="button" data-action="fx-view" data-view="${k}" aria-pressed="${view === k}">${h(label)}</button>`)
     .join('')}</div>`;
-  morph(box, `${tabs}${view === 'rates' ? ratesHtml() : view === 'loans' ? loansHtml() : view === 'grow' ? growHtml() : exchangeHtml()}`);
+  morph(box, `${headHtml(t('tab_fx'), state.account ? `<span class="q-tag ${valuation()?.margin === 'ok' ? 'green' : 'orange'}">${h(valuation()?.margin === 'ok' ? t('marginOk') : '!')}</span>` : '')}${tabs}${view === 'rates' ? ratesHtml() : view === 'loans' ? loansHtml() : view === 'grow' ? growHtml() : exchangeHtml()}`);
 }
 
 function exchangeHtml() {
@@ -3615,7 +3625,8 @@ function renderHistory() {
     return;
   }
   const views = ['activity', 'orders', 'stats'];
-  const tabs = `<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${state.historyView === x}">${h(t(`hview_${x}`))}</button>`).join('')}</div>`;
+  const nOpen = state.account.orders.filter(o => o.status === 'open').length;
+  const tabs = `${headHtml(t('tab_history'), nOpen ? `<span class="q-tag orange">${h(t('openOrders'))} ${nOpen}</span>` : '')}<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${state.historyView === x}">${h(t(`hview_${x}`))}</button>`).join('')}</div>`;
   if (state.historyView === 'orders') {
     const open = state.account.orders.filter(o => o.status === 'open').reverse();
     const done = state.account.orders.filter(o => o.status !== 'open').reverse().slice(0, 100);

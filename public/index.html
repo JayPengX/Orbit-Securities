@@ -75,19 +75,19 @@
   <p id="notice" class="notice" role="note" hidden></p>
 
   <div id="panel-markets" class="tab-panel" role="tabpanel" aria-labelledby="tab-markets">
+    <div id="home-account"></div>
     <label class="q-search search-box">
       <input id="search" type="search" autocomplete="off" enterkeyhint="search" />
       <button class="q-search-clear" type="button" aria-label="清除">✕</button>
     </label>
-    <div id="home-account"></div>
-    <section aria-labelledby="overview-title">
-      <h2 id="overview-title" class="section-heading" data-t="overviewTitle"></h2>
-      <div id="overview" class="tiles"></div>
+    <section class="q-section home-rail" aria-labelledby="overview-title">
+      <div class="q-section-head"><h2 id="overview-title" data-t="overviewTitle"></h2></div>
+      <div id="overview" class="q-rail small tiles"></div>
     </section>
     <div id="home-rows"></div>
     <nav id="categories" class="chips" aria-label="categories"></nav>
     <section aria-labelledby="list-title">
-      <h2 id="list-title" class="section-heading"></h2>
+      <div class="q-section-head"><h2 id="list-title"></h2></div>
       <p id="list-note" class="lede"></p>
       <div id="quote-list" class="card list-card"></div>
     </section>
