@@ -6,6 +6,7 @@
 // open; past LAPSE_GRACE after its end it lapses anyway (the proxy out of
 // reach for that long: its cash or shares aren't held for ever).
 import { expireOrders } from './account.mjs';
+import { isTradingDay, localDay } from './holidays.mjs';
 
 export const LAPSE_GRACE = 30 * 60_000;
 
@@ -28,4 +29,17 @@ export function expireAsked(account, askedAt, now = Date.now(), grace = LAPSE_GR
   if (!ex.expired.length) return { account, expired: [], waiting };
   const done = new Map(ex.account.orders.map(o => [o.id, o]));
   return { account: { ...ex.account, orders: account.orders.map(o => done.get(o.id) || o) }, expired: ex.expired, waiting };
+}
+
+// When an overdraft (NT$ cash below zero) that began at `since` defaults:
+// T+2, two Taiwan business days on (weekends and market holidays skipped),
+// at the same time of day. (Taipei keeps no summer time, so whole days do.)
+export const OD_DAYS = 2;
+export function odDeadline(since, days = OD_DAYS) {
+  let t = since;
+  for (let n = days, i = 0; n > 0 && i < 60; i++) {
+    t += 86_400_000;
+    if (isTradingDay('TW', localDay(t, 'Asia/Taipei'))) n--;
+  }
+  return t;
 }

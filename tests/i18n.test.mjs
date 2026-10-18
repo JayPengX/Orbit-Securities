@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { KEYS } from '../public/lib/i18n.mjs';
+import { KEYS, detectLocale } from '../public/lib/i18n.mjs';
 
 const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
@@ -30,11 +30,37 @@ test('every key the page asks for exists', () => {
     af_: ['all', 'trades', 'fx', 'income', 'loans', 'cash'],
     margin_: ['ok', 'call', 'liquidate'],
     tab_: ['markets', 'portfolio', 'fx', 'history', 'guide'],
-    err_: ['funds', 'shares', 'qty', 'qtyStep', 'limit', 'stop', 'noQuote', 'notTradable', 'noRate', 'side', 'fx', 'tooSmall', 'amount', 'capacity', 'margin', 'noLoan', 'shortMargin', 'noValuation', 'planAmount', 'planDay', 'alertPrice', 'tick', 'priceLimit', 'unsettled']
+    err_: ['funds', 'shares', 'qty', 'qtyStep', 'limit', 'stop', 'noQuote', 'notTradable', 'noRate', 'side', 'fx', 'tooSmall', 'amount', 'capacity', 'margin', 'noLoan', 'shortMargin', 'noValuation', 'planAmount', 'planDay', 'alertPrice', 'tick', 'priceLimit', 'unsettled', 'dayTradeLimit', 'split']
   };
   for (const [prefix, list] of Object.entries(families)) for (const k of list) used.add(prefix + k);
   for (const m of app.matchAll(/para\)|\['(g_[a-z]+\d)'/g)) if (m[1]) used.add(m[1]);
   for (const m of app.matchAll(/'(g_[a-z]+\d?)'/g)) used.add(m[1]);
   const missing = [...used].filter(k => !zh.has(k));
   assert.deepEqual(missing, []);
+});
+
+test('no string is empty: a blank key only kept a dead branch alive (lotNote, forYouSub, plansNote, ...)', async () => {
+  const { STRINGS } = await import('../public/lib/i18n.mjs');
+  for (const lang of ['zh', 'en']) assert.deepEqual(Object.entries(STRINGS[lang]).filter(([, s]) => s === '').map(([k]) => k), [], lang);
+});
+
+test('the old margin-buy flag is gone (it was always null, and its 融資買進 string unshown)', () => {
+  assert.doesNotMatch(app, /\bmarginBuy\b/);
+  assert.ok(!zh.has('marginBuy') && !en.has('marginBuy'));
+});
+
+test('the language saved in any Quadra app wins over the phone', () => {
+  const before = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const store = v => Object.defineProperty(globalThis, 'localStorage', { value: { getItem: k => (k === 'quadra.lang' ? v : null) }, configurable: true });
+  try {
+    store('en');
+    assert.equal(detectLocale(), 'en');
+    store('zh');
+    assert.equal(detectLocale(), 'zh');
+    store('fr');
+    assert.ok(['zh', 'en'].includes(detectLocale()));
+  } finally {
+    if (before) Object.defineProperty(globalThis, 'localStorage', before);
+    else delete globalThis.localStorage;
+  }
 });

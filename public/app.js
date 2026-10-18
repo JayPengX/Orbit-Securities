@@ -1,11 +1,11 @@
 // Stock Study: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
-  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, defaulted, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, requiredCash, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, LEND_TERM_DAYS, lendFee, lendable } from './lib/savings.mjs';
 import {
-  BASE, CURRENCIES, MARKETS, METALS, collateralRate, MARGIN_CALL, MARGIN_RESTORE, SHORT_FEE, currencyInfo, isOpen, isTradable, isShortable, qtyStep, roundQty, dealPrice, delayOf, tickSize, onTick, priceLimits, marketFill, isOddLot, oddLotOpen, CASH_RATE, lotSize, lunchOf, atLunch, limitShare, settleDays
+  BASE, CURRENCIES, MARKETS, METALS, collateralRate, MARGIN_CALL, MARGIN_RESTORE, SHORT_FEE, currencyInfo, isOpen, isTradable, isShortable, qtyStep, roundQty, delayOf, tickSize, onTick, priceLimits, marketFill, isOddLot, oddLotOpen, CASH_RATE, lotSize, lunchOf, atLunch, limitShare, settleDays
 } from './lib/markets.mjs';
 import { BONDS } from './lib/bonds.mjs';
 import { nextTradingStart, upcomingHolidays, localDay } from './lib/holidays.mjs';
@@ -13,19 +13,22 @@ import { fetchQuotes, fetchChart, fetchBars, fetchCorporateActions, fetchFundame
 import { CATEGORIES, OVERVIEW, TRACKERS, catalogInfo, searchCatalog } from './lib/catalog.mjs';
 import { brandIcon, brandLogo } from './lib/brands.mjs';
 import { tvLogos } from './lib/tvlogos.mjs';
-import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF, SHORT_DEPOSIT } from './lib/credit.mjs';
+import { TW_NAMES } from './lib/twnames.mjs';
+import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
-import { movingAverage, pointAt } from './lib/timemachine.mjs';
-import { ticketEstimate, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from './lib/preview.mjs';
-import { expireAsked } from './lib/orders.mjs';
+import { movingAverage, pointAt } from './lib/series.mjs';
+import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit } from './lib/preview.mjs';
+import { expireAsked, odDeadline } from './lib/orders.mjs';
+import { twPhase, afterHoursSend, atLimit, exDayTags } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
-  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, notifyOn, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
+  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
   keepOffline, onlineOnly, proxyJson
 } from '#kit/quadra.mjs';
+import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_URL, IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as stockAccount from './lib/account.mjs';
 
@@ -176,6 +179,8 @@ const L = obj => (obj ? (locale === 'zh' ? obj.zh : obj.en) : '');
 function nameOf(symbol, quote = state.quotes.get(symbol)) {
   const info = catalogInfo(symbol);
   if (info) return locale === 'zh' ? info.zh : info.en;
+  // A Taiwan stock outside the catalogue: its Chinese name (twnames.mjs), as Yahoo has the English only.
+  if (locale === 'zh' && TW_NAMES[symbol]) return TW_NAMES[symbol];
   if (METALS[symbol]) return L(METALS[symbol]);
   if (symbol.endsWith('=X') && symbol.length === 8) return `${symbol.slice(0, 3)}/${symbol.slice(3, 6)}`;
   return quote?.shortName || quote?.name || symbol;
@@ -437,15 +442,15 @@ function afterPrices() {
     v = valuate(replay(account, now), state.quotes, state.rates);
   }
   // An overdraft (NT$ cash below zero) is collected like an unpaid
-  // settlement (違約交割): OD_GRACE to cover it, then the broker sells
+  // settlement (違約交割): until T+2 (odDeadline) to cover it, then the broker sells
   // holdings for it (coverPlan's sales, at market, one order each).
   if (!v.missingRates.length && !v.stale.length) {
     const owed = overdrawnBy(v);
     if (owed >= 1) {
       if (!account.od) {
         account = { ...account, od: { since: now } };
-        accountNotice('margin', t('odWarn', { v: money(owed, BASE), date: fmtDate(now + OD_GRACE) }), { tone: 'bad', tag: `od:${now}`, hash: 'portfolio' });
-      } else if (now - account.od.since >= OD_GRACE && !account.orders.some(o => o.status === 'open' && o.cover) && !coverPending(v, account)) {
+        accountNotice('margin', t('odWarn', { v: money(owed, BASE), date: fmtDate(odDeadline(now)) }), { tone: 'bad', tag: `od:${now}`, hash: 'portfolio' });
+      } else if (now >= odDeadline(account.od.since) && !account.orders.some(o => o.status === 'open' && o.cover) && !coverPending(v, account)) {
         // A default: 違約金 on what's owed (it's sold for too), on the record;
         // time deposits are broken against it (the bank's set-off, at the
         // early rate) and lent shares called back to be sold. Once per
@@ -766,6 +771,8 @@ function showToast(text, kind = '', more = [], hash = '') {
 
 // ---- Shared bits of markup --------------------------------------------------------
 
+// A price at 漲停 or 跌停, filled red or green as Taiwan's brokers show it.
+const limitClass = q => (atLimit(q) ? ` at-limit ${atLimit(q)}` : '');
 function changeHtml(q, { big = false } = {}) {
   if (!q) return '<span class="chg flat">—</span>';
   const d = dirClass(q.change);
@@ -831,6 +838,14 @@ function marketStatus(q) {
   if (q.kind === 'crypto') return `<span class="mkt-status open">${statusDot(q)}${h(t('always'))}</span>`;
   const now = Date.now();
   if (q.session && now >= q.session.start && now < q.session.end && atLunch(q.market, now)) return `<span class="mkt-status">${statusDot(q)}${h(t('atLunch'))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+  // Taiwan's own phases: 試撮 before the opening auction, the closing
+  // auction, and (for what trades after hours) the 盤後 sessions to 14:30.
+  const ph = q.market === 'TW' ? twPhase(now) : null;
+  if (ph && ph.id !== 'continuous' && (ph.id !== 'after' || isTradable(q.kind))) {
+    const time = clock(ph.until, q.tz);
+    const text = { preopen: t('phasePreopen', { time }), closing: t('phaseClosing', { time }), after: t('phaseAfter', { time }) }[ph.id];
+    return `<span class="mkt-status${ph.id === 'closing' ? ' open' : ''}">${statusDot(q)}${h(text)} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+  }
   if (isOpen(q, now)) return `<span class="mkt-status open">${statusDot(q)}${h(t('marketOpenUntil', { time: clock(q.session.end, q.tz) }))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
   const opens = nextOpen(q, now);
   const next = opens ? t('opensAt', { time: weekdayClock(opens) }) : t('marketClosed');
@@ -943,7 +958,7 @@ function quoteRow(symbol, { note = '' } = {}) {
     ${symbolBadge(symbol, q || info)}
     <span class="row-main"><span class="row-title">${h(due ? due[1] : nameOf(symbol, q))}${held ? `<span class="held-tag">${h(t('heldTag'))}</span>` : ''}</span><span class="row-sub">${flagOf(symbol, q)} ${h(sub)}</span></span>
     <span class="row-spark">${q ? sparkline(q.line, q.kind === 'crypto' ? null : q.prev) : ''}</span>
-    <span class="row-price"><strong class="num" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong><small><span class="row-cur">${q ? h(q.currency) : ''}</span>${q ? statusDot(q) : ''}</small></span>
+    <span class="row-price"><strong class="num${limitClass(q)}" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong><small><span class="row-cur">${q ? h(q.currency) : ''}</span>${q ? statusDot(q) : ''}</small></span>
     ${pctPill(q)}
   </button>`;
 }
@@ -998,11 +1013,10 @@ const kindOrCat = id => {
   const cat = CATEGORIES.find(c => c.id === id);
   return cat ? L(cat) : t(`kind_${id}`);
 };
-function recRow(title, cards, { sub = '', cat = '' } = {}) {
+function recRow(title, cards, { cat = '' } = {}) {
   if (!cards.length) return '';
   return `<section class="q-section home-row">
     <div class="q-section-head"><h2>${h(title)}</h2>${cat ? `<button type="button" data-action="cat" data-id="${h(cat)}">${h(t('seeAll'))}</button>` : ''}</div>
-    ${sub ? `<p class="row-sub-note">${h(sub)}</p>` : ''}
     <div class="q-recs">${cards.join('')}</div>
   </section>`;
 }
@@ -1061,7 +1075,7 @@ function renderHomeRows() {
       : '';
   const acct = $('home-account');
   if (acct) acct.innerHTML = summary + openNowHtml();
-  box.innerHTML = [recRow(t('forYou'), recs.map(r => recCard(r.symbol, r.why)), { sub: t('forYouSub') }), ipoHtml(), moversHtml].join('');
+  box.innerHTML = [recRow(t('forYou'), recs.map(r => recCard(r.symbol, r.why))), ipoHtml(), moversHtml].join('');
 }
 
 // What's trading now (the economy review, 2026-10-18: a weekday evening felt
@@ -1084,6 +1098,24 @@ function openNowHtml() {
 // TWSE's list of public subscriptions, kept half an hour; read before the
 // loading screen lifts (boot), so the section never arrives after it.
 const ipoState = { list: null, at: 0, busy: null };
+// TWSE's 處置 and 注意 lists (lib/alerts.mjs), flagged on a stock as brokers' apps do.
+const alertState = { punish: null, notice: null, at: 0, busy: null };
+function loadAlerts() {
+  if (alertState.busy) return alertState.busy;
+  if (alertState.at && Date.now() - alertState.at < 30 * 60_000) return Promise.resolve();
+  alertState.busy = (async () => {
+    const [punish, notice] = await Promise.all([PUNISH_URL, NOTICE_URL].map(u => proxyJson(u, { ttl: 30 * 60_000 }).then(x => (typeof x === 'string' ? JSON.parse(x) : x)).catch(() => null)));
+    if (punish) alertState.punish = parseAlertList(punish, 'punish');
+    if (notice) alertState.notice = parseAlertList(notice, 'notice');
+    alertState.at = Date.now();
+    alertState.busy = null;
+  })();
+  return alertState.busy;
+}
+const alertTag = symbol => {
+  const a = alertOf(symbol, alertState);
+  return a ? `<span class="held-tag alert-${a}" title="${h(t(`${a}Help`))}">${h(t(`${a}Tag`))}</span>` : '';
+};
 const ipoKey = s => `${s.code}:${s.draw}`;
 function loadIpo() {
   if (ipoState.busy) return ipoState.busy;
@@ -1231,7 +1263,7 @@ function renderMarkets() {
   const cat = CATEGORIES.find(c => c.id === state.category);
   const symbols = state.category === 'watch' ? watch : cat.items.map(i => i[0]);
   $('list-title').textContent = state.category === 'watch' ? t('watchlist') : L(cat);
-  $('list-note').textContent = cat?.id === 'index' || cat?.id === 'metal' ? t('watchOnlyNote') : cat?.id === 'crypto' ? t('cryptoNote') : cat?.id === 'fx' ? t('fxTradeNote') : '';
+  $('list-note').textContent = cat?.id === 'index' || cat?.id === 'metal' ? t('watchOnlyNote') : '';
   // A long list opens on its first rows; the rest a tap away.
   const cap = state.listAll === state.category ? Infinity : LIST_SHOWN;
   const more = symbols.length - Math.min(cap, symbols.length);
@@ -1274,7 +1306,7 @@ function renderSearch() {
   const local = searchCatalog(q, 40).map(i => i.symbol);
   const extra = state.search.query === q ? state.search.results : [];
   $('list-title').textContent = t('searchResults', { q });
-  $('list-note').textContent = /[^\x20-\x7e]/.test(q) ? t('searchChineseNote') : t('searchNote');
+  $('list-note').textContent = /[^\x20-\x7e]/.test(q) ? '' : t('searchNote');
   const rows = [...local.map(s => quoteRow(s)), ...extra.map(r => quoteRow(r.symbol, { note: r.exchange }))];
   $('quote-list').innerHTML =
     rows.join('') ||
@@ -1295,8 +1327,8 @@ async function openDetail(symbol) {
     side: 'buy',
     type: 'market',
     qty: '',
-    limit: q0 ? String(+q0.price.toPrecision(6)) : '',
-    stop: q0 ? String(+q0.price.toPrecision(6)) : '',
+    limit: startPrice(q0),
+    stop: startPrice(q0),
     msg: null,
     held: Boolean(held)
   };
@@ -1313,7 +1345,7 @@ async function openDetail(symbol) {
     if (!fresh) absorb(await fetchQuotes([symbol]));
     const q = state.quotes.get(symbol);
     if (q) await ensureRates([q.currency]);
-    if (q && state.detail?.symbol === symbol && !state.detail.limit) state.detail.limit = state.detail.stop = String(+q.price.toPrecision(6));
+    if (q && state.detail?.symbol === symbol && !state.detail.limit) state.detail.limit = state.detail.stop = startPrice(q);
   } catch {}
   if (state.detail?.symbol !== symbol || (fresh && q0 === state.quotes.get(symbol))) return;
   renderDetail();
@@ -1400,15 +1432,15 @@ function renderDetail() {
     `
     <header class="sheet-head">
       ${symbolBadge(d.symbol, q || info)}
-      <div class="sheet-title"><h2>${h(nameOf(d.symbol, q))}</h2><p>${flagOf(d.symbol, q)} ${h(sub)}</p></div>
+      <div class="sheet-title"><h2>${h(nameOf(d.symbol, q))}${alertTag(d.symbol)}</h2><p>${flagOf(d.symbol, q)} ${h(sub)}</p></div>
       <button class="icon-button star${starred ? ' on' : ''}" type="button" data-action="star" aria-label="${h(t('watchToggle'))}" title="${h(t('watchToggle'))}">${starred ? '★' : '☆'}</button>
       <button class="icon-button" type="button" data-action="close" aria-label="${h(t('close'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </header>
     ${
       q
         ? `<div class="price-block">
-      <div><strong class="big-price num" data-q-live="big:${h(d.symbol)}">${fmtPrice(q.price, q.currency)}</strong> <span class="cur">${h(q.currency)}${METALS[d.symbol] ? ` / ${h(unitOf(d.symbol))}` : ''}</span></div>
-      <div>${changeHtml(q, { big: true })}</div>
+      <div><strong class="big-price num${limitClass(q)}" data-q-live="big:${h(d.symbol)}">${fmtPrice(q.price, q.currency)}</strong> <span class="cur">${h(q.currency)}${METALS[d.symbol] ? ` / ${h(unitOf(d.symbol))}` : ''}</span></div>
+      <div>${changeHtml(q, { big: true })}${atLimit(q) ? ` <span class="limit-tag ${atLimit(q)}">${h(atLimit(q) === 'up' ? t('limitUpTag') : t('limitDownTag'))}</span>` : ''}</div>
       <div class="price-meta">${marketStatus(q)}</div>
       <div class="price-meta">${q.marketTime ? `<span>${h(t('asOf', { time: dateTime(q.marketTime) }))}</span> · ` : ''}${delayOf(q.market) ? `<span class="delay-tag" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="delay-tag live" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`}</div>
     </div>`
@@ -1544,12 +1576,11 @@ function bondFacts(q) {
 
 function factsHtml(q) {
   if (BONDS[q.symbol] && q.bond) {
-    return `<dl class="facts-grid">${bondFacts(q).map(([k, v]) => `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`).join('')}</dl>${
-      q.bond.live ? '' : `<p class="note">${h(t('referenceNote'))}</p>`
-    }`;
+    return `<dl class="facts-grid">${bondFacts(q).map(([k, v]) => `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`).join('')}</dl>`;
   }
   const rows = [
     [t('prevClose'), fmtPrice(q.prev, q.currency)],
+    ...(priceLimits(q) ? [[t('limitPrices'), `${fmtPrice(priceLimits(q).up, q.currency)} / ${fmtPrice(priceLimits(q).down, q.currency)}`]] : []),
     [t('dayRange'), q.dayLow != null ? `${fmtPrice(q.dayLow, q.currency)} – ${fmtPrice(q.dayHigh, q.currency)}` : '—'],
     [t('range52'), q.low52 != null ? `${fmtPrice(q.low52, q.currency)} – ${fmtPrice(q.high52, q.currency)}` : '—'],
     [t('volume'), q.volume ? compact(q.volume) : '—'],
@@ -1573,7 +1604,9 @@ function factsHtml(q) {
 function hoursLine(q) {
   const tw = `${clock(q.session.start)}–${clock(q.session.end)}`;
   const local = `${clock(q.session.start, q.tz)}–${clock(q.session.end, q.tz)}`;
-  return local === tw ? tw : `${tw} ${t('taipeiTime')} · ${t('localTime')} ${local}`;
+  const line = local === tw ? tw : `${tw} ${t('taipeiTime')} · ${t('localTime')} ${local}`;
+  // Taiwan: orders from 08:30 (試撮) and the after-hours sessions.
+  return q.market === 'TW' && isTradable(q.kind) ? `${line} · ${t('twHoursMore')}` : line;
 }
 
 function positionHtml(symbol) {
@@ -1629,8 +1662,7 @@ function alertCardHtml(symbol, q) {
     ${rows ? `<ul class="tool-list">${rows}</ul>` : ''}
     <div class="fx-amount"><label class="field grow"><span>${h(t('alertPriceLabel'))} (${h(q.currency)})</span><input id="alert-price" inputmode="decimal" autocomplete="off" value="${h(state.alertPrice)}" placeholder="${h(fmtPrice(q.price, q.currency))}" /></label></div>
     <div class="qty-presets">${presets.map(([label, v]) => `<button class="q-chip small" type="button" data-action="alert-preset" data-v="${v}">${h(label)}</button>`).join('')}</div>
-    <button class="q-btn primary" type="button" data-action="alert-add" ${price > 0 && Math.abs(price / q.price - 1) > 1e-6 ? '' : 'disabled'}>${h(price > 0 ? t(op === 'above' ? 'alertAddAbove' : 'alertAddBelow', { price: fmtPrice(price, q.currency) }) : t('alertAdd'))}</button>
-    ${'Notification' in window && !notifyOn() ? `<p class="note">${h(t('alertNotifyNote'))}</p>` : ''}`,
+    <button class="q-btn primary" type="button" data-action="alert-add" ${price > 0 && Math.abs(price / q.price - 1) > 1e-6 ? '' : 'disabled'}>${h(price > 0 ? t(op === 'above' ? 'alertAddAbove' : 'alertAddBelow', { price: fmtPrice(price, q.currency) }) : t('alertAdd'))}</button>`,
     list.some(a => a.on),
     'tool:alert'
   );
@@ -1765,7 +1797,7 @@ function aboutHtml(symbol, q) {
   const summary = f?.summary
     ? `<details class="summary-text"><summary>${h(t('whatItDoes'))}</summary>${local ? `<p>${h(a.summaryLocal)}</p><details class="summary-orig"><summary>${h(t('originalText'))}</summary><p lang="en">${h(f.summary)}</p></details>` : `<p lang="en">${h(f.summary)}</p>`}${f.website ? `<p><a href="${h(f.website)}" target="_blank" rel="noopener">${h(f.website.replace(/^https?:\/\//, ''))}</a></p>` : ''}</details>`
     : '';
-  return fold(icon, title, `${body}${summary}<p class="note">${h(t('aboutSource'))}</p>`, true, 'about');
+  return fold(icon, title, `${body}${summary}`, true, 'about');
 }
 
 // One quick read: a label, a verdict and the number behind it.
@@ -1979,7 +2011,7 @@ function ticketInfo() {
   const shorting = d.side === 'sell' && qty > shares + 1e-9;
   const twCredit = q.market === 'TW' && creditAccount(state.account, now).open;
   const twDayShort = q.market === 'TW' && !twCredit && dayTradeSellFirst(state.account, now);
-  const est = qty > 0 && ref > 0 ? ticketEstimate(state.account, { quote: q, side: d.side, qty, price: ref, first: welcome, credit: shorting && twCredit, dayShort: shorting && twDayShort, held: heldQty(state.account, d.symbol, now), now }) : null;
+  const est = qty > 0 && ref > 0 ? lotsEstimate(state.account, { quote: q, side: d.side, qty, price: ref, first: welcome, credit: shorting && twCredit, dayShort: shorting && twDayShort, held: heldQty(state.account, d.symbol, now), now }) : null;
   // The other currencies held and settled (what an exchange can take), NT$
   // first then the largest: what could be exchanged into this one.
   const free = s ? withdrawable(state.account, s) : {};
@@ -1992,23 +2024,15 @@ function ticketInfo() {
   const fromOthers = sources.reduce((sum, c) => sum + (quoteExchange(c, q.currency, spare(c), state.rates, state.fxOpen)?.received || 0), 0);
   const spendable = cash + fromOthers;
   // 融資: a buy of what the broker lends against, lent its share as it fills
-  // (only one's own part is needed now).
-  // (Only with a credit account, and not after a default: no 融資 then, DEFAULT_BAN long.)
-  const hasCredit = creditAccount(state.account, Date.now()).open;
-  const marginRate = d.side === 'buy' && hasCredit && !defaulted(state.account) ? collateralRate(q.kind, q.market, q.symbol) : 0;
+  // (only one's own part is needed now); 最大 within the credit limit left
+  // (lib/preview.mjs marginRateFor, ticketMax).
+  const hasCredit = creditAccount(state.account, now).open;
+  const marginRate = marginRateFor(state.account, q, d.side, now);
   const credit = Boolean(d.credit) && marginRate > 0;
-  // (Held for a fresh price, as every order from the ticket is.)
-  const holdFor = n => requiredCash({ type: d.type, qty: n, limit: Number(d.limit), stop: Number(d.stop), waitFresh: 1, margin: credit ? marginRate : 0 }, q, Date.now()).reserve;
-  let max = 0;
-  if (ref > 0) {
-    const step = qtyStep(q.kind);
-    const perUnit = dealPrice(q.market, 'buy', ref) * (1 + ((MARKETS[q.market] || MARKETS.INTL).commission.rate || 0) + 0.006) * 1.03;
-    max = roundQty(spendable / perUnit, q.kind);
-    while (max > 0 && holdFor(max) > spendable) max = roundQty(max - (step >= 1 ? 1 : max * 0.001), q.kind);
-  }
+  const max = ticketMax(state.account, { quote: q, order: d, ref, spendable, margin: credit ? marginRate : 0, valuation: credit ? valuation() : null, now });
   // Exactly what the order will hold (placeOrder checks the same figure):
   // the estimate, plus a 3% buffer when it has to wait for its market.
-  const req = d.side === 'buy' && est ? requiredCash({ type: d.type, qty, limit: Number(d.limit), stop: Number(d.stop), waitFresh: 1, margin: credit ? marginRate : 0 }, q, Date.now()) : null;
+  const req = d.side === 'buy' && est ? lotsHold({ type: d.type, qty, limit: Number(d.limit), stop: Number(d.stop), waitFresh: 1, margin: credit ? marginRate : 0 }, q, Date.now()) : null;
   const need = req ? req.reserve : 0;
   const short = d.side === 'buy' && est ? Math.max(0, need - cash) : 0;
   // Short of this currency: each currency held that covers it (spread
@@ -2020,14 +2044,16 @@ function ticketInfo() {
   // no borrowing cash to cover a shortfall.
   const v0 = credit ? valuation() : null;
   const marginOk = !credit || v0?.margin === 'ok';
-  const lent = credit && est ? Math.round(est.total * marginRate * 100) / 100 : 0;
-  const marginBuy = null;
+  // What 融資 lends: each order's trade value × 成數, the part under NT$1,000 not lent (the kit's rule).
+  const lent = credit && est ? lotsLoan(q, qty, ref, marginRate) : 0;
   // How much can be sold short on top of what's held.
   let room = 0;
+  // A day trade sold first: within the day's day-trade limit (當沖額度) left.
+  const dayRoom = twDayShort && d.side === 'sell' ? dayTradeLeft(state.account, valuation()?.netWorth ?? 0, now) : null;
   // (Borrowing shares needs the credit account; in Taiwan a day trade sold first doesn't.)
   if (d.side === 'sell' && isShortable(q.kind) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
-    room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: q.price, kind: q.kind, credit: shortCredit(state.account, q.market, now), cash });
-  return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, marginBuy, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort };
+    room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: quotaPrice(q, d, now), kind: q.kind, credit: shortCredit(state.account, q.market, now), cash, dayLeft: dayRoom?.left ?? null, dayUnit: dayTradePrice(q, d, now) * state.rates[q.currency], held: shares, market: q.market });
+  return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
 }
 
 function renderTicket() {
@@ -2038,12 +2064,14 @@ function renderTicket() {
     morph(box, `<div class="card ticket"><p>${h(t('needAccount'))}</p><div class="spinner"></div></div>`);
     return;
   }
-  const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, marginBuy, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort } = ticketInfo();
+  const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom } = ticketInfo();
   const open = isOpen(q);
   const unit = unitOf(d.symbol);
+  // A Taiwan market or stop order sells whole lots only (an odd lot takes limit orders), as ticketMax buys.
+  const sellable = n => (oddLotNeedsLimit(q.market, q.kind, n, d.type) ? Math.floor(n / 1000) * 1000 : n);
   const presets =
     d.side === 'sell'
-      ? [[t('pct25'), roundQty(shares * 0.25, q.kind)], [t('pct50'), roundQty(shares * 0.5, q.kind)], [t('all'), roundQty(shares, q.kind)], [t('maxShort'), roundQty(shares + shortRoom, q.kind)]]
+      ? [[t('pct25'), shares * 0.25], [t('pct50'), shares * 0.5], [t('all'), shares], [t('maxShort'), shares + shortRoom]].map(([k, n]) => [k, sellable(roundQty(n, q.kind))])
       : q.kind === 'govbond'
         ? [[t('max'), max], ['1', 1], ['10', 10], ['100', 100]]
         : q.kind === 'fx'
@@ -2074,8 +2102,11 @@ function renderTicket() {
   else if (shorting && !twCredit && !twDayShort && (q.market === 'TW' || (q.kind !== 'fx' && !creditAccount(state.account, Date.now()).open))) problems.push(t('err_creditNeeded'));
   else if (shorting && qty > shares + shortRoom + 1e-9) problems.push(t('shortTooBig', { max: fmtQty(shares + shortRoom) }));
   if (credit && !marginOk) problems.push(t('err_margin'));
-  if (short > 0 && !topUp?.enough && !marginBuy) problems.push(t('notEnoughCash', { cur: q.currency, have: money(cash, q.currency), short: money(short, q.currency) }));
+  if (short > 0 && !topUp?.enough) problems.push(t('notEnoughCash', { cur: q.currency, have: money(cash, q.currency), short: money(short, q.currency) }));
   if (d.qty && Math.abs(roundQty(qty, q.kind) - qty) > qtyStep(q.kind) * 1e-3) problems.push(t('err_qtyStep'));
+  if (qty > 0 && oddLotNeedsLimit(q.market, q.kind, qty, d.type)) problems.push(t('err_oddLotLimit'));
+  // Taiwan: whole lots and odd lots go in as two orders, placed in one tap (整零合併).
+  const split = lotSplit(q.market, q.kind, qty);
   // The exchange's rules for the price typed.
   const typed = d.type === 'limit' ? Number(d.limit) : d.type === 'stop' ? Number(d.stop) : null;
   const band = priceLimits(q);
@@ -2085,8 +2116,23 @@ function renderTicket() {
     else if (band && d.type === 'limit' && (typed > band.up + 1e-9 || typed < band.down - 1e-9)) problems.push(t('err_priceLimit', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }));
   }
   const canPlace = est && !problems.length && !(short > 0) && marginOk;
+  // After Taiwan's close (to 14:30), what the order goes to: 盤後定價 for
+  // whole lots at today's close, 盤後零股 for an odd lot, each matched once
+  // at 14:30 and sent only once its session takes orders (not "at the open").
+  const afterLines = [];
+  if (q.market === 'TW' && d.type !== 'stop' && afterHours(Date.now())) {
+    const odd = qty > 0 && isOddLot(q.market, q.kind, qty);
+    const parts = [[qty === 0 || qty >= 1000 || !odd, false], [odd, true]];
+    for (const [has, isOdd] of parts) {
+      if (!has) continue;
+      const send = afterHoursSend(Date.now(), isOdd);
+      const line = isOdd ? t('afterOddNote') : t('afterBoardNote', { close: fmtPrice(q.price, q.currency) });
+      afterLines.push(send?.waits ? `${line} ${t('afterSends', { time: clock(send.sends) })}` : line);
+    }
+  }
   // A member's commission on the same trade (the market's minimum after the discount: often no less).
-  const plusFee = est?.commission ? plusCommission({ market: q.market, kind: q.kind, side: d.side, gross: est.gross, currency: q.currency, qty, dayTrade: est.dayTrade }, PLUS.stock.commission) : 0;
+  // (Each of a split's two orders at its own minimum.)
+  const plusFee = est?.commission ? lotParts(q.market, q.kind, qty).reduce((sum, n) => sum + plusCommission({ market: q.market, kind: q.kind, side: d.side, gross: (est.gross * n) / qty, currency: q.currency, qty: n, dayTrade: est.dayTrade }, PLUS.stock.commission), 0) : 0;
   const rate = state.rates[q.currency];
   morph(
     box,
@@ -2108,7 +2154,7 @@ function renderTicket() {
     </div>
     <div class="qty-presets one-row">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button class="q-chip small" type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}">${h(label)}</button>`).join('')}</div>
     ${d.type !== 'market' && (band || tickSize(q.market, q.kind, q.price)) ? `<p class="muted">${h([band ? t('limitBand', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }) : '', tickSize(q.market, q.kind, q.price) ? t('tickIs', { tick: num(tickSize(q.market, q.kind, q.price), 4, 0) }) : ''].filter(Boolean).join(' · '))}</p>` : ''}
-    <p class="muted">${h(d.side === 'buy' ? t('cashAvail', { amount: money(cash, q.currency) }) : t('sharesAvail', { qty: fmtQty(shares), unit }))}${q.market === 'TW' && q.kind !== 'metal' && t('lotNote') ? ` · ${h(t('lotNote'))}` : ''}${d.side === 'buy' && sources.length ? ` <button class="link-button" type="button" data-action="ticket-fx" data-from="${h(sources[0])}" data-to="${h(q.currency)}">${h(t('fxOpen'))}</button>` : ''}</p>
+    <p class="muted">${h(d.side === 'buy' ? t('cashAvail', { amount: money(cash, q.currency) }) : t('sharesAvail', { qty: fmtQty(shares), unit }))}${d.side === 'buy' && sources.length ? ` <button class="link-button" type="button" data-action="ticket-fx" data-from="${h(sources[0])}" data-to="${h(q.currency)}">${h(t('fxOpen'))}</button>` : ''}</p>
     ${covers.length ? `<div class="qty-presets fx-cover">${covers.slice(0, 3).map(c => `<button class="q-chip small" type="button" data-action="topup" data-from="${h(c.from)}" data-cur="${h(q.currency)}" data-need="${c.need}">${h(t('fxCover', { pay: money(c.need, c.from), get: money(c.get, q.currency) }))}</button>`).join('')}</div>` : ''}
     ${d.side === 'sell' && heldMargin(d.symbol) > 0 ? `<p class="note margin-split">${h(t('sellSplit', { cash: fmtQty(Math.max(0, shares - heldMargin(d.symbol))), margin: fmtQty(heldMargin(d.symbol)), unit }))}</p>` : ''}
     ${
@@ -2116,20 +2162,22 @@ function renderTicket() {
         ? `<dl class="preview">${lines.map(([k, v]) => `<div><dt>${h(k)}</dt><dd class="num">${h(v)}</dd></div>`).join('')}
         <div class="preview-total"><dt>${h(d.side === 'buy' ? t('totalCost') : t('totalProceeds'))}</dt><dd class="num"><strong>${h(money(est.total, q.currency))}</strong>${rate && q.currency !== BASE ? `<small>≈ ${h(money(est.total * rate, BASE))}</small>` : ''}</dd></div>
         ${credit ? `<div><dt>${h(t('creditLent', { n: Math.round(marginRate * 10) }))}</dt><dd class="num">${h(money(lent, q.currency))}</dd></div><div><dt>${h(t('creditOwn'))}</dt><dd class="num"><strong>${h(money(est.total - lent, q.currency))}</strong></dd></div>` : ''}
-        ${req && req.buffer > 0 ? `<div class="preview-held"><dt>${h(t('heldUntilFill'))}<small>${h(t('bufferNote'))}</small></dt><dd class="num"><strong>${h(money(need, q.currency))}</strong></dd></div>` : ''}
+        ${req && req.buffer > 0 ? `<div class="preview-held"><dt>${h(t('heldUntilFill'))}<small>${h(d.type !== 'limit' && quotaPrice(q, d) > q.price ? t('bufferNoteUp', { up: fmtPrice(quotaPrice(q, d), q.currency) }) : t('bufferNote'))}</small></dt><dd class="num"><strong>${h(money(need, q.currency))}</strong></dd></div>` : ''}
         ${d.side === 'buy' ? `<div class="preview-have ${short > 0 ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, q.currency))}</dd></div>` : ''}</dl>
         ${welcome ? `<p class="fee-welcome">${h(t('feeWelcome'))}</p>` : ''}
         ${est.commission && !plusAt() && plusFee < est.commission ? `<button class="q-plus-hint fee-plus" type="button" data-action="plus">${h(t('feePlus', { v: money(plusFee, q.currency) }))}</button>` : ''}`
         : ''
     }
-    ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money((qty - shares) * q.price * SHORT_DEPOSIT, q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}</p>` : ''}
-    ${q.market === 'TW' && afterHours(Date.now()) ? `<p class="note">${h(t('afterHoursNote'))}</p>` : ''}
+    ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money(lotsDeposit(q.market, q.kind, shares, qty - shares, quotaPrice(q, d)), q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}${!twCredit && q.market === 'TW' && dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>` : ''}
+    ${afterLines.map(x => `<p class="note">${h(x)}</p>`).join('')}
+    ${alertOf(d.symbol, alertState) === 'punish' ? `<p class="note alert-note">${h(t('punishHelp'))}</p>` : ''}
+    ${split ? `<p class="note lot-split">${h(t(afterLines.length ? 'lotSplitNoteAfter' : 'lotSplitNote', { board: fmtQty(split.board), odd: fmtQty(split.odd) }))}</p>` : ''}
     ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
     ${topUp?.enough ? `<p class="note">${h(t('autoFxLine', { pay: money(topUp.need, BASE), get: money(topUp.get, q.currency) }))}</p>` : ''}
     ${credit && est ? `<p class="note margin-line">${h(t('creditNote', { rate: pct(loanRateAt(q.currency), { digits: 2, sign: false }) }))}</p>` : ''}
-    ${!open ? `<p class="note">${h(q.kind === 'metal' ? t('closedMetal') : t('closedQueue'))}</p>` : ''}
-    ${qty > 0 && isOddLot(q.market, q.kind, qty) ? `<p class="note">${h(open && !oddLotOpen(Date.now()) ? t('oddLotWait') : t('oddLotNote'))}</p>` : ''}
-    ${d.type !== 'limit' && est ? `<p class="note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
+    ${!open && !afterLines.length ? `<p class="note">${h(q.kind === 'metal' ? t('closedMetal') : t('closedQueue'))}</p>` : ''}
+    ${qty > 0 && isOddLot(q.market, q.kind, qty) && !afterLines.length ? `<p class="note">${h(open && !oddLotOpen(Date.now()) ? t('oddLotWait') : t('oddLotNote'))}</p>` : ''}
+    ${d.type !== 'limit' && est && !afterLines.length ? `<p class="note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
     ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
     ${
       topUp?.enough && est && !problems.length
@@ -2141,30 +2189,6 @@ function renderTicket() {
   );
 }
 
-// Taiwan's whole lots and odd lots are separate orders, and odd lots take
-// limit orders only (TWSE). A mixed quantity goes in as two orders, whole
-// lots first; an odd lot asked at market goes in as a limit at 漲停 for a buy
-// or 跌停 for a sell, which fills like one at the best price.
-function oddLimit(req, q) {
-  if (req.type === 'limit' || !isOddLot(q.market, q.kind, req.qty)) return req;
-  const band = priceLimits(q);
-  if (!band) return req;
-  const { stop, tif, ...rest } = req;
-  return { ...rest, type: 'limit', limit: req.side === 'buy' ? band.up : band.down };
-}
-function placeTw(account, req, opts) {
-  const q = opts.quote;
-  const n = Math.round(req.qty);
-  if (q.market !== 'TW' || !isOddLot(q.market, q.kind, n)) return place(account, req, opts);
-  if (n < 1000) return place(account, oddLimit(req, q), opts);
-  const lots = n - (n % 1000), odd = n % 1000;
-  const first = place(account, { ...req, qty: lots }, opts);
-  if (first.error && !first.account) return first;
-  const second = place(first.account, oddLimit({ ...req, qty: odd }, q), { ...opts, id: undefined });
-  if (second.error && !second.account) return { ...first, lots, odd, oddFailed: second };
-  return { ...second, fill: second.fill || first.fill, order: second.order || first.order };
-}
-
 function placeFromTicket() {
   const d = state.detail;
   const q = state.quotes.get(d.symbol);
@@ -2173,22 +2197,25 @@ function placeFromTicket() {
   if (d.type === 'limit') req.limit = Number(d.limit);
   if (d.type === 'stop') req.stop = Number(d.stop);
   if (d.type !== 'market' && d.tif === 'gtc') req.tif = 'gtc';
-  const opts = { quote: q, rates: state.rates, valuation: valuation(), now: Date.now() };
-  const r = placeTw(state.account, req, opts);
-  if (r.error && !r.account) {
-    d.msg = { kind: 'bad', text: errorText(r) };
-  } else if (r.oddFailed) {
-    // The whole lots went in; the odd lot didn't: say so, keep it on the ticket.
-    commit(r.account);
-    d.msg = { kind: 'bad', text: `${t('lotsPlaced', { lots: fmtQty(r.lots) })} ${errorText(r.oddFailed)}` };
-    d.qty = String(r.odd);
-    renderDetail();
-    render();
-    return;
-  } else {
-    commit(r.account);
+  // A mixed Taiwan quantity goes in as two orders (lib/preview.mjs placeLots).
+  const { account, parts, failed } = placeLots(state.account, req, { quote: q, rates: state.rates, valuation: valuation(), now: Date.now() }, place);
+  if (account) {
+    commit(account);
     track(symbolKeys(d.symbol), 3);
-    if (r.fill) {
+  }
+  const r = parts[0]?.r;
+  if (failed && parts.length === 2) {
+    // The 整股 order went in and stays; the 零股 one didn't: said so, its quantity left on the ticket to try again.
+    d.msg = { kind: 'bad', text: t('lotOddFailed', { board: fmtQty(parts[0].qty), odd: fmtQty(failed.qty), why: errorText(failed.r) }) };
+    toast(d.msg.text, 'bad');
+    d.qty = String(failed.qty);
+  } else if (failed && !account) {
+    d.msg = { kind: 'bad', text: errorText(failed.r) };
+  } else {
+    if (parts.length === 2) {
+      d.msg = { kind: 'good', text: t('lotsPlaced', { board: fmtQty(parts[0].qty), odd: fmtQty(parts[1].qty) }) };
+      toast(d.msg.text, 'good');
+    } else if (r.fill) {
       d.msg = { kind: 'good', text: t('filledMsg', { side: t(r.fill.side), qty: fmtQty(r.fill.qty), price: fmtPrice(r.fill.price, r.fill.currency), total: money(r.fill.total, r.fill.currency) }) };
       toast(d.msg.text, 'good');
     } else if (r.order.status === 'rejected') {
@@ -2237,11 +2264,12 @@ function confirmOrder() {
   const { q, est, qty, credit, lent } = ticketInfo();
   if (!q || !(qty > 0)) return Promise.resolve(false);
   const total = est ? money(est.total, q.currency) : '';
+  const split = lotSplit(q.market, q.kind, qty);
   return ask({
     lang: locale,
     icon: d.side === 'buy' ? '📈' : '📉',
     title: t(d.side === 'buy' ? 'orderAskBuy' : 'orderAskSell', { name: nameOf(d.symbol, q) }),
-    body: credit && est ? t('orderAskBodyCredit', { qty: fmtQty(qty), total, lent: money(lent, q.currency), own: money(est.total - lent, q.currency) }) : t(!total ? 'orderAskQty' : d.side === 'buy' ? 'orderAskBody' : 'orderAskBodySell', { qty: fmtQty(qty), total }),
+    body: [credit && est ? t('orderAskBodyCredit', { qty: fmtQty(qty), total, lent: money(lent, q.currency), own: money(est.total - lent, q.currency) }) : t(!total ? 'orderAskQty' : d.side === 'buy' ? 'orderAskBody' : 'orderAskBodySell', { qty: fmtQty(qty), total }), split ? t('orderAskSplit', { board: fmtQty(split.board), odd: fmtQty(split.odd) }) : ''].filter(Boolean).join(' '),
     ok: t(d.side === 'buy' ? 'placeBuy' : 'placeSell'),
     cancel: t('orderAskCancel')
   });
@@ -2273,6 +2301,8 @@ function errorText(r) {
       return t('err_capacity', { cap: money(r.capacity, BASE) });
     case 'shortMargin':
       return t('err_shortMargin', { max: fmtQty(r.max) });
+    case 'dayTradeLimit':
+      return t('err_dayTradeLimit', { room: money(r.room ?? 0, BASE), limit: money(r.limit ?? 0, BASE) });
     case 'creditLimit':
       return t('err_creditLimit', { room: money(r.room ?? 0, BASE), limit: money(r.limit ?? 0, BASE) });
     case 'termEarly':
@@ -2289,8 +2319,6 @@ function errorText(r) {
       return t('err_lot', { lot: fmtQty(r.lot) });
     case 'mixedLot':
       return t('err_mixedLot', { lots: fmtQty(r.lots), odd: fmtQty(r.odd) });
-    case 'oddLotLimit':
-      return t('err_oddLotLimit');
     case 'tPlus1':
       return t('err_tPlus1', { can: fmtQty(r.can) });
     case 'tdMin':
@@ -2317,15 +2345,13 @@ function pendingSales(v, account = state.account) {
   return (account?.orders || []).filter(o => o.status === 'open' && o.side === 'sell' && !o.short).reduce((sum, o) => sum + (unit.get(o.symbol) || 0) * (o.qty || 0), 0);
 }
 const coverPending = (v, account) => overdrawnBy(v) >= 1 && pendingSales(v, account) >= overdrawnBy(v) * 0.99;
-// How long an overdraft can stand before holdings are sold for it (T+2).
-const OD_GRACE = 2 * 86_400_000;
 function overdraftHtml(v) {
   const owed = overdrawnBy(v);
   if (owed < 1) return '';
   const { plan, covered } = coverPlan(v, owed);
   const rows = plan.map(x => `<li><span>${h(nameOf(x.symbol))}</span><span class="num">${h(t('coverSell', { qty: fmtQty(x.qty) }))}${x.all ? ` · ${h(t('coverAll'))}` : ''}</span><strong class="num">≈ ${h(money(x.twd, BASE))}</strong></li>`).join('');
   return `<div class="card overdraft-card">
-    <div class="od-head"><strong>${h(t('odTitle', { v: money(owed, BASE) }))}</strong><small>${h(state.account.od ? t('odDeadline', { date: fmtDate(state.account.od.since + OD_GRACE) }) : t('odSub'))}</small></div>
+    <div class="od-head"><strong>${h(t('odTitle', { v: money(owed, BASE) }))}</strong><small>${h(state.account.od ? t('odDeadline', { date: fmtDate(odDeadline(state.account.od.since)) }) : t('odSub'))}</small></div>
     ${coverPending(v) ? `<p class="note">${h(t('odPending'))}</p>` : plan.length ? `<ul class="od-plan">${rows}</ul><button class="q-btn primary block" type="button" data-action="cover" ${pricesLive() ? '' : 'disabled'}>${h(t(covered ? 'coverGo' : 'coverGoPart'))}</button>` : `<p class="note">${h(t('odNothing'))}</p>`}
   </div>`;
 }
@@ -2429,7 +2455,6 @@ function cashCardHtml(v, heldTWD, unsettledNow, heldFor) {
       ${settlingTWD > 0.5 ? `<span class="cash-stat"><small>${h(t('cashSettling'))}</small><strong class="num">${h(money(settlingTWD, BASE))}</strong></span>` : ''}
     </div>
     <div class="wallets">${v.cash.map(c => walletRow(c, heldFor(c), unsettledNow[c.currency] || 0, settleAt[c.currency])).join('')}${v.loans.map(loanWalletRow).join('')}</div>
-    <p class="note">${h(t('poolNote'))}</p>
   </div>`;
 }
 
@@ -2454,7 +2479,7 @@ function incomeCardHtml(v) {
     ${parts.length ? `<p class="income-split">${parts.map(([k, x]) => `<span>${h(t(k))} <strong class="num">${h(money(x, BASE))}</strong></span>`).join('')}</p>` : ''}
     ${top.length ? `<p class="muted">${h(t('incomeTop'))} ${top.map(([sym, x]) => `<button class="link" type="button" data-action="open" data-symbol="${h(sym)}">${h(nameOf(sym))}</button> <span class="num">${h(money(x, BASE))}</span>`).join('、')}</p>` : ''}
     ${list
-      .map(e => `<div class="order-row">${icon('coins', 'k-income')}<span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(e.symbol)}">${h(nameOf(e.symbol))}</button></span><span class="row-sub">${h(t('pendingDivLine', { ex: fmtDate(e.ex), pay: fmtDate(e.t), qty: fmtQty(e.shares) }))}</span></span><strong class="num up-ink">+${h(money(e.net, e.currency))}</strong></div>`)
+      .map(e => `<div class="order-row">${icon('coins', 'k-income')}<span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(e.symbol)}">${h(nameOf(e.symbol))}</button></span><span class="row-sub">${keepParts(t('pendingDivLine', { ex: fmtDate(e.ex), pay: fmtDate(e.t), qty: fmtQty(e.shares), per: `${fmtPrice(e.perShare, e.currency)} ${e.currency === 'TWD' && locale === 'zh' ? '元' : e.currency}` }) + (e.nhi > 0 ? ` · ${t('pendingDivNhi', { v: money(e.nhi, e.currency) })}` : ''))}</span></span><strong class="num up-ink">+${h(money(e.net, e.currency))}</strong></div>`)
       .join('')}
     ${list.length ? `<p class="note">${h(t('pendingDivNote'))}</p>` : ''}
   </div>`;
@@ -2484,7 +2509,7 @@ function plansListHtml() {
       <button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(p.id)}" data-row="1">${h(t('planEdit'))}</button>
       <button class="q-btn small" type="button" data-action="plan-off" data-id="${h(p.id)}">${h(t('planStop'))}</button></div>`;
     })
-    .join('')}<p class="note">${h(t('plansNote'))}</p></div>`;
+    .join('')}</div>`;
 }
 
 function alertsListHtml() {
@@ -2502,12 +2527,28 @@ function alertsListHtml() {
     .join('')}</div>`;
 }
 
+// 1,500 股 (1 張 500 股): Taiwan's stocks and ETFs, a lot or more.
+// A ' · ' line that wraps between its parts, never inside one (an amount left
+// alone on a line), each '·' kept with the part before it (no line starts with one).
+const keepParts = text => text.split(' · ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} ·` : x)}</span>`).join(' ');
+function lotsNote(p, q) {
+  const kind = q?.kind || catalogInfo(p.symbol)?.kind;
+  const lots = (q?.market || p.market) === 'TW' && (kind === 'stock' || kind === 'etf') ? boardLots(p.qty) : null;
+  if (!lots) return '';
+  return ` (${lots.odd ? t('lotsOdd', { lots: fmtQty(lots.lots), odd: fmtQty(lots.odd) }) : t('lotsWhole', { lots: fmtQty(lots.lots) })})`;
+}
+// 除息 / 除權 / 除權息 on a holding on its ex-date, as brokers mark it.
+function exTagHtml(symbol) {
+  const tag = exDayTags(state.account?.events).get(symbol);
+  const text = tag && { div: t('exDivTag'), split: t('exRightTag'), both: t('exBothTag') }[tag];
+  return text ? `<span class="held-tag">${h(text)}</span>` : '';
+}
 function positionRow(p) {
   const q = p.quote;
   return `<button class="row position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
-    <span class="row-main"><span class="row-title">${h(nameOf(p.symbol, q))}${p.short ? `<span class="held-tag short">${h(t('shortTag'))}</span>` : ''}${p.financed > 0 ? `<span class="held-tag">${h(t('marginTag'))}</span>` : ''}${p.lent ? `<span class="held-tag">${h(t('lentTag', { qty: fmtQty(p.lent) }))}</span>` : ''}</span>
-      <span class="row-sub">${h(p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}`)} · ${h(t('avgShort'))} ${h(fmtPrice(p.avg, p.currency))} · ${h(pct(p.weight, { digits: 1, sign: false }))}</span>
+    <span class="row-main"><span class="row-title">${h(nameOf(p.symbol, q))}${p.short ? `<span class="held-tag short">${h(t('shortTag'))}</span>` : ''}${p.financed > 0 ? `<span class="held-tag">${h(t('marginTag'))}</span>` : ''}${p.lent ? `<span class="held-tag">${h(t('lentTag', { qty: fmtQty(p.lent) }))}</span>` : ''}${exTagHtml(p.symbol)}${alertTag(p.symbol)}</span>
+      <span class="row-sub">${h(p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}${lotsNote(p, q)}`)} · ${h(t('avgShort'))} ${h(fmtPrice(p.avg, p.currency))} · ${h(pct(p.weight, { digits: 1, sign: false }))}</span>
       <span class="row-meta">${h(t('nowShort'))} ${h(fmtPrice(p.price, p.currency))} ${h(p.currency)} · <span class="${dirClass(p.dayTWD)}">${h(t('todayShort'))} ${h(money(p.dayTWD, BASE, { sign: true }))}</span></span></span>
     <span class="pos-right"><strong class="num">${h(money(p.valueTWD, BASE))}</strong><span class="pl-pill ${p.pl > 0 ? 'up' : p.pl < 0 ? 'down' : ''}">${h(pct(p.plPct))}</span><small class="num ${dirClass(p.pl)}">${h(money(p.pl, BASE, { sign: true }))}</small></span>
   </button>`;
@@ -2701,7 +2742,7 @@ function renderNetWorthChart(v, s) {
 function orderRow(o) {
   const q = state.quotes.get(o.symbol);
   const price = o.type === 'limit' ? t('atLimit', { p: fmtPrice(o.limit, o.currency) }) : o.type === 'stop' ? t('atStop', { p: fmtPrice(o.stop, o.currency) }) : t('atMarket');
-  const status = o.status === 'open' ? (q && !isOpen(q) ? t('waitingOpen') : t('waitingPrice')) + (o.expires ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(o.expires) : weekdayClock(o.expires) })}` : '') : t(`status_${o.status}`);
+  const status = o.status === 'open' && o.after ? t('afterWait', { time: clock(o.after) }) : o.status === 'open' ? (q && !isOpen(q) ? t('waitingOpen') : t('waitingPrice')) + (o.expires ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(o.expires) : weekdayClock(o.expires) })}` : '') : t(`status_${o.status}`);
   return `<div class="order-row" role="button" tabindex="0" data-action="open" data-symbol="${h(o.symbol)}">
     <span class="side-tag ${o.side}">${h(t(o.side))}</span>
     <span class="row-main"><span class="row-title">${h(nameOf(o.symbol, q))} <small>${h(fmtQty(o.qty))} ${h(unitOf(o.symbol))} ${h(price)}</small></span>
@@ -2973,7 +3014,7 @@ function loansHtml() {
       <div class="loan-bar" role="img" aria-label="${h(t('loanUsed', { pct: pct(used, { digits: 0, sign: false }) }))}"><i style="width:${(used * 100).toFixed(1)}%"></i></div>
       <div class="loan-legend"><span>${h(t('loanUsed', { pct: pct(used, { digits: 0, sign: false }) }))}</span><span></span></div>
       <div class="loan-facts">
-        <div><span class="muted">${h(t('collateral'))}</span><strong class="num">${h(money(v.collateral, BASE))}</strong><small>${h(t('collateralSub'))}</small></div>
+        <div><span class="muted">${h(t('collateral'))}</span><strong class="num">${h(money(v.collateral, BASE))}</strong></div>
         <div><span class="muted">${h(t('interestAccrued'))}</span><strong class="num">${h(money(v.interestTWD || 0, BASE, { digits: (v.interestTWD || 0) < 10 ? 2 : 0 }))}</strong></div>
       </div>
       ${v.debtTWD > 0 ? gauge(v.ratio) : ''}
@@ -3003,6 +3044,8 @@ function creditCardHtml(v) {
     const pick = CREDIT_TIERS.includes(state.creditTier) ? state.creditTier : CREDIT_TIERS[0];
     const check = creditCheck(state.account, pick, v.netWorth, now);
     const need = key => check.needs.find(n => n.key === key);
+    const dayOk = dayTradeSellFirst(state.account, now);
+    const dayRoom = dayOk ? dayTradeLeft(state.account, v.netWorth, now) : null;
     const row = (key, text) => `<li class="${need(key) ? 'no' : 'ok'}">${icon(need(key) ? 'alert' : 'check')}<span>${h(text)}</span></li>`;
     return `<div class="card credit-card">
       <h3 class="card-title">${h(t('creditTitle'))}</h3>
@@ -3015,7 +3058,7 @@ function creditCardHtml(v) {
         ${pick > CREDIT_TIERS[0] ? row('means', t('creditMeans', { want: compactMoney(pick * CREDIT_PROOF, BASE) })) : ''}
       </ul>
       <button class="q-btn primary block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>
-      <p class="note">${h(dayTradeSellFirst(state.account, now) ? t('dayTradeOk') : t('dayTradeNo'))}</p>
+      <p class="note">${h(dayOk ? t('dayTradeOk') : t('dayTradeNo'))}${dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>
     </div>`;
   }
   const used = creditUsed(v);
@@ -3673,7 +3716,6 @@ function settingsEl() {
     box.innerHTML = `<h3 class="q-sheet-h">${h(t('g_settings'))}</h3>
       <div class="q-rows settings-rows">
         <div class="setting-row"><span>${h(t('updownLabel'))}</span><div class="q-seg small" role="group"><button type="button" data-set="updown" data-v="tw" aria-pressed="${state.settings.updown === 'tw'}">${h(t('updownTw'))}</button><button type="button" data-set="updown" data-v="us" aria-pressed="${state.settings.updown === 'us'}">${h(t('updownUs'))}</button></div></div>
-        <p class="note">${h(t('notifyNote'))}</p>
       </div>`;
   };
   box.addEventListener('click', async e => {
@@ -3820,7 +3862,8 @@ document.addEventListener('click', async event => {
       let sold = 0;
       for (const x of plan) {
         const quote = state.quotes.get(x.symbol);
-        const r = place(account, { symbol: x.symbol, side: 'sell', type: 'market', qty: x.qty }, { quote, rates: state.rates, valuation: valuate(replay(account), state.quotes, state.rates), now: Date.now() });
+        // (A sale to cover: the broker splits whole and odd lots itself.)
+        const r = place(account, { symbol: x.symbol, side: 'sell', type: 'market', qty: x.qty, cover: true }, { quote, rates: state.rates, valuation: valuate(replay(account), state.quotes, state.rates), now: Date.now() });
         if (r.account) {
           account = r.account;
           sold++;
@@ -3876,7 +3919,7 @@ document.addEventListener('click', async event => {
     case 'otype': {
       d.type = el.dataset.otype;
       const q = state.quotes.get(d.symbol);
-      if (q) d.limit = d.stop = String(+q.price.toPrecision(6));
+      if (q) d.limit = d.stop = startPrice(q);
       d.msg = null;
       renderTicket();
       break;
@@ -4213,9 +4256,30 @@ function patchElement(o, n) {
   if (o instanceof HTMLSelectElement) o.value = n.querySelector('option[selected]')?.value ?? o.value;
 }
 
+// A second point typed into a number field ends the number: that point and
+// what's typed after it are refused (1.2.3.4 key by key stays 1.2, as pasted),
+// until a deletion or the field is left.
+const NUMBER_FIELDS = new Set(['t-qty', 't-limit', 't-stop', 'fx-amount', 'loan-amount', 'td-amount', 'alert-price', 'plan-amount', 'plan-row-amount']);
+const numberJam = new WeakMap();
+function refuseExtraPoint(el, event) {
+  const kept = numberJam.get(el);
+  if (event.inputType?.startsWith('delete')) numberJam.delete(el);
+  else if (event.inputType?.startsWith('insert')) {
+    const before = kept ?? el.value.slice(0, el.selectionStart - (event.data?.length ?? 0)) + el.value.slice(el.selectionStart);
+    if (kept != null || (/\./.test(event.data || '') && (el.value.match(/\./g) || []).length > 1)) {
+      const caret = el.selectionStart - (el.value.length - before.length);
+      el.value = before;
+      el.setSelectionRange(Math.max(0, caret), Math.max(0, caret));
+      numberJam.set(el, before);
+    }
+  }
+}
+document.addEventListener('focusout', event => numberJam.delete(event.target));
+
 document.addEventListener('input', event => {
   const el = event.target;
   const d = state.detail;
+  if (NUMBER_FIELDS.has(el.id)) refuseExtraPoint(el, event);
   switch (el.id) {
     case 'search':
       onSearchInput(el.value);
@@ -4419,6 +4483,7 @@ async function boot() {
           await new Promise(r => setTimeout(r, 1_500));
           await refresh({ list: true });
         }
+        loadAlerts().then(() => state.loaded && render());
         // 新股申購 in before it lifts (2.5 s at most), not a section arriving after.
         await Promise.race([loadIpo(), new Promise(r => setTimeout(r, Math.max(0, Math.min(2_500, BOOT_LIMIT_MS - 500 - (Date.now() - bootAt)))))]);
         renderHomeRows();
@@ -4437,7 +4502,7 @@ if (!gated) boot();
 setTimeout(() => ($('loading').hidden = true), BOOT_LIMIT_MS);
 
 setInterval(() => {
-  if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds).then(() => loadIpo().then(() => state.tab === 'markets' && renderHomeRows()));
+  if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds).then(() => Promise.all([loadIpo(), loadAlerts()]).then(() => state.tab === 'markets' && renderHomeRows()));
 }, QUOTE_REFRESH_MS);
 // What the other apps did (bets, the pay, Plus) arrives with the wallet
 // (quadra.mjs checks it every minute); the account itself every few.

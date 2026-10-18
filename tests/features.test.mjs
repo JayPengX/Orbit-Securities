@@ -22,7 +22,7 @@ const quote = (symbol, price, over = {}) => {
 const withCredit = (a, limit = 5_000_000) => ({ ...a, events: [...a.events, { id: 'credit:test', type: 'credit', t: a.created, limit }] });
 const val = (a, t, quotes) => valuate(replay(a, t), new Map(quotes), RATES);
 
-test('融券 in Taiwan: a 90% deposit and the sale money held, 0.08% handling, no yearly fee; both back when bought back', () => {
+test('融券 in Taiwan: a 90% deposit and the sale money held, 0.08% handling, no yearly fee; both back with their 0.2% interest when bought back', () => {
   let a = withCredit(newAccount(1_000_000, T0, 'acc'));
   const q = quote('2330.TW', 2000);
   let v = val(a, T0, [['2330.TW', q]]);
@@ -48,8 +48,11 @@ test('融券 in Taiwan: a 90% deposit and the sale money held, 0.08% handling, n
   s = replay(b.account, later);
   assert.equal(s.positions['2330.TW'], undefined);
   assert.equal(s.paid.borrow, 0);
-  assert.equal(s.cash.TWD, 1_000_000 + 198_955 - 180_256);
-  assert.ok(Math.abs(s.realized - (198_955 - 180_256)) < 1e-6);
+  // 融券利息: NT$378,955 held 30 days at 0.2% a year, NT$62 (the cents dropped).
+  const interest = Math.floor((378_955 * 0.002 * 30) / 365);
+  assert.equal(interest, 62);
+  assert.equal(s.cash.TWD, 1_000_000 + 198_955 - 180_256 + interest);
+  assert.ok(Math.abs(s.realized - (198_955 - 180_256 + interest)) < 1e-6);
   assert.equal(s.closed[0].short, true);
 });
 

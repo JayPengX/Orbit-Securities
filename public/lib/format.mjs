@@ -95,8 +95,10 @@ export const monthYear = (t, tz) => dtf({ year: 'numeric', month: 'short' }, tz)
 // and the first point ("1.2.3.4" is 1.234, a pasted "NT$1,234.5" 1234.5).
 export function cleanNumber(value) {
   const text = String(value ?? '').replace(/[^\d.]/g, '');
+  // A second dot ends the number ('1.2.3.4' is 1.2), so a slip of the finger can't move the decimal point.
   const dot = text.indexOf('.');
-  return dot < 0 ? text : text.slice(0, dot + 1) + text.slice(dot + 1).replace(/\./g, '');
+  const next = dot < 0 ? -1 : text.indexOf('.', dot + 1);
+  return next < 0 ? text : text.slice(0, next);
 }
 
 export function escapeHtml(s) {

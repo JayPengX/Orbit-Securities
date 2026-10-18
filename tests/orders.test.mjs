@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newAccount, placeOrder, valuate, replay, applyFills } from '../public/lib/account.mjs';
-import { expireAsked, mayLapse, LAPSE_GRACE } from '../public/lib/orders.mjs';
+import { expireAsked, mayLapse, LAPSE_GRACE, odDeadline } from '../public/lib/orders.mjs';
 
 const HOUR = 3_600_000;
 const tpe = (d, hm) => Date.parse(`${d}T${hm}:00+08:00`);
@@ -69,4 +69,15 @@ test('only open, unforced orders past their end can lapse; others are left as th
   const r = expireAsked(two, id => (id === 'p' ? after : 0), after);
   assert.deepEqual(r.account.orders.map(x => [x.id, x.status]), [['o', 'open'], ['p', 'expired']]);
   assert.deepEqual(r.waiting.map(x => x.id), ['o']);
+});
+
+test("an overdraft's T+2 is two Taiwan business days, past weekends and market holidays (it was two calendar days)", () => {
+  // A plain week: Tuesday to Thursday, at the same time of day.
+  assert.equal(odDeadline(tpe('2026-10-13', '10:00')), tpe('2026-10-15', '10:00'));
+  // Thursday before 國慶日 (Fri 10-09) and a weekend: Mon 10-12, Tue 10-13.
+  assert.equal(odDeadline(tpe('2026-10-08', '10:00')), tpe('2026-10-13', '10:00'));
+  // Friday before the weekend and a Monday holiday (10-26): Tue 10-27, Wed 10-28.
+  assert.equal(odDeadline(tpe('2026-10-23', '22:30')), tpe('2026-10-28', '22:30'));
+  // Begun on a Saturday: Monday is the first day, Tuesday the second.
+  assert.equal(odDeadline(tpe('2026-10-17', '08:00')), tpe('2026-10-20', '08:00'));
 });

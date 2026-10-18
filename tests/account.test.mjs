@@ -39,24 +39,25 @@ test('a new account holds the chosen NT$ and nothing else', () => {
 });
 
 test('buying Taiwan stock at market: price, commission, cash and holding', () => {
-  const a = newAccount(1_000_000, T0, 'acc');
-  const r = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 100 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'o1' });
+  // (Whole lots: an odd lot takes limit orders only.)
+  const a = newAccount(5_000_000, T0, 'acc');
+  const r = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 1000 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'o1' });
   assert.equal(r.error, undefined);
   assert.equal(r.order.status, 'filled');
   // A market order buys at the ask: half a tick (NT$2.5) above the last price.
   assert.equal(r.fill.price, 2477.5);
   assert.equal(r.fill.quote, 2475);
-  assert.equal(r.fill.gross, 247_750);
-  assert.equal(r.fill.commission, 353);
+  assert.equal(r.fill.gross, 2_477_500);
+  assert.equal(r.fill.commission, 3530);
   const s = replay(r.account, T0);
-  assert.equal(s.cash.TWD, 1_000_000 - 248_103);
-  assert.equal(s.positions['2330.TW'].qty, 100);
-  assert.equal(s.positions['2330.TW'].cost, 248_103);
+  assert.equal(s.cash.TWD, 5_000_000 - 2_481_030);
+  assert.equal(s.positions['2330.TW'].qty, 1000);
+  assert.equal(s.positions['2330.TW'].cost, 2_481_030);
 });
 
 test('an order held for a fresh price waits as a 委託單, then fills at the newer quote', () => {
-  const a = newAccount(1_000_000, T0, 'acc');
-  const r = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 100, fresh: true }, { quote: { ...quote('2330.TW', 2475), got: T0 - 60_000 }, rates: RATES, now: T0, id: 'h1' });
+  const a = newAccount(5_000_000, T0, 'acc');
+  const r = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 1000, fresh: true }, { quote: { ...quote('2330.TW', 2475), got: T0 - 60_000 }, rates: RATES, now: T0, id: 'h1' });
   assert.equal(r.order.status, 'open');
   assert.equal(r.fill, null);
   // The old quote (read before it was placed) doesn't fill it; a newer one does, at its price.
@@ -69,18 +70,19 @@ test('an order held for a fresh price waits as a 委託單, then fills at the ne
 
 test('what the ticket says an order holds is exactly what placing it needs (held for a fresh price)', () => {
   const q = { ...quote('2330.TW', 2475), got: T0 };
-  const need = requiredCash({ type: 'market', qty: 100, waitFresh: 1 }, q, T0).reserve;
-  // A small cushion over the estimate, not the 3% of an order waiting for its market.
-  const est = requiredCash({ type: 'market', qty: 100 }, q, T0).reserve;
-  assert.ok(need > est && need <= Math.ceil(est * 1.005) + 1);
+  const held = requiredCash({ type: 'market', qty: 1000, waitFresh: 1 }, q, T0);
+  // A Taiwan market order holds its cost at the day's limit-up (2,475 + 10%: 2,720 on its tick), no cushion on top.
+  assert.equal(held.reserve, 2_720_000 + 3876);
+  assert.ok(held.reserve > held.est.total);
+  const need = held.reserve;
   const exact = newAccount(need, T0, 'acc');
-  assert.equal(placeOrder(exact, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 100, fresh: true }, { quote: q, rates: RATES, now: T0, id: 'x1' }).error, undefined);
+  assert.equal(placeOrder(exact, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 1000, fresh: true }, { quote: q, rates: RATES, now: T0, id: 'x1' }).error, undefined);
   const less = newAccount(need - 1, T0, 'acc');
-  assert.equal(placeOrder(less, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 100, fresh: true }, { quote: q, rates: RATES, now: T0, id: 'x2' }).error, 'funds');
+  assert.equal(placeOrder(less, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 1000, fresh: true }, { quote: q, rates: RATES, now: T0, id: 'x2' }).error, 'funds');
 });
 
 test('融資買進: the broker lends 60% of a Taiwan buy as it fills; selling repays it first', () => {
-  const a = withCredit(newAccount(1_000_000, T0, 'acc'), T0);
+  const a = withCredit(newAccount(2_000_000, T0, 'acc'), T0);
   const q = quote('2330.TW', 2475);
   const v = valuate(replay(a, T0), new Map([['2330.TW', q]]), RATES);
   const r = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 1000, margin: true }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'm1' });
@@ -88,18 +90,20 @@ test('融資買進: the broker lends 60% of a Taiwan buy as it fills; selling re
   assert.equal(r.order.status, 'filled');
   const s = replay(r.account, T0);
   const total = r.fill.total;
-  // 40% one's own, 60% lent, tied to the stock.
-  assert.equal(r.fill.financed, Math.round(total * 0.6));
-  assert.equal(s.loans.TWD.balance, Math.round(total * 0.6));
-  assert.equal(s.positions['2330.TW'].financed, Math.round(total * 0.6));
-  assert.equal(Math.round(s.cash.TWD), Math.round(1_000_000 - total + total * 0.6));
-  // Half sold: half the loan repaid out of the proceeds.
+  // 60% of the trade's value (成交價款 NT$2,477,500, before costs) lent, the part under NT$1,000 not (TWSE §50), tied to the stock.
+  const loan = 1_486_000;
+  assert.equal(r.fill.gross, 2_477_500);
+  assert.equal(r.fill.financed, loan);
+  assert.equal(s.loans.TWD.balance, loan);
+  assert.equal(s.positions['2330.TW'].financed, loan);
+  assert.equal(Math.round(s.cash.TWD), Math.round(2_000_000 - total + loan));
+  // Half sold (an odd lot: a limit order): half the loan repaid out of the proceeds.
   const v2 = valuate(s, new Map([['2330.TW', q]]), RATES);
-  const sell = placeOrder(r.account, { symbol: '2330.TW', side: 'sell', type: 'market', qty: 500 }, { quote: q, rates: RATES, valuation: v2, now: T0 + 1000, id: 's1' });
-  assert.equal(sell.fill.repaid, Math.round(total * 0.3));
+  const sell = placeOrder(r.account, { symbol: '2330.TW', side: 'sell', type: 'limit', limit: 2475, qty: 500 }, { quote: q, rates: RATES, valuation: v2, now: T0 + 1000, id: 's1' });
+  assert.equal(sell.fill.repaid, loan / 2);
   const s2 = replay(sell.account, T0 + 1000);
-  assert.ok(Math.abs(s2.loans.TWD.balance - total * 0.3) < 2);
-  assert.ok(Math.abs(s2.positions['2330.TW'].financed - total * 0.3) < 2);
+  assert.ok(Math.abs(s2.loans.TWD.balance - loan / 2) < 2);
+  assert.ok(Math.abs(s2.positions['2330.TW'].financed - loan / 2) < 2);
   // Not what a broker lends against: refused.
   const btc = { ...quote('BTC-USD', 60_000), kind: 'crypto', market: 'CRYPTO', currency: 'USD' };
   assert.equal(placeOrder(a, { symbol: 'BTC-USD', side: 'buy', type: 'market', qty: 0.01, margin: true }, { quote: btc, rates: RATES, valuation: v, now: T0, id: 'm2' }).error, 'notMarginable');
@@ -108,7 +112,7 @@ test('融資買進: the broker lends 60% of a Taiwan buy as it fills; selling re
 test('an overdraft collected by a sale: a cover order is forced and marked as such', () => {
   let a = newAccount(1_000_000, T0, 'acc');
   const q = quote('2330.TW', 2475);
-  a = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 100 }, { quote: q, rates: RATES, now: T0, id: 'b1' }).account;
+  a = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'limit', limit: 2475, qty: 100 }, { quote: q, rates: RATES, now: T0, id: 'b1' }).account;
   const r = placeOrder(a, { symbol: '2330.TW', side: 'sell', type: 'market', qty: 10, forced: true, cover: true }, { quote: q, rates: RATES, now: T0 + 1000, id: 'c1' });
   assert.equal(r.order.cover, true);
   assert.equal(r.fill.cover, true);
@@ -125,9 +129,9 @@ test('a default: 7% penalty, and no margin or shorting for 5 years; a missed mar
   assert.equal(replay(a, T0).cash.TWD, 1_000_000 - 700);
   assert.ok(defaulted(a, T0 + DEFAULT_BAN - 1) && !defaulted(a, T0 + DEFAULT_BAN));
   const v = valuate(replay(a, T0), new Map([['2330.TW', q]]), RATES);
-  assert.equal(placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 100, margin: true }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'd1' }).error, 'defaulted');
+  assert.equal(placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 1000, margin: true }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'd1' }).error, 'defaulted');
   // 斷頭: a holding bought on margin is sold whole.
-  let b = withCredit(newAccount(1_000_000, T0, 'acc2'), T0);
+  let b = withCredit(newAccount(2_000_000, T0, 'acc2'), T0);
   const vb = valuate(replay(b, T0), new Map([['2330.TW', q]]), RATES);
   b = placeOrder(b, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 1000, margin: true }, { quote: q, rates: RATES, valuation: vb, now: T0, id: 'm1' }).account;
   const plan = callPlan(b, valuate(replay(b, T0), new Map([['2330.TW', q]]), RATES));
@@ -138,24 +142,25 @@ test('the welcome offer: an account marked by the app pays no commission on its 
   const { withWelcome, firstTrade } = await import('../public/lib/account.mjs');
   const a = withWelcome(newAccount(1_000_000, T0, 'acc'));
   assert.equal(firstTrade(a), true);
-  const r = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 100 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'o1' });
+  const r = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'limit', limit: 2475, qty: 100 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'o1' });
   assert.equal(r.fill.commission, 0);
   assert.equal(firstTrade(r.account), false);
   assert.equal(withWelcome(r.account), r.account);
-  const r2 = placeOrder(r.account, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 100 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0 + 1, id: 'o2' });
-  assert.equal(r2.fill.commission, 353);
+  const r2 = placeOrder(r.account, { symbol: '2330.TW', side: 'buy', type: 'limit', limit: 2475, qty: 100 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0 + 1, id: 'o2' });
+  assert.equal(r2.fill.commission, 352);
 });
 
 test('not enough cash, not enough shares, bad quantities', () => {
   const a = newAccount(100_000, T0, 'acc');
   const q = quote('2330.TW', 2475);
-  assert.equal(placeOrder(a, { side: 'buy', qty: 100 }, { quote: q, rates: RATES, now: T0 }).error, 'funds');
+  // (Odd lots of Taiwan stock: limit orders, the only kind they take.)
+  assert.equal(placeOrder(a, { side: 'buy', type: 'limit', limit: 2475, qty: 100 }, { quote: q, rates: RATES, now: T0 }).error, 'funds');
   // Selling what isn't held is a short sale: it needs the account's valuation, and a shortable kind.
-  assert.equal(placeOrder(a, { side: 'sell', qty: 1 }, { quote: q, rates: RATES, now: T0 }).error, 'noValuation');
-  assert.equal(placeOrder(a, { side: 'sell', qty: 1 }, { quote: { ...q, kind: 'fund' }, rates: RATES, now: T0 }).error, 'shares');
-  assert.equal(placeOrder(a, { side: 'buy', qty: 1.5 }, { quote: q, rates: RATES, now: T0 }).error, 'qtyStep');
-  assert.equal(placeOrder(a, { side: 'buy', qty: 0 }, { quote: q, rates: RATES, now: T0 }).error, 'qty');
-  assert.equal(placeOrder(a, { side: 'buy', qty: 1 }, { quote: { ...q, kind: 'index' }, rates: RATES, now: T0 }).error, 'notTradable');
+  assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 2475, qty: 1 }, { quote: q, rates: RATES, now: T0 }).error, 'noValuation');
+  assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 2475, qty: 1 }, { quote: { ...q, kind: 'fund' }, rates: RATES, now: T0 }).error, 'shares');
+  assert.equal(placeOrder(a, { side: 'buy', type: 'limit', limit: 2475, qty: 1.5 }, { quote: q, rates: RATES, now: T0 }).error, 'qtyStep');
+  assert.equal(placeOrder(a, { side: 'buy', type: 'limit', limit: 2475, qty: 0 }, { quote: q, rates: RATES, now: T0 }).error, 'qty');
+  assert.equal(placeOrder(a, { side: 'buy', type: 'limit', limit: 2475, qty: 1 }, { quote: { ...q, kind: 'index' }, rates: RATES, now: T0 }).error, 'notTradable');
   // US stock with only NT$: needs dollars first.
   assert.equal(placeOrder(a, { side: 'buy', qty: 1 }, { quote: quote('AAPL', 300), rates: RATES, now: T0 }).error, 'funds');
 });
@@ -196,14 +201,15 @@ test('buy abroad, sell later: realized profit in NT$ includes the currency move'
 });
 
 test('orders placed while the market is shut wait, hold their cash and fill at the open', () => {
-  const a = newAccount(1_000_000, T0, 'acc');
+  const a = newAccount(5_000_000, T0, 'acc');
   const shut = closed(quote('2330.TW', 2475));
-  const r = placeOrder(a, { side: 'buy', type: 'market', qty: 100 }, { quote: shut, rates: RATES, now: T0, id: 'm' });
+  const r = placeOrder(a, { side: 'buy', type: 'market', qty: 1000 }, { quote: shut, rates: RATES, now: T0, id: 'm' });
   assert.equal(r.order.status, 'open');
   assert.equal(r.fill, null);
-  assert.ok(r.order.reserve > 247_852);
+  // Held at the next session's limit-up from the last price (2,720), the most it can fill at.
+  assert.equal(r.order.reserve, 2_720_000 + 3876);
   const avail = available(r.account, replay(r.account, T0));
-  assert.equal(avail.cash.TWD, 1_000_000 - r.order.reserve);
+  assert.equal(avail.cash.TWD, 5_000_000 - r.order.reserve);
   // Still shut: nothing happens.
   assert.equal(processOrders(r.account, new Map([['2330.TW', shut]]), RATES, T0 + HOUR).filled.length, 0);
   // Next morning it opens at 2500.
@@ -215,7 +221,7 @@ test('orders placed while the market is shut wait, hold their cash and fill at t
   assert.equal(p.account.orders[0].status, 'filled');
   // Cancelled orders free their cash.
   const c = cancelOrder(r.account, 'm', T0 + 5);
-  assert.equal(available(c, replay(c, T0)).cash.TWD, 1_000_000);
+  assert.equal(available(c, replay(c, T0)).cash.TWD, 5_000_000);
 });
 
 test('limit and stop orders trigger on price, or on the day range when placed before the session', () => {
@@ -235,12 +241,14 @@ test('limit and stop orders trigger on price, or on the day range when placed be
 });
 
 test('a buy that no longer fits the cash when it fills is rejected', () => {
-  let a = newAccount(260_000, T0, 'acc');
-  a = placeOrder(a, { side: 'buy', type: 'market', qty: 100 }, { quote: closed(quote('2330.TW', 2475)), rates: RATES, now: T0, id: 'm' }).account;
-  const p = processOrders(a, new Map([['2330.TW', quote('2330.TW', 2700, { at: T0 + DAY })]]), RATES, T0 + DAY);
+  // (Abroad: a Taiwan market order holds its limit-up, the most it can fill at.)
+  let a = newAccount(1_000_000, T0, 'acc');
+  a = exchange(a, { from: 'TWD', to: 'USD', amount: 320_000 }, { rates: RATES, now: T0, id: 'x' }).account;
+  a = placeOrder(a, { symbol: 'AAPL', side: 'buy', type: 'market', qty: 30 }, { quote: closed(quote('AAPL', 300)), rates: RATES, now: T0, id: 'm' }).account;
+  const p = processOrders(a, new Map([['AAPL', quote('AAPL', 340, { at: T0 + DAY })]]), RATES, T0 + DAY);
   assert.equal(p.filled.length, 0);
   assert.equal(p.rejected[0].reason, 'funds');
-  assert.equal(replay(p.account, T0 + DAY).cash.TWD, 260_000);
+  assert.equal(replay(p.account, T0 + DAY).cash.USD, 9980);
 });
 
 test('valuation in NT$: holdings, cash, day change, allocation, currency exposure', () => {
@@ -283,10 +291,10 @@ test('loans: borrowing power from holdings, interest by the day, repaying', () =
 
 test('margin call and forced sale when holdings fall; the sale pays the loan back', () => {
   let a = newAccount(1_000_000, T0, 'acc');
-  a = placeOrder(a, { side: 'buy', qty: 400 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'b' }).account;
+  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 2475, qty: 400 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'b' }).account;
   let v = valuate(replay(a, T0), new Map([['2330.TW', quote('2330.TW', 2475)]]), RATES);
   a = borrow(a, { currency: 'TWD', amount: 590_000 }, { valuation: v, rates: RATES, now: T0, id: 'l' }).account;
-  a = placeOrder(a, { side: 'buy', qty: 240 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'b2' }).account;
+  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 2475, qty: 240 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'b2' }).account;
   const crash = quote('2330.TW', 900, { at: T0 + DAY });
   v = valuate(replay(a, T0 + DAY), new Map([['2330.TW', crash]]), RATES);
   assert.equal(v.margin, 'liquidate');
@@ -308,7 +316,7 @@ test('margin call and forced sale when holdings fall; the sale pays the loan bac
 
 test('repayAll exchanges other cash to pay a foreign-currency loan', () => {
   let a = newAccount(1_000_000, T0, 'acc');
-  a = placeOrder(a, { side: 'buy', qty: 100 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'b' }).account;
+  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 2475, qty: 100 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'b' }).account;
   const v = valuate(replay(a, T0), new Map([['2330.TW', quote('2330.TW', 2475)]]), RATES);
   a = borrow(a, { currency: 'USD', amount: 1000 }, { valuation: v, rates: RATES, now: T0, id: 'l' }).account;
   a = exchange(a, { from: 'USD', to: 'TWD', amount: 1000 }, { rates: RATES, now: T0, id: 'x' }).account;
@@ -347,7 +355,7 @@ test('dividends while held: split-adjusted amounts, US withholding, NT$ at today
 test('merging two devices: logs unite, an order filled anywhere is filled, a fresh start wins', () => {
   const base = newAccount(1_000_000, T0, 'acc');
   const shut = closed(quote('2330.TW', 2475));
-  const withOrder = placeOrder(base, { side: 'buy', qty: 10 }, { quote: shut, rates: RATES, now: T0, id: 'o' }).account;
+  const withOrder = placeOrder(base, { side: 'buy', type: 'limit', limit: 2475, qty: 10 }, { quote: shut, rates: RATES, now: T0, id: 'o' }).account;
   // Device A fills it, device B cancels it and exchanges money.
   const a = processOrders(withOrder, new Map([['2330.TW', quote('2330.TW', 2475, { at: T0 + DAY })]]), RATES, T0 + DAY).account;
   let b = cancelOrder(withOrder, 'o', T0 + 2);

@@ -448,7 +448,6 @@ const TAIWAN = {
   "2488": "hanpin-electronic",
   "2489": "amtran-technology",
   "2491": "fortune-oriental-company-limited",
-  "2492": "walsin-technology",
   "2493": "ampoc-far-east-co",
   "2495": "infortrend-technology",
   "2496": "success-prime",
