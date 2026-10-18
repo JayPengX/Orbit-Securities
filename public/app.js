@@ -2141,6 +2141,30 @@ function renderTicket() {
   );
 }
 
+// Taiwan's whole lots and odd lots are separate orders, and odd lots take
+// limit orders only (TWSE). A mixed quantity goes in as two orders, whole
+// lots first; an odd lot asked at market goes in as a limit at 漲停 for a buy
+// or 跌停 for a sell, which fills like one at the best price.
+function oddLimit(req, q) {
+  if (req.type === 'limit' || !isOddLot(q.market, q.kind, req.qty)) return req;
+  const band = priceLimits(q);
+  if (!band) return req;
+  const { stop, tif, ...rest } = req;
+  return { ...rest, type: 'limit', limit: req.side === 'buy' ? band.up : band.down };
+}
+function placeTw(account, req, opts) {
+  const q = opts.quote;
+  const n = Math.round(req.qty);
+  if (q.market !== 'TW' || !isOddLot(q.market, q.kind, n)) return place(account, req, opts);
+  if (n < 1000) return place(account, oddLimit(req, q), opts);
+  const lots = n - (n % 1000), odd = n % 1000;
+  const first = place(account, { ...req, qty: lots }, opts);
+  if (first.error && !first.account) return first;
+  const second = place(first.account, oddLimit({ ...req, qty: odd }, q), { ...opts, id: undefined });
+  if (second.error && !second.account) return { ...first, lots, odd, oddFailed: second };
+  return { ...second, fill: second.fill || first.fill, order: second.order || first.order };
+}
+
 function placeFromTicket() {
   const d = state.detail;
   const q = state.quotes.get(d.symbol);
@@ -2149,9 +2173,18 @@ function placeFromTicket() {
   if (d.type === 'limit') req.limit = Number(d.limit);
   if (d.type === 'stop') req.stop = Number(d.stop);
   if (d.type !== 'market' && d.tif === 'gtc') req.tif = 'gtc';
-  const r = place(state.account, req, { quote: q, rates: state.rates, valuation: valuation(), now: Date.now() });
+  const opts = { quote: q, rates: state.rates, valuation: valuation(), now: Date.now() };
+  const r = placeTw(state.account, req, opts);
   if (r.error && !r.account) {
     d.msg = { kind: 'bad', text: errorText(r) };
+  } else if (r.oddFailed) {
+    // The whole lots went in; the odd lot didn't: say so, keep it on the ticket.
+    commit(r.account);
+    d.msg = { kind: 'bad', text: `${t('lotsPlaced', { lots: fmtQty(r.lots) })} ${errorText(r.oddFailed)}` };
+    d.qty = String(r.odd);
+    renderDetail();
+    render();
+    return;
   } else {
     commit(r.account);
     track(symbolKeys(d.symbol), 3);
@@ -2254,6 +2287,10 @@ function errorText(r) {
     }
     case 'lot':
       return t('err_lot', { lot: fmtQty(r.lot) });
+    case 'mixedLot':
+      return t('err_mixedLot', { lots: fmtQty(r.lots), odd: fmtQty(r.odd) });
+    case 'oddLotLimit':
+      return t('err_oddLotLimit');
     case 'tPlus1':
       return t('err_tPlus1', { can: fmtQty(r.can) });
     case 'tdMin':
