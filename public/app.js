@@ -19,6 +19,7 @@ import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donu
 import { movingAverage, pointAt } from './lib/series.mjs';
 import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
+import { twPhase } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
@@ -831,6 +832,14 @@ function marketStatus(q) {
   if (q.kind === 'crypto') return `<span class="mkt-status open">${statusDot(q)}${h(t('always'))}</span>`;
   const now = Date.now();
   if (q.session && now >= q.session.start && now < q.session.end && atLunch(q.market, now)) return `<span class="mkt-status">${statusDot(q)}${h(t('atLunch'))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+  // Taiwan's own phases: 試撮 before the opening auction, the closing
+  // auction, and (for what trades after hours) the 盤後 sessions to 14:30.
+  const ph = q.market === 'TW' ? twPhase(now) : null;
+  if (ph && ph.id !== 'continuous' && (ph.id !== 'after' || isTradable(q.kind))) {
+    const time = clock(ph.until, q.tz);
+    const text = { preopen: t('phasePreopen', { time }), closing: t('phaseClosing', { time }), after: t('phaseAfter', { time }) }[ph.id];
+    return `<span class="mkt-status${ph.id === 'closing' ? ' open' : ''}">${statusDot(q)}${h(text)} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+  }
   if (isOpen(q, now)) return `<span class="mkt-status open">${statusDot(q)}${h(t('marketOpenUntil', { time: clock(q.session.end, q.tz) }))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
   const opens = nextOpen(q, now);
   const next = opens ? t('opensAt', { time: weekdayClock(opens) }) : t('marketClosed');
@@ -1570,7 +1579,9 @@ function factsHtml(q) {
 function hoursLine(q) {
   const tw = `${clock(q.session.start)}–${clock(q.session.end)}`;
   const local = `${clock(q.session.start, q.tz)}–${clock(q.session.end, q.tz)}`;
-  return local === tw ? tw : `${tw} ${t('taipeiTime')} · ${t('localTime')} ${local}`;
+  const line = local === tw ? tw : `${tw} ${t('taipeiTime')} · ${t('localTime')} ${local}`;
+  // Taiwan: orders from 08:30 (試撮) and the after-hours sessions.
+  return q.market === 'TW' && isTradable(q.kind) ? `${line} · ${t('twHoursMore')}` : line;
 }
 
 function positionHtml(symbol) {
