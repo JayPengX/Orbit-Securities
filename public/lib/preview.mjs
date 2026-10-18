@@ -58,8 +58,8 @@ export function ticketEstimate(account, { quote, side, qty, price, first = false
 
 // The commission the same trade pays a Quadra Plus member: the discount,
 // then the market's minimum (a broker's 2.8折 still charges NT$20 at least).
-export function plusCommission({ market, kind, side, gross, currency, qty, dayTrade = false }, discount) {
-  return tradeCosts({ market, side, kind, gross, currency, discount, oddLot: isOddLot(market, kind, qty), dayTrade }).commission;
+export function plusCommission({ market, kind, side, gross, currency, qty, dayTrade = false, t = Date.now() }, discount) {
+  return tradeCosts({ market, side, kind, gross, currency, discount, oddLot: isOddLot(market, kind, qty), dayTrade, t }).commission;
 }
 
 // How many more can be sold short than are held, by the rule the order is

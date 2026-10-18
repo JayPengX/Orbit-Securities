@@ -106,7 +106,9 @@ test("Plus's commission on the ticket keeps the market's minimum (a NT$10,000 bu
   // An odd lot's own minimum (NT$1).
   assert.equal(plusCommission({ ...trade, gross: 2_000, qty: 2 }, PLUS.stock.commission), 1);
   // US: US$3 minimum after the discount; a fund's subscription fee is discounted with no minimum.
-  assert.equal(plusCommission({ market: 'US', kind: 'stock', side: 'buy', gross: 1_000, currency: 'USD', qty: 5 }, PLUS.stock.commission), 3);
+  // (From 2027: 國泰's 2026 US price has no minimum.)
+  const t = Date.parse('2027-02-01T10:00:00+08:00');
+  assert.equal(plusCommission({ market: 'US', kind: 'stock', side: 'buy', gross: 1_000, currency: 'USD', qty: 5, t }, PLUS.stock.commission), 3);
   assert.equal(plusCommission({ market: 'US', kind: 'fund', side: 'buy', gross: 1_000, currency: 'USD', qty: 5 }, PLUS.stock.commission), 2.8);
 });
 

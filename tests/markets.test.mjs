@@ -20,8 +20,15 @@ test('Taiwan: 0.1425% commission, at least NT$20, fractions dropped; sell tax by
 });
 
 test('abroad: minimum commissions, stamp duties and sell fees', () => {
-  assert.equal(tradeCosts({ market: 'US', side: 'buy', kind: 'stock', gross: 341.07, currency: 'USD' }).commission, 3);
-  const us = tradeCosts({ market: 'US', side: 'sell', kind: 'stock', gross: 100_000, currency: 'USD' });
+  // US: 0.1%, at least US$3 (from 2027; a kit with 國泰's 2026 price: a stock 0.08% with no minimum, an ETF US$3 a trade).
+  const t = Date.parse('2027-02-01T10:00:00+08:00');
+  assert.equal(tradeCosts({ market: 'US', side: 'buy', kind: 'stock', gross: 341.07, currency: 'USD', t }).commission, 3);
+  if (MARKETS.US.commission.kinds) {
+    const t2026 = Date.parse('2026-10-19T22:00:00+08:00');
+    assert.equal(tradeCosts({ market: 'US', side: 'buy', kind: 'stock', gross: 341.07, currency: 'USD', t: t2026 }).commission, 0.27);
+    assert.equal(tradeCosts({ market: 'US', side: 'buy', kind: 'etf', gross: 100_000, currency: 'USD', t: t2026 }).commission, 3);
+  }
+  const us = tradeCosts({ market: 'US', side: 'sell', kind: 'stock', gross: 100_000, currency: 'USD', t });
   assert.equal(us.commission, 100);
   // The SEC fee: US$20.60 per million since 2026-04-04.
   assert.equal(us.fee, 2.06);

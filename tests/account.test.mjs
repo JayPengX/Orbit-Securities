@@ -7,6 +7,7 @@ import {
   borrow, repay, repayAll, liquidationPlan, applyCorporateActions, mergeAccounts, recordSnapshot, benchmarkValue, triggerPrice,
   isAccount, toggleWatch, watched
 } from '../public/lib/account.mjs';
+import { tradeCosts } from '../public/lib/markets.mjs';
 
 const T0 = Date.UTC(2026, 8, 21, 2); // Monday 10:00 Taipei
 const HOUR = 3_600_000;
@@ -22,6 +23,7 @@ function quote(symbol, price, over = {}) {
     pct: 0, dayHigh: price, dayLow: price, session: { start: at - HOUR, end: at + 4 * HOUR }, marketTime: at, line: [], ...over
   };
 }
+const usCommission = (side, gross, t) => tradeCosts({ market: 'US', side, kind: 'stock', gross, currency: 'USD', t }).commission;
 const closed = q => ({ ...q, session: { start: q.session.start + DAY, end: q.session.end + DAY }, marketTime: q.session.start - HOUR });
 const ids = prefix => {
   let n = 0;
@@ -188,15 +190,17 @@ test('buy abroad, sell later: realized profit in NT$ includes the currency move'
   // Limit orders at the price: no spread, so only the fees and the currency move count.
   a = placeOrder(a, { side: 'buy', type: 'limit', limit: 300, qty: 10 }, { quote: quote('AAPL', 300), rates: RATES, now: T0 + 1, id: 'b' }).account;
   let s = replay(a, T0 + 1);
-  assert.equal(s.cash.USD, 9980 - 3003);
+  // The US commission then (a kit with 國泰's 2026 price: 0.08%, no minimum; else 0.1%, at least US$3).
+  const cost = 3000 + usCommission('buy', 3000, T0 + 1);
+  assert.equal(s.cash.USD, 9980 - cost);
   const later = T0 + 30 * DAY;
   const rates2 = { ...RATES, USD: 33 };
   const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 330, qty: 10 }, { quote: quote('AAPL', 330, { at: later }), rates: rates2, now: later, id: 's' });
   s = replay(r.account, later);
   assert.equal(s.positions.AAPL, undefined);
-  const proceeds = 3300 - 3.3 - 0.07;
-  assert.ok(Math.abs(s.cash.USD - (9980 - 3003 + proceeds)) < 1e-6);
-  assert.ok(Math.abs(s.realized - (proceeds * 33 - 3003 * 32)) < 1e-6);
+  const proceeds = 3300 - usCommission('sell', 3300, later) - 0.07;
+  assert.ok(Math.abs(s.cash.USD - (9980 - cost + proceeds)) < 1e-6);
+  assert.ok(Math.abs(s.realized - (proceeds * 33 - cost * 32)) < 1e-6);
   assert.equal(s.closed.length, 1);
 });
 
@@ -258,7 +262,7 @@ test('valuation in NT$: holdings, cash, day change, allocation, currency exposur
   const quotes = new Map([['AAPL', { ...quote('AAPL', 310, { at: T0 + DAY }), prev: 305, pct: 310 / 305 - 1 }]]);
   const v = valuate(replay(a, T0 + DAY), quotes, RATES);
   assert.equal(v.positions[0].valueTWD, 3100 * 32);
-  assert.equal(v.cashTWD, 680_000 + (9980 - 3003) * 32);
+  assert.equal(v.cashTWD, 680_000 + (9980 - 3000 - usCommission('buy', 3000, T0)) * 32);
   assert.ok(Math.abs(v.netWorth - (v.cashTWD + v.holdingsTWD)) < 1e-6);
   assert.ok(Math.abs(v.totalReturn - (v.netWorth - 1_000_000)) < 1e-6);
   assert.equal(v.dayChange, 5 * 10 * 32);
@@ -347,7 +351,7 @@ test('dividends while held: split-adjusted amounts, US withholding, NT$ at today
   assert.equal(after.gross, 1);
   const s = replay(r.account, T0 + 30 * DAY);
   assert.equal(s.positions.NVDA.qty, 100);
-  assert.equal(s.positions.NVDA.cost, 9009);
+  assert.equal(s.positions.NVDA.cost, 9000 + usCommission('buy', 9000, T0));
   // Applying again adds nothing.
   assert.equal(applyCorporateActions(r.account, 'NVDA', actions, { rates: RATES, now: T0 + 30 * DAY }).added.length, 0);
 });

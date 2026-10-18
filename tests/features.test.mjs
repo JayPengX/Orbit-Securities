@@ -6,6 +6,7 @@ import {
 } from '../public/lib/account.mjs';
 import { BONDS, priceAt, curveYield, couponDates, bondQuote, bondSession, curveOf } from '../public/lib/bonds.mjs';
 import { isOpen } from '../public/lib/markets.mjs';
+import * as markets from '../public/lib/markets.mjs';
 
 const T0 = Date.UTC(2026, 8, 21, 2); // Monday 10:00 Taipei
 const HOUR = 3_600_000;
@@ -56,9 +57,13 @@ test('融券 in Taiwan: a 90% deposit and the sale money held, 0.08% handling, n
   assert.equal(s.closed[0].short, true);
 });
 
+// Shorts outside Taiwan are crypto's: 複委託 is cash only (a kit with isSubBrokered
+// refuses a foreign stock's short, cashOnly; an older one shorted those alike).
+const crypto = (symbol, price, over = {}) => quote(symbol, price, { market: 'CRYPTO', kind: 'crypto', currency: 'TWD', ...over });
+
 test('short selling elsewhere: proceeds in cash, owed at market, a yearly borrowing fee', () => {
   let a = withCredit(newAccount(1_000_000, T0, 'acc'));
-  const q = quote('X', 2000, { market: 'US', currency: 'TWD' });
+  const q = crypto('X', 2000);
   let v = val(a, T0, [['X', q]]);
   const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 2000, qty: 100 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 's' });
   assert.equal(r.error, undefined);
@@ -66,20 +71,25 @@ test('short selling elsewhere: proceeds in cash, owed at market, a yearly borrow
   const got = r.fill.total;
   assert.equal(replay(a, T0).cash.TWD, 1_000_000 + got);
   const later = T0 + 30 * DAY;
-  const b = placeOrder(a, { side: 'buy', type: 'limit', limit: 1800, qty: 100 }, { quote: quote('X', 1800, { at: later, market: 'US', currency: 'TWD' }), rates: RATES, now: later, id: 'b' });
+  const b = placeOrder(a, { side: 'buy', type: 'limit', limit: 1800, qty: 100 }, { quote: crypto('X', 1800, { at: later }), rates: RATES, now: later, id: 'b' });
   const s = replay(b.account, later);
   assert.ok(Math.abs(s.paid.borrow - (got * 0.03 * 30) / 365) < 1e-6);
 });
 
 test('shorts elsewhere need 150% cover to open, get called and bought back when the price runs up', () => {
   let a = withCredit(newAccount(100_000, T0, 'acc'));
-  const q = quote('X', 100, { market: 'US', currency: 'TWD' });
+  const q = crypto('X', 100);
   const v = val(a, T0, [['X', q]]);
+  if (markets.isSubBrokered) {
+    // A US stock sells only what's held: 複委託 is cash only.
+    const us = quote('AAPL', 100, { market: 'US', currency: 'TWD' });
+    assert.deepEqual(placeOrder(a, { side: 'sell', qty: 10 }, { quote: us, rates: RATES, valuation: val(a, T0, [['AAPL', us]]), now: T0 }), { error: 'cashOnly', have: 0 });
+  }
   const big = placeOrder(a, { side: 'sell', qty: 3000 }, { quote: q, rates: RATES, valuation: v, now: T0 });
   assert.equal(big.error, 'shortMargin');
   assert.ok(big.max > 1500 && big.max < 2100);
   a = placeOrder(a, { side: 'sell', qty: 1900 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 's' }).account;
-  const up = quote('X', 160, { at: T0 + DAY, market: 'US', currency: 'TWD' });
+  const up = crypto('X', 160, { at: T0 + DAY });
   const v2 = val(a, T0 + DAY, [['X', up]]);
   assert.equal(v2.margin, 'liquidate');
   assert.deepEqual(liquidationPlan(a, v2).map(p => [p.side, p.qty]), [['buy', 1900]]);
