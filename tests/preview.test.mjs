@@ -150,3 +150,48 @@ test('the most a day trade can sell first stays within the day-trade limit left'
   assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: capped + 1 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'x' }).error, 'dayTradeLimit');
   assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: capped }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'y' }).error, undefined);
 });
+
+test('a limit or stop field starts on the exchange tick (a US price of 187.4321 opened on a refused price)', async () => {
+  const { startPrice } = await import('../public/lib/preview.mjs');
+  const { tickSize, onTick } = await import('../public/lib/markets.mjs');
+  const us = { symbol: 'AAPL', market: 'US', kind: 'stock', price: 187.4321 };
+  assert.equal(startPrice(us), '187.43');
+  assert.ok(onTick(Number(startPrice(us)), tickSize('US', 'stock', 187.43)));
+  assert.equal(startPrice({ market: 'US', kind: 'stock', price: 0.51237 }), '0.5124');
+  assert.equal(startPrice({ market: 'TW', kind: 'stock', price: 1085 }), '1085');
+  assert.equal(startPrice({ market: 'HK', kind: 'stock', price: 412.3 }), '412.4');
+  // No tick (crypto): six figures, as before.
+  assert.equal(startPrice({ market: 'CRYPTO', kind: 'crypto', price: 67123.456789 }), '67123.5');
+  assert.equal(startPrice(null), '');
+});
+
+test('Taiwan whole lots and odd lots are separate orders: 1,500 shares is 1,000 and 500', async () => {
+  const { lotSplit } = await import('../public/lib/preview.mjs');
+  assert.deepEqual(lotSplit('TW', 'stock', 1500), { board: 1000, odd: 500 });
+  assert.deepEqual(lotSplit('TW', 'etf', 2001), { board: 2000, odd: 1 });
+  assert.equal(lotSplit('TW', 'stock', 2000), null);
+  assert.equal(lotSplit('TW', 'stock', 999), null);
+  assert.equal(lotSplit('US', 'stock', 1500), null);
+});
+
+test('the ticket\'s 最大 is the most the cash holds (it was about 3.5% short), 融資 counting only one\'s own part', async () => {
+  const { maxBuy } = await import('../public/lib/preview.mjs');
+  const { requiredCash } = await import('../public/lib/account.mjs');
+  const q = { ...quote('2330.TW', 100), kind: 'etf' };
+  const hold = margin => n => requiredCash({ type: 'limit', qty: n, limit: 100, waitFresh: 1, margin }, q, T0).reserve;
+  // NT$50,000 at 100: 499 shares (49,900 + NT$71 commission), not 481.
+  const cash = maxBuy({ holdFor: hold(0), spendable: 50_000, price: 100, kind: 'etf', market: 'TW' });
+  assert.equal(cash, 499);
+  assert.ok(hold(0)(cash) <= 50_000 && hold(0)(cash + 1) > 50_000);
+  // 融資 6成: about 2.5 times as much, in whole lots past one.
+  const margin = maxBuy({ holdFor: hold(0.6), spendable: 50_000, price: 100, kind: 'etf', market: 'TW', margin: 0.6 });
+  assert.equal(margin, 1000);
+  // ...and within the credit limit left: NT$30,000 of 融資 room is 500 shares at 60.
+  assert.equal(maxBuy({ holdFor: hold(0.6), spendable: 50_000, price: 100, kind: 'etf', market: 'TW', margin: 0.6, cap: 30_000 / 60 }), 500);
+  // Past a lot, whole lots only: NT$150,000 buys 1,000, not 1,497.
+  assert.equal(maxBuy({ holdFor: hold(0), spendable: 150_000, price: 100, kind: 'etf', market: 'TW' }), 1000);
+  // Crypto to its step.
+  const c = { symbol: 'BTC-USD', market: 'CRYPTO', kind: 'crypto', currency: 'USD', price: 60_000, session: null };
+  const btc = maxBuy({ holdFor: n => requiredCash({ type: 'limit', qty: n, limit: 60_000, waitFresh: 1 }, c, T0).reserve, spendable: 1000, price: 60_000, kind: 'crypto', market: 'CRYPTO' });
+  assert.ok(btc > 0.0166 && btc < 0.01667);
+});

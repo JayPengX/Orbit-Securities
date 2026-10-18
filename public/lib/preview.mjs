@@ -3,7 +3,7 @@
 // end and interest, a loan of shares' fee. Each is worked out by the very
 // rules that then do it (the kit's stock-*), so the preview is what happens.
 import { estimate, replay } from './account.mjs';
-import { SHORT_INITIAL, isOddLot, localDayOf, roundQty, tradeCosts } from './markets.mjs';
+import { SHORT_INITIAL, isOddLot, localDayOf, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
 import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
 import * as credit from './credit.mjs';
 import { addMonths, lendFee, LEND_RATE, tdInterest, tdRate } from './savings.mjs';
@@ -86,3 +86,41 @@ export function lendYear(kind, qty, price) {
 
 // The chart range an account's history reads, by its age.
 export const historyRange = age => (age < 25 * DAY ? '1mo' : age < 170 * DAY ? '6mo' : age < 360 * DAY ? '1y' : '5y');
+
+// The price a limit or stop field starts at: the last price on the
+// exchange's tick (Yahoo's US prices carry 4 decimals: 187.4321 opened the
+// ticket on a price the exchange refuses); no tick, as it was.
+export function startPrice(q) {
+  if (!(q?.price > 0)) return '';
+  const tick = tickSize(q.market, q.kind, q.price);
+  return String(tick ? toTick(q.price, tick) : +q.price.toPrecision(6));
+}
+
+// Taiwan takes whole lots (整股, 1,000 shares) and odd lots (零股, 1 to 999)
+// as separate orders: 1,500 shares is two. { board, odd } when `qty` mixes
+// them, else null.
+export function lotSplit(market, kind, qty) {
+  if (!isOddLot(market, kind, qty) || qty < 1000) return null;
+  const board = Math.floor(qty / 1000) * 1000;
+  return { board, odd: qty - board };
+}
+
+// The most a buy can be for: the largest quantity whose hold (`holdFor(n)`,
+// requiredCash's reserve, 融資's own part only) fits `spendable`; in
+// Taiwan from a lot up, whole lots (one order can't mix them). `price`:
+// one unit's price, for the search's top. `cap`: a quantity it can't pass
+// (融資 within the credit limit left).
+export function maxBuy({ holdFor, spendable, price, kind, market, margin = 0, cap = Infinity }) {
+  if (!(spendable > 0) || !(price > 0)) return 0;
+  const step = qtyStep(kind);
+  // In steps: the top a little past what the cash buys on its own part.
+  let lo = 0;
+  let hi = Math.ceil(spendable / (price * Math.max(0.05, 1 - margin)) / step) + 1;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (holdFor(roundQty(mid * step, kind)) <= spendable + 1e-9) lo = mid;
+    else hi = mid - 1;
+  }
+  const max = roundQty(Math.min(lo * step, cap), kind);
+  return lotSplit(market, kind, max) ? Math.floor(max / 1000) * 1000 : max;
+}
