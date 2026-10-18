@@ -11,7 +11,12 @@ export function rocDate(text) {
   return m ? Date.UTC(+m[1] + 1911, +m[2] - 1, +m[3]) - 8 * 3_600_000 : null;
 }
 
-const column = (fields, re) => (fields || []).findIndex(f => re.test(String(f)));
+// A column by its name (TWSE's: 證券代號, 處置起迄時間), else the first like it.
+const column = (fields, name, re) => {
+  const list = (fields || []).map(f => String(f).trim());
+  const exact = list.indexOf(name);
+  return exact >= 0 ? exact : list.findIndex(f => re.test(f));
+};
 
 // TWSE's {stat, fields, data} as Map(code -> { until }) for 處置 (until: the last
 // day's end, or null when the list doesn't say) or Map(code -> {}) for 注意.
@@ -19,9 +24,9 @@ const column = (fields, re) => (fields || []).findIndex(f => re.test(String(f)))
 export function parseAlertList(json, kind) {
   const out = new Map();
   if (!json || !Array.isArray(json.data)) return out;
-  const code = column(json.fields, /代號/);
+  const code = column(json.fields, '證券代號', /代號/);
   if (code < 0) return out;
-  const period = kind === 'punish' ? column(json.fields, /起迄|期間|處置期/) : -1;
+  const period = kind === 'punish' ? column(json.fields, '處置起迄時間', /起迄|期間|處置期/) : -1;
   for (const row of json.data) {
     const c = String(row?.[code] ?? '').trim();
     if (!/^\d{4,6}[A-Z]?$/.test(c)) continue;

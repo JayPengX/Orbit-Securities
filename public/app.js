@@ -4250,9 +4250,30 @@ function patchElement(o, n) {
   if (o instanceof HTMLSelectElement) o.value = n.querySelector('option[selected]')?.value ?? o.value;
 }
 
+// A second point typed into a number field ends the number: that point and
+// what's typed after it are refused (1.2.3.4 key by key stays 1.2, as pasted),
+// until a deletion or the field is left.
+const NUMBER_FIELDS = new Set(['t-qty', 't-limit', 't-stop', 'fx-amount', 'loan-amount', 'td-amount', 'alert-price', 'plan-amount', 'plan-row-amount']);
+const numberJam = new WeakMap();
+function refuseExtraPoint(el, event) {
+  const kept = numberJam.get(el);
+  if (event.inputType?.startsWith('delete')) numberJam.delete(el);
+  else if (event.inputType?.startsWith('insert')) {
+    const before = kept ?? el.value.slice(0, el.selectionStart - (event.data?.length ?? 0)) + el.value.slice(el.selectionStart);
+    if (kept != null || (/\./.test(event.data || '') && (el.value.match(/\./g) || []).length > 1)) {
+      const caret = el.selectionStart - (el.value.length - before.length);
+      el.value = before;
+      el.setSelectionRange(Math.max(0, caret), Math.max(0, caret));
+      numberJam.set(el, before);
+    }
+  }
+}
+document.addEventListener('focusout', event => numberJam.delete(event.target));
+
 document.addEventListener('input', event => {
   const el = event.target;
   const d = state.detail;
+  if (NUMBER_FIELDS.has(el.id)) refuseExtraPoint(el, event);
   switch (el.id) {
     case 'search':
       onSearchInput(el.value);
