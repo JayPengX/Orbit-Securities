@@ -67,6 +67,7 @@ Live: https://jaypengx.github.io/Quadra-Securities/
 - Earns like a broker (about 0.3% of turnover). That gap with Play is
   deliberate.
 - 新股申購 uses TWSE's real list, drawn by the proxy at TWSE's rate.
+- 處置 and 注意 stocks (TWSE's lists, via the proxy) are tagged on holdings and the quote, with the 處置 rules on the ticket (lib/alerts.mjs).
 - Non-US government bonds use reference curves (no free live source).
 - Logo tables are generated (`scripts/brand-logos.mjs`,
   `scripts/tv-logos.mjs`); never edit them by hand.

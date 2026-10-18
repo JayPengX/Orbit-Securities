@@ -27,6 +27,7 @@ import {
   APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
   keepOffline, onlineOnly, proxyJson
 } from '#kit/quadra.mjs';
+import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_URL, IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as stockAccount from './lib/account.mjs';
 
@@ -1094,6 +1095,24 @@ function openNowHtml() {
 // TWSE's list of public subscriptions, kept half an hour; read before the
 // loading screen lifts (boot), so the section never arrives after it.
 const ipoState = { list: null, at: 0, busy: null };
+// TWSE's 處置 and 注意 lists (lib/alerts.mjs), flagged on a stock as brokers' apps do.
+const alertState = { punish: null, notice: null, at: 0, busy: null };
+function loadAlerts() {
+  if (alertState.busy) return alertState.busy;
+  if (alertState.at && Date.now() - alertState.at < 30 * 60_000) return Promise.resolve();
+  alertState.busy = (async () => {
+    const [punish, notice] = await Promise.all([PUNISH_URL, NOTICE_URL].map(u => proxyJson(u, { ttl: 30 * 60_000 }).then(x => (typeof x === 'string' ? JSON.parse(x) : x)).catch(() => null)));
+    if (punish) alertState.punish = parseAlertList(punish, 'punish');
+    if (notice) alertState.notice = parseAlertList(notice, 'notice');
+    alertState.at = Date.now();
+    alertState.busy = null;
+  })();
+  return alertState.busy;
+}
+const alertTag = symbol => {
+  const a = alertOf(symbol, alertState);
+  return a ? `<span class="held-tag alert-${a}" title="${h(t(`${a}Help`))}">${h(t(`${a}Tag`))}</span>` : '';
+};
 const ipoKey = s => `${s.code}:${s.draw}`;
 function loadIpo() {
   if (ipoState.busy) return ipoState.busy;
@@ -1410,7 +1429,7 @@ function renderDetail() {
     `
     <header class="sheet-head">
       ${symbolBadge(d.symbol, q || info)}
-      <div class="sheet-title"><h2>${h(nameOf(d.symbol, q))}</h2><p>${flagOf(d.symbol, q)} ${h(sub)}</p></div>
+      <div class="sheet-title"><h2>${h(nameOf(d.symbol, q))}${alertTag(d.symbol)}</h2><p>${flagOf(d.symbol, q)} ${h(sub)}</p></div>
       <button class="icon-button star${starred ? ' on' : ''}" type="button" data-action="star" aria-label="${h(t('watchToggle'))}" title="${h(t('watchToggle'))}">${starred ? '★' : '☆'}</button>
       <button class="icon-button" type="button" data-action="close" aria-label="${h(t('close'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </header>
@@ -2148,6 +2167,7 @@ function renderTicket() {
     }
     ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money(lotsDeposit(q.market, q.kind, shares, qty - shares, quotaPrice(q, d)), q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}${!twCredit && q.market === 'TW' && dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>` : ''}
     ${afterLines.map(x => `<p class="note">${h(x)}</p>`).join('')}
+    ${alertOf(d.symbol, alertState) === 'punish' ? `<p class="note alert-note">${h(t('punishHelp'))}</p>` : ''}
     ${split ? `<p class="note lot-split">${h(t(afterLines.length ? 'lotSplitNoteAfter' : 'lotSplitNote', { board: fmtQty(split.board), odd: fmtQty(split.odd) }))}</p>` : ''}
     ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
     ${topUp?.enough ? `<p class="note">${h(t('autoFxLine', { pay: money(topUp.need, BASE), get: money(topUp.get, q.currency) }))}</p>` : ''}
@@ -2521,7 +2541,7 @@ function positionRow(p) {
   const q = p.quote;
   return `<button class="row position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
-    <span class="row-main"><span class="row-title">${h(nameOf(p.symbol, q))}${p.short ? `<span class="held-tag short">${h(t('shortTag'))}</span>` : ''}${p.financed > 0 ? `<span class="held-tag">${h(t('marginTag'))}</span>` : ''}${p.lent ? `<span class="held-tag">${h(t('lentTag', { qty: fmtQty(p.lent) }))}</span>` : ''}${exTagHtml(p.symbol)}</span>
+    <span class="row-main"><span class="row-title">${h(nameOf(p.symbol, q))}${p.short ? `<span class="held-tag short">${h(t('shortTag'))}</span>` : ''}${p.financed > 0 ? `<span class="held-tag">${h(t('marginTag'))}</span>` : ''}${p.lent ? `<span class="held-tag">${h(t('lentTag', { qty: fmtQty(p.lent) }))}</span>` : ''}${exTagHtml(p.symbol)}${alertTag(p.symbol)}</span>
       <span class="row-sub">${h(p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}${lotsNote(p, q)}`)} · ${h(t('avgShort'))} ${h(fmtPrice(p.avg, p.currency))} · ${h(pct(p.weight, { digits: 1, sign: false }))}</span>
       <span class="row-meta">${h(t('nowShort'))} ${h(fmtPrice(p.price, p.currency))} ${h(p.currency)} · <span class="${dirClass(p.dayTWD)}">${h(t('todayShort'))} ${h(money(p.dayTWD, BASE, { sign: true }))}</span></span></span>
     <span class="pos-right"><strong class="num">${h(money(p.valueTWD, BASE))}</strong><span class="pl-pill ${p.pl > 0 ? 'up' : p.pl < 0 ? 'down' : ''}">${h(pct(p.plPct))}</span><small class="num ${dirClass(p.pl)}">${h(money(p.pl, BASE, { sign: true }))}</small></span>
@@ -4436,6 +4456,7 @@ async function boot() {
           await new Promise(r => setTimeout(r, 1_500));
           await refresh({ list: true });
         }
+        loadAlerts().then(() => state.loaded && render());
         // 新股申購 in before it lifts (2.5 s at most), not a section arriving after.
         await Promise.race([loadIpo(), new Promise(r => setTimeout(r, Math.max(0, Math.min(2_500, BOOT_LIMIT_MS - 500 - (Date.now() - bootAt)))))]);
         renderHomeRows();
@@ -4454,7 +4475,7 @@ if (!gated) boot();
 setTimeout(() => ($('loading').hidden = true), BOOT_LIMIT_MS);
 
 setInterval(() => {
-  if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds).then(() => loadIpo().then(() => state.tab === 'markets' && renderHomeRows()));
+  if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds).then(() => Promise.all([loadIpo(), loadAlerts()]).then(() => state.tab === 'markets' && renderHomeRows()));
 }, QUOTE_REFRESH_MS);
 // What the other apps did (bets, the pay, Plus) arrives with the wallet
 // (quadra.mjs checks it every minute); the account itself every few.
