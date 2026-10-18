@@ -41,11 +41,26 @@ Live: https://jaypengx.github.io/Quadra-Securities/
   - dividends paid on the market's pay day;
   - margin calls at 130% (two business days, then forced sales);
   - shorts at 150% cover (Taiwan's 融券: its credit limit and a 90%
-    deposit, 0.08% handling);
+    deposit, 0.08% handling); abroad 複委託 is cash only, so a foreign
+    stock is never bought on 融資 or sold short (`cashOnly`; crypto still
+    shorts, with the credit account);
   - 融資 / 融券 for six months; 定存 at Bank of Taiwan's posted rates;
   - Hong Kong orders in each security's HKEX board lot (the kit's
-    `stock-hk-lots.mjs`); one not on HKEX's list can't be ordered
+    `stock-hk-lots.mjs`), limit orders only (the ticket offers no market
+    or stop order); one not on HKEX's list can't be ordered
     (`lotUnknown`, said on the ticket);
+  - US pre- and post-market (04:00-09:30, to 18:00 New York time): a
+    盤前／盤後 switch on a US day limit order while they trade (`ext`),
+    the session on the quote; half days close early (NYSE 13:00, Hong
+    Kong noon); a market-wide circuit breaker (the S&P 500 down 7/13/20%)
+    shown on US quotes and the ticket, nothing filling meanwhile;
+  - Stock Connect: STAR (688/689) and ChiNext (30xxxx) shares sold only,
+    never bought (`northboundBoard`);
+  - Tokyo's ticks by TOPIX500 and each ETF's own unit (the kit's
+    `stock-jp-lists.mjs`);
+  - US commissions at 國泰's 2026 price (a stock 0.08% with no minimum,
+    an ETF US$3) to 2026-12-31, then 0.1% (at least US$3), said with
+    the date in the costs;
   - taxes that end on a date in law, shown with it: bond ETFs' exemption
     to 2026-12-31 (then 0.1%), 當沖's 0.15% to 2027-12-31;
   - interest on idle NT$ (0.8%, members alike);
@@ -54,7 +69,10 @@ Live: https://jaypengx.github.io/Quadra-Securities/
     on the whole lots the day's cash buys match (`dayTradeShareOf`: 3 lots
     sold, 1 bought today, a third at 0.15%), never on odd lots; what's
     sold first within the day's 當沖額度 (twice net worth);
-  - 定期定額 on Taiwan and US shares only: from NT$100 on any day 1-31 (a
+  - 定期定額 of shares and ETFs in Taiwan and the US only (the kit's
+    `planAllowed`; funds, crypto and gold anywhere); a US one from US$10
+    a buy in NT$ (`planMinTWD`), bought in fractional shares to 0.0001
+    and sold down to them; from NT$100 on any day 1-31 (a
     shorter month's last day); a Taiwan stock or ETF bought as an odd-lot
     limit order at the session's first match (09:10, 09:00 from
     2026-12-07); NT$1 a buy to 2026-12-31, then 0.1425% with a NT$1

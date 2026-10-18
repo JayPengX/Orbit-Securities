@@ -274,6 +274,8 @@ footer { padding: 10px 0 0; text-align: center; }
 .price-meta { font-size: 0.78rem; color: var(--text-muted); }
 .mkt-status { display: inline-flex; align-items: center; gap: 6px; }
 .mkt-status.open { color: var(--accent); font-weight: 600; }
+.mkt-status.halt { color: var(--warn); font-weight: 600; }
+.mkt-status.ext { color: var(--text-secondary); font-weight: 600; }
 .mkt-status small { color: var(--text-muted); font-weight: 400; }
 .first-day { display: grid; gap: 6px; place-content: center; text-align: center; min-height: 140px; color: var(--text-muted); font-size: 0.86rem; }
 .first-day strong { font-size: 1.4rem; color: var(--text-primary); }

@@ -44,7 +44,7 @@ export function afterHoursSend(t, odd) {
 export function atLimit(q) {
   const band = q ? priceLimits(q) : null;
   if (!band || !(q.price > 0)) return null;
-  const tick = tickSize(q.market, q.kind, q.price) || 1e-6;
+  const tick = tickSize(q.market, q.kind, q.price, q.symbol) || 1e-6;
   if (q.price >= band.up - tick / 2) return 'up';
   if (q.price <= band.down + tick / 2) return 'down';
   return null;

@@ -391,3 +391,51 @@ test('a Taiwan holding in 張 and 股: under a lot nothing extra, a short counte
   assert.deepEqual(boardLots(2500), { lots: 2, odd: 500 });
   assert.deepEqual(boardLots(-1500), { lots: 1, odd: 500 });
 });
+
+test('the ticket offers only what the kit takes: no 融資 or short abroad, Hong Kong limit only, 盤前／盤後 in their hours, STAR and ChiNext sold only, US fractions sold', async () => {
+  const { cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, sellFraction, ticketRound, ticketStepOk, marginRateFor } = await import('../public/lib/preview.mjs');
+  const credited = { ...newAccount(1_000_000, T0 - 400 * DAY, 'acc'), events: [...newAccount(1_000_000, T0 - 400 * DAY, 'acc').events, { id: 'credit:t', type: 'credit', t: T0 - DAY, limit: 5_000_000 }] };
+  const us = quote('AAPL', 200, T0, { market: 'US', currency: 'USD' });
+  const hk = quote('0700.HK', 400, T0, { market: 'HK', currency: 'HKD' });
+  const tw = quote('2330.TW', 1000);
+  const star = quote('688981.SS', 90, T0, { market: 'CN', currency: 'CNY' });
+  const main = quote('600519.SS', 1500, T0, { market: 'CN', currency: 'CNY' });
+  // 融資 at home with the credit account; abroad only on an older kit.
+  assert.equal(marginRateFor(credited, tw, 'buy', T0), 0.6);
+  assert.equal(marginRateFor(credited, us, 'buy', T0), markets.isSubBrokered ? 0 : 0.5);
+  assert.equal(cashOnly(us), Boolean(markets.isSubBrokered));
+  assert.equal(cashOnly(tw), false);
+  assert.equal(cashOnly(quote('EURUSD=X', 1.1, T0, { kind: 'fx', market: 'FX', currency: 'USD' })), false);
+  // Each one agrees with placeOrder.
+  const v = val(credited, T0, [['AAPL', us]]);
+  const margin = placeOrder(credited, { side: 'buy', type: 'limit', limit: 200, qty: 1, margin: true }, { quote: us, rates: RATES, valuation: v, now: T0 });
+  if (markets.isSubBrokered) assert.equal(margin.error, 'cashOnly');
+  assert.deepEqual(orderTypes(hk), markets.limitOnly ? ['limit'] : ['market', 'limit', 'stop']);
+  assert.deepEqual(orderTypes(us), ['market', 'limit', 'stop']);
+  assert.equal(northboundBlock(star), markets.cnBoard ? 'star' : null);
+  assert.equal(northboundBlock(quote('300750.SZ', 200, T0, { market: 'CN', currency: 'CNY' })), markets.cnBoard ? 'chinext' : null);
+  assert.equal(northboundBlock(main), null);
+  if (markets.usSession) {
+    // 2028-03-01 (Wednesday, EST): 08:00 New York is the pre-market, 12:00 regular, 17:00 post, 19:00 shut.
+    const ny = hm => Date.parse(`2028-03-01T${hm}:00-05:00`);
+    assert.deepEqual(['08:00', '12:00', '17:00', '19:00'].map(x => usSessionOf(us, ny(x))), ['pre', 'regular', 'post', null]);
+    assert.equal(usSessionOf(tw, ny('08:00')), undefined);
+    assert.equal(extOffered(us, { type: 'limit' }, ny('08:00')), true);
+    assert.equal(extOffered(us, { type: 'limit', tif: 'gtc' }, ny('08:00')), false);
+    assert.equal(extOffered(us, { type: 'market' }, ny('17:00')), false);
+    assert.equal(extOffered(us, { type: 'limit' }, ny('12:00')), false);
+    // A pre-market order the ticket offers is one the kit takes, lasting to 18:00.
+    const funded = kit.exchange(newAccount(1_000_000, T0 - DAY, 'b'), { from: 'TWD', to: 'USD', amount: 64_000 }, { rates: RATES, now: T0 - DAY, id: 'x' }).account;
+    const r = placeOrder(funded, { side: 'buy', type: 'limit', limit: 190, qty: 1, ext: true }, { quote: us, rates: RATES, now: ny('08:00') });
+    assert.equal(r.error, undefined);
+    assert.equal(r.order.ext, true);
+    assert.equal(r.order.expires, ny('18:00'));
+  }
+  // A US plan's fractions sell down to 0.0001; buys and other markets whole.
+  assert.equal(sellFraction(us, 'sell'), markets.US_FRACTION ?? null);
+  assert.equal(sellFraction(us, 'buy'), null);
+  assert.equal(ticketRound(us, 'sell', 2.59857), markets.US_FRACTION ? 2.5985 : 2);
+  assert.equal(ticketStepOk(us, 'sell', 2.5985), Boolean(markets.US_FRACTION));
+  assert.equal(ticketStepOk(us, 'buy', 2.5985), false);
+  assert.equal(ticketStepOk(tw, 'sell', 2.5), false);
+});

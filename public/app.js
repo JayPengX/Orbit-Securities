@@ -19,7 +19,7 @@ import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestT
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
-import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit } from './lib/preview.mjs';
+import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit, cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, usHalt, sellFraction, ticketRound, ticketStepOk } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { twPhase, afterHoursSend, atLimit, exDayTags, closeMatchOf as twseCloseMatchOf, orderWaitKind } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
@@ -381,7 +381,7 @@ function fillsDue(open, plans, at) {
 }
 // True once the proxy has answered.
 // An order as the proxy is told of it (asking for its fill, or to cancel it).
-const spec = o => ({ id: o.id, symbol: o.symbol, side: o.side, type: o.type, qty: o.qty, limit: o.limit, stop: o.stop, t: o.t, after: o.after, expires: o.expires, market: o.market, kind: o.kind, currency: o.currency });
+const spec = o => ({ id: o.id, symbol: o.symbol, side: o.side, type: o.type, qty: o.qty, limit: o.limit, stop: o.stop, t: o.t, after: o.after, expires: o.expires, market: o.market, kind: o.kind, currency: o.currency, ...(o.ext ? { ext: true } : {}) });
 async function askFills(account, { now = false } = {}) {
   const open = (account?.orders || []).filter(o => o.status === 'open' && !state.fills[o.id]);
   const plans = account ? plansDue(account) : [];
@@ -410,6 +410,10 @@ async function askFills(account, { now = false } = {}) {
 // placed as one waiting for a fresh price, which only the proxy's answers
 // fill. An older kit: as before.
 const place = (account, req, opts) => placeOrder(account, stockAccount.applyFills ? { ...req, fresh: true } : req, opts);
+// The US market-wide halt now (a circuit breaker on the S&P 500, the kit's marketHalt), or null.
+const haltNow = (now = Date.now()) => usHalt(state.quotes.get(stockMarkets.SPX ?? '^GSPC'), now);
+// A US stock or ETF's halt (null for anything else).
+const haltOf = (q, now = Date.now()) => (usSessionOf(q, now) !== undefined ? haltNow(now) : null);
 
 // Once new prices are in: fill waiting orders, force-sell if the loans call
 // for it, record today's value.
@@ -428,7 +432,7 @@ function afterPrices() {
   // owner, 2026-10-14): its fills applied here (one from a session the page
   // wasn't open for, dated then, before its order could lapse), the open
   // orders asked about (askFills). An older kit without it: filled here.
-  const r = stockAccount.applyFills ? stockAccount.applyFills(account, state.fills, state.rates, now) : processOrders(account, state.quotes, state.rates, now);
+  const r = stockAccount.applyFills ? stockAccount.applyFills(account, state.fills, state.rates, now) : processOrders(account, state.quotes, state.rates, now, { halt: haltNow(now) });
   account = r.account;
   // Day orders past their session end (and month-old GTC ones) lapse, once
   // the proxy has been asked after their end (lib/orders.mjs: one that met
@@ -832,7 +836,7 @@ function marketRules(q) {
   else if (q.market === 'TW' && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleTwLot'));
   const share = limitShare(q);
   if (share) parts.push(t('ruleLimit', { p: Math.round(share * 100) }));
-  else if (q.market === 'JP' && q.kind === 'stock') parts.push(t('ruleLimitJp'));
+  else if (q.market === 'JP' && (q.kind === 'stock' || (q.kind === 'etf' && stockMarkets.jpEtfUnit))) parts.push(t('ruleLimitJp'));
   else if (q.market === 'TW' && q.listed && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleNoLimitNew'));
   const lunch = lunchOf(q.market);
   if (lunch) {
@@ -842,6 +846,10 @@ function marketRules(q) {
   const n = settleDays(q.market);
   parts.push(n ? t('ruleSettle', { n }) : t('ruleInstant'));
   if (q.market === 'CN') parts.push(t('ruleCn'));
+  const board = northboundBlock(q);
+  if (board) parts.push(t('ruleNorthbound', { board: t(`cnBoard_${board}`) }));
+  if (orderTypes(q).length === 1) parts.push(t('ruleLimitOnly'));
+  if (cashOnly(q) && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleCashOnly'));
   if (q.market === 'TW' && q.kind === 'stock') {
     // 0.15% to the date the law sets (the kit's DAY_TRADE_TAX_UNTIL), then the full tax.
     const until = stockMarkets.DAY_TRADE_TAX_UNTIL;
@@ -873,6 +881,8 @@ const heldMargin = symbol => {
   const p = replay(state.account).positions[symbol];
   return p && !p.short ? marginShares(p) : 0;
 };
+// When today's session ends: its close, or a half day's early close.
+const closeOf = (q, now = Date.now()) => Math.min(q.session?.end ?? Infinity, stockMarkets.earlyCloseAt?.(q.market, now) ?? Infinity);
 function marketStatus(q) {
   if (!q) return '';
   if (q.kind === 'crypto') return `<span class="mkt-status open">${statusDot(q)}${h(t('always'))}</span>`;
@@ -886,7 +896,20 @@ function marketStatus(q) {
     const text = { preopen: t('phasePreopen', { time }), closing: t('phaseClosing', { time }), after: t('phaseAfter', { time }) }[ph.id];
     return `<span class="mkt-status${ph.id === 'closing' ? ' open' : ''}">${statusDot(q)}${h(text)} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
   }
-  if (isOpen(q, now)) return `<span class="mkt-status open">${statusDot(q)}${h(t('marketOpenUntil', { time: clock(q.session.end, q.tz) }))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+  const local = `<small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small>`;
+  // The US: a market-wide halt (circuit breaker), and the pre- and post-market.
+  const halt = haltOf(q, now);
+  if (halt && now < halt.until) return `<span class="mkt-status halt">${statusDot(q)}${h(halt.level === 3 ? t('haltDay') : t('haltUntil', { time: clock(halt.until, q.tz) }))} ${local}</span>`;
+  const us = usSessionOf(q, now);
+  if (us === 'pre' || us === 'post') {
+    const until = us === 'pre' ? (q.session?.start > now ? q.session.start : nextOpen(q, now)) : stockMarkets.usExtendedEnd?.(now);
+    return `<span class="mkt-status ext">${statusDot(q)}${h(t(us === 'pre' ? 'statusPre' : 'statusPost', { time: until ? clock(until, q.tz) : '—' }))} ${local}</span>`;
+  }
+  // A half day closes early (the kit's earlyCloseAt).
+  if (isOpen(q, now)) {
+    const early = closeOf(q, now) < q.session.end;
+    return `<span class="mkt-status open">${statusDot(q)}${h(t(early ? 'marketOpenUntilEarly' : 'marketOpenUntil', { time: clock(closeOf(q, now), q.tz) }))} ${local}</span>`;
+  }
   const opens = nextOpen(q, now);
   const next = opens ? t('opensAt', { time: weekdayClock(opens) }) : t('marketClosed');
   return `<span class="mkt-status">${statusDot(q)}${h(next)} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
@@ -1129,7 +1152,7 @@ function openNowHtml() {
   if (!open.length) return '';
   // (One line: past two markets, their names alone.)
   const few = open.length <= 2;
-  const until = q => (q.kind === 'crypto' ? t('open24h') : q.session?.end ? t('openUntil', { time: clock(q.session.end) }) : '');
+  const until = q => (q.kind === 'crypto' ? t('open24h') : q.session?.end ? t('openUntil', { time: clock(closeOf(q, now)) }) : '');
   return `<div class="open-strip"><span class="open-dot" aria-hidden="true"></span><span class="open-label">${h(t('openNow'))}</span>${open
     .map(({ id, q }) => `<button type="button" class="open-mkt" data-action="mover-group" data-v="${h(id === 'jp' || id === 'hk' ? 'world' : id)}"><b>${h(t(`openMkt_${id}`))}</b>${few ? ` <span class="num">${h(until(q))}</span>` : ''}</button>`)
     .join('')}</div>`;
@@ -1588,7 +1611,12 @@ const MA_PERIODS = [5, 20, 60];
 function feeSummary(q) {
   const m = MARKETS[q.market] || MARKETS.INTL;
   const parts = [];
-  if (m.commission.rate) parts.push(m.commission.min ? t('feeCommission', { rate: rateText(m.commission.rate), min: money(m.commission.min, m.currency || q.currency) }) : t('feeCommissionNoMin', { rate: rateText(m.commission.rate) }));
+  const cur = m.currency || q.currency;
+  // A kind's own price while it runs (the kit's commission.kinds, to `until`: 國泰's 2026 US price).
+  const promo = m.commission.kinds?.[q.kind];
+  const price = c => (c.flat != null ? t('feeFlat', { fee: money(c.flat, cur) }) : c.min ? t('feeRateMin', { rate: rateText(c.rate), min: money(c.min, cur) }) : rateText(c.rate));
+  if (promo && Date.now() < m.commission.until) parts.push(t('feePromo', { fee: price(promo), until: fmtDate(m.commission.until - 1), after: price(m.commission) }));
+  else if (m.commission.rate) parts.push(m.commission.min ? t('feeCommission', { rate: rateText(m.commission.rate), min: money(m.commission.min, cur) }) : t('feeCommissionNoMin', { rate: rateText(m.commission.rate) }));
   if (m.spread) parts.push(t('feeSpread', { rate: rateText(m.spread) }));
   for (const side of ['buy', 'sell']) {
     const rules = m[side];
@@ -1658,7 +1686,14 @@ function hoursLine(q) {
   const local = `${clock(q.session.start, q.tz)}–${clock(q.session.end, q.tz)}`;
   const line = local === tw ? tw : `${tw} ${t('taipeiTime')} · ${t('localTime')} ${local}`;
   // Taiwan: orders from 08:30 (試撮) and the after-hours sessions.
-  return q.market === 'TW' && isTradable(q.kind) ? `${line} · ${t('twHoursMore')}` : line;
+  if (q.market === 'TW' && isTradable(q.kind)) return `${line} · ${t('twHoursMore')}`;
+  // US stocks and ETFs: the pre- and post-market (the kit's US_EXTENDED).
+  const ext = stockMarkets.US_EXTENDED;
+  if (ext && usSessionOf(q) !== undefined) {
+    const hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    return `${line} · ${t('usExtHours', { pre: `${hm(ext.pre[0])}–${hm(ext.pre[1])}`, post: `${hm(ext.post[0])}–${hm(ext.post[1])}` })}`;
+  }
+  return line;
 }
 
 function positionHtml(symbol) {
@@ -1689,11 +1724,14 @@ function trackersHtml(symbol) {
 
 // ---- Detail sheet: alerts, monthly plan, time machine ---------------------------
 
-// Taiwan brokers sell 定期定額 on Taiwan and US shares only. A plan saved
+// Taiwan brokers sell 定期定額 of shares in Taiwan and the US only (the
+// kit's planAllowed; an older kit: no other market's either). A plan saved
 // before this rule keeps its card so it can still be stopped.
-const PLAN_MARKETS = ['TW', 'US'];
+const planAllowed = q => (stockAccount.planAllowed ? stockAccount.planAllowed(q) && q.kind !== 'fx' : (stockAccount.PLAN_MARKETS ?? ['TW', 'US']).includes(q.market));
 const canPlan = (q, symbol) => isTradable(q.kind) && !BONDS[q.symbol]
-  && (PLAN_MARKETS.includes(q.market) || activePlans(state.account).some(p => p.symbol === symbol));
+  && (planAllowed(q) || activePlans(state.account).some(p => p.symbol === symbol));
+// The least a buy can be: NT$100, a US one what exchanges for US$10 (the kit's planMinTWD).
+const planMin = q => stockAccount.planMinTWD?.(q?.market, state.rates[q?.currency]) ?? PLAN_MIN;
 
 function toolsHtml(symbol, q) {
   return [alertCardHtml(symbol, q), canPlan(q, symbol) ? planCardHtml(symbol, q) : ''].join('');
@@ -1749,8 +1787,11 @@ function planTermsHtml(q, at = Date.now()) {
   } else lines.push(t('planTimeOpen'));
   const m = MARKETS[q.market] || MARKETS.INTL;
   const fee = m.plan;
-  if (fee) lines.push(at < fee.flatUntil ? t('planFeeFlat', { fee: money(fee.flat, BASE), until: fmtDate(fee.flatUntil - 1), rate: rateText(fee.rate), min: money(fee.min, BASE) }) : t('planFeeRate', { rate: rateText(fee.rate), min: money(fee.min, BASE) }));
+  const cur = m.currency || BASE;
+  if (fee) lines.push(at < fee.flatUntil ? t('planFeeFlat', { fee: money(fee.flat, cur, { digits: fee.flat < 1 ? 2 : undefined }), until: fmtDate(fee.flatUntil - 1), rate: rateText(fee.rate), min: money(fee.min, cur) }) : t('planFeeRate', { rate: rateText(fee.rate), min: money(fee.min, cur) }));
   else if (q.market !== 'TW' && m.commission?.rate) lines.push(t('feeCommission', { rate: rateText(m.commission.rate), min: money(m.commission.min, m.currency || q.currency) }));
+  // A US one from US$10, in fractional shares (the kit's PLAN_MIN_LOCAL, fractional).
+  if (stockAccount.PLAN_MIN_LOCAL?.[q.market] && stockMarkets.fractional?.(q.market, q.kind)) lines.push(t('planMinUs', { min: money(planMin(q), BASE) }));
   return lines.map(x => `<p class="note">${h(x)}</p>`).join('');
 }
 // The plan of `symbol` that ended by itself (three months running without
@@ -1792,9 +1833,9 @@ function planCardHtml(symbol, q) {
     </div>
     ${perUnit > 0 && amount > 0 ? `<p class="muted">${h(t('planBuys', { units: num(units, units < 10 ? 2 : 0), unit: unitOf(symbol) }))}${q.currency !== BASE ? ` · ${h(t('planFx', { cur: q.currency }))}` : ''}</p>` : ''}
     ${state.account ? '' : `<p class="note">${h(t('needAccount'))}</p>`}
-    <button class="q-btn primary" type="button" data-action="plan-add" ${amount >= PLAN_MIN && state.account ? '' : 'disabled'}>${h(t(editing ? 'planSave' : 'planStart'))}</button>
+    <button class="q-btn primary" type="button" data-action="plan-add" ${amount >= planMin(q) && state.account ? '' : 'disabled'}>${h(t(editing ? 'planSave' : 'planStart'))}</button>
     ${editing ? `<button class="q-btn small" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button>` : ''}
-    <p class="note">${h(stockAccount.PLAN_FAIL_LIMIT ? t('planNoteEnd', { min: money(PLAN_MIN, BASE), n: stockAccount.PLAN_FAIL_LIMIT }) : t('planNote', { min: money(PLAN_MIN, BASE) }))}</p>
+    <p class="note">${h(stockAccount.PLAN_FAIL_LIMIT ? t('planNoteEnd', { min: money(planMin(q), BASE), n: stockAccount.PLAN_FAIL_LIMIT }) : t('planNote', { min: money(planMin(q), BASE) }))}</p>
     ${planTermsHtml(q)}`,
     Boolean(editing) || Boolean(ended),
     'tool:plan'
@@ -1833,7 +1874,7 @@ async function addPlan() {
   planAddedAt = Date.now();
   // The keyboard away, so the sheet redraws with the plan in place.
   document.activeElement?.blur?.();
-  const r = setPlan(state.account, { symbol: d.symbol, amount: state.plan.amount, day: state.plan.day, name: q.name, kind: q.kind, market: q.market, currency: q.currency });
+  const r = setPlan(state.account, { symbol: d.symbol, amount: state.plan.amount, day: state.plan.day, name: q.name, kind: q.kind, market: q.market, currency: q.currency, twd: state.rates[q.currency] });
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
   state.planEdit = null;
@@ -1847,12 +1888,13 @@ async function savePlanRow(id) {
   const plan = state.account?.plans?.[id];
   if (!plan || Date.now() - planAddedAt < 2000) return;
   const amount = Number(state.plan.amount) || 0;
-  if (amount < PLAN_MIN) return toast(t('planNote', { min: money(PLAN_MIN, BASE) }), 'bad');
+  const min = planMin(state.quotes.get(plan.symbol) || plan);
+  if (amount < min) return toast(t('planNote', { min: money(min, BASE) }), 'bad');
   if (!(await ask({ lang: locale, icon: '📅', title: t('planEditAsk', { name: nameOf(plan.symbol), amount: money(amount, BASE) }), body: t('planAskBody', { day: state.plan.day }), ok: t('planSave'), cancel: t('orderAskCancel') }))) return;
   planAddedAt = Date.now();
   document.activeElement?.blur?.();
   const q = state.quotes.get(plan.symbol) || {};
-  const r = setPlan(state.account, { id: plan.id, symbol: plan.symbol, amount: state.plan.amount, day: state.plan.day, name: q.name || plan.name, kind: q.kind || plan.kind, market: q.market || plan.market, currency: q.currency || plan.currency });
+  const r = setPlan(state.account, { id: plan.id, symbol: plan.symbol, amount: state.plan.amount, day: state.plan.day, name: q.name || plan.name, kind: q.kind || plan.kind, market: q.market || plan.market, currency: q.currency || plan.currency, twd: state.rates[q.currency || plan.currency] });
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
   state.planEdit = null;
@@ -2090,6 +2132,11 @@ function ownTradesHtml(symbol) {
 function ticketInfo() {
   const d = state.detail;
   const q = state.quotes.get(d.symbol);
+  // Only the order types the market takes (Hong Kong: limit), at the last price.
+  if (!orderTypes(q).includes(d.type)) {
+    d.type = orderTypes(q)[0];
+    d.limit = d.stop = startPrice(q);
+  }
   const s = snap();
   const avail = s ? available(state.account, s) : { cash: {}, qty: {} };
   const qty = Number(d.qty);
@@ -2147,7 +2194,8 @@ function ticketInfo() {
   // A day trade sold first: within the day's day-trade limit (當沖額度) left.
   const dayRoom = twDayShort && d.side === 'sell' ? dayTradeLeft(state.account, valuation()?.netWorth ?? 0, now) : null;
   // (Borrowing shares needs the credit account; in Taiwan a day trade sold first doesn't.)
-  if (d.side === 'sell' && isShortable(q.kind) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
+  // (Never abroad: 複委託 is cash only.)
+  if (d.side === 'sell' && isShortable(q.kind) && !cashOnly(q) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
     room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: quotaPrice(q, d, now), kind: q.kind, credit: shortCredit(state.account, q.market, now), cash, dayLeft: dayRoom?.left ?? null, dayUnit: dayTradePrice(q, d, now) * state.rates[q.currency], held: shares, market: q.market });
   return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
 }
@@ -2167,7 +2215,7 @@ function renderTicket() {
   const sellable = n => (oddLotNeedsLimit(q.market, q.kind, n, d.type) ? Math.floor(n / 1000) * 1000 : n);
   const presets =
     d.side === 'sell'
-      ? [[t('pct25'), shares * 0.25], [t('pct50'), shares * 0.5], [t('all'), shares], [t('maxShort'), shares + shortRoom]].map(([k, n]) => [k, sellable(roundQty(n, q.kind))])
+      ? [[t('pct25'), shares * 0.25], [t('pct50'), shares * 0.5], [t('all'), shares], ...(shortRoom > 0 ? [[t('maxShort'), shares + shortRoom]] : [])].map(([k, n]) => [k, sellable(ticketRound(q, 'sell', n))])
       : q.kind === 'govbond'
         ? [[t('max'), max], ['1', 1], ['10', 10], ['100', 100]]
         : q.kind === 'fx'
@@ -2195,11 +2243,15 @@ function renderTicket() {
     : [];
   const problems = [];
   if (shorting && !isShortable(q.kind)) problems.push(t('notEnoughShares', { have: fmtQty(shares) }));
+  else if (shorting && cashOnly(q)) problems.push(t('err_cashOnlyHave', { have: fmtQty(shares) }));
   else if (shorting && !twCredit && !twDayShort && (q.market === 'TW' || (q.kind !== 'fx' && !creditAccount(state.account, Date.now()).open))) problems.push(t('err_creditNeeded'));
   else if (shorting && qty > shares + shortRoom + 1e-9) problems.push(t('shortTooBig', { max: fmtQty(shares + shortRoom) }));
   if (credit && !marginOk) problems.push(t('err_margin'));
   if (short > 0 && !topUp?.enough) problems.push(t('notEnoughCash', { cur: q.currency, have: money(cash, q.currency), short: money(short, q.currency) }));
-  if (d.qty && Math.abs(roundQty(qty, q.kind) - qty) > qtyStep(q.kind) * 1e-3) problems.push(t('err_qtyStep'));
+  if (d.qty && !ticketStepOk(q, d.side, qty)) problems.push(t('err_qtyStep'));
+  // Stock Connect: a STAR or ChiNext share is sold, never bought.
+  const board = d.side === 'buy' ? northboundBlock(q) : null;
+  if (board) problems.push(t('err_northboundBoard', { board: t(`cnBoard_${board}`) }));
   if (qty > 0 && oddLotNeedsLimit(q.market, q.kind, qty, d.type)) problems.push(t('err_oddLotLimit'));
   // A Hong Kong security not on HKEX's list of board lots can't be sized (the kit refuses it: lotUnknown).
   if (q.market === 'HK' && stockMarkets.hkLot && ['stock', 'etf', 'bond'].includes(q.kind) && !stockMarkets.hkLot(q.symbol)) problems.push(t('err_lotUnknown'));
@@ -2209,7 +2261,7 @@ function renderTicket() {
   const typed = d.type === 'limit' ? Number(d.limit) : d.type === 'stop' ? Number(d.stop) : null;
   const band = priceLimits(q);
   if (typed > 0) {
-    const tick = tickSize(q.market, q.kind, typed);
+    const tick = tickSize(q.market, q.kind, typed, q.symbol);
     if (!onTick(typed, tick)) problems.push(t('err_tick', { tick: num(tick, 4, 0) }));
     else if (band && d.type === 'limit' && (typed > band.up + 1e-9 || typed < band.down - 1e-9)) problems.push(t('err_priceLimit', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }));
   }
@@ -2236,6 +2288,10 @@ function renderTicket() {
   // TWSE's closing call auction (13:25-13:30) takes whole lots at a limit only.
   const closing = twseSessions && q.market === 'TW' && d.type === 'market' && ['stock', 'etf', 'bond'].includes(q.kind) ? stockCredit.closingAuction(Date.now()) : null;
   if (closing && Date.now() < closing.match && lotParts(q.market, q.kind, qty).some(n => !isOddLot(q.market, q.kind, n))) problems.push(t('err_closingAuction', { match: clock(closing.match) }));
+  // US pre- and post-market: a day limit order may go to it (盤前／盤後, `ext`).
+  const extOk = extOffered(q, d);
+  const usSession = usSessionOf(q);
+  const halt = haltOf(q);
   const canPlace = est && !problems.length && !(short > 0) && marginOk;
   // A member's commission on the same trade (the market's minimum after the discount: often no less).
   // (Each of a split's two orders at its own minimum.)
@@ -2249,8 +2305,9 @@ function renderTicket() {
         <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t('buy'))}</button>
         <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(t('sell'))}</button>
       </div>
-      <div class="q-seg" role="group">${['market', 'limit', 'stop'].map(x => `<button type="button" data-action="otype" data-otype="${x}" aria-pressed="${d.type === x}">${h(t(`otype_${x}`))}</button>`).join('')}</div>
+      <div class="q-seg" role="group">${orderTypes(q).map(x => `<button type="button" data-action="otype" data-otype="${x}" aria-pressed="${d.type === x}">${h(t(`otype_${x}`))}</button>`).join('')}</div>
       ${d.type !== 'market' && q.kind !== 'crypto' && q.kind !== 'fx' ? `<div class="q-seg tif" role="group">${['day', 'gtc'].map(x => `<button type="button" data-action="tif" data-tif="${x}" aria-pressed="${(d.tif || 'day') === x}">${h(t(`tif_${x}`, { n: GTC_DAYS }))}</button>`).join('')}</div>` : ''}
+      ${extOk ? `<div class="q-seg ext-toggle" role="group"><button type="button" data-action="ext" data-ext="" aria-pressed="${!d.ext}">${h(t('session_regular'))}</button><button type="button" data-action="ext" data-ext="1" aria-pressed="${Boolean(d.ext)}">${h(t(`session_${usSession}`))}</button></div>` : ''}
     </div>
     ${marginRate > 0 ? `<div class="q-seg credit-toggle" role="group"><button type="button" data-action="credit" data-credit="" aria-pressed="${!credit}">${h(t('cashBuy'))}</button><button type="button" data-action="credit" data-credit="1" aria-pressed="${credit}">${h(t('creditBuy', { n: Math.round(marginRate * 10) }))}</button></div>` : ''}
     <p class="note hint-lines">${typeHint.split(/(?<=[：；:;])\s*/).map(x => `<span>${h(x)}</span>`).join('')}</p>
@@ -2260,7 +2317,7 @@ function renderTicket() {
       ${d.type === 'stop' ? `<label class="field"><span>${h(t('stopPrice'))} (${h(q.currency)})</span><input id="t-stop" inputmode="decimal" autocomplete="off" value="${h(d.stop)}" /></label>` : ''}
     </div>
     <div class="qty-presets one-row">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button class="q-chip small" type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}">${h(label)}</button>`).join('')}</div>
-    ${d.type !== 'market' && (band || tickSize(q.market, q.kind, q.price)) ? `<p class="muted">${h([band ? t('limitBand', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }) : '', tickSize(q.market, q.kind, q.price) ? t('tickIs', { tick: num(tickSize(q.market, q.kind, q.price), 4, 0) }) : ''].filter(Boolean).join(' · '))}</p>` : ''}
+    ${d.type !== 'market' && (band || tickSize(q.market, q.kind, q.price, q.symbol)) ? `<p class="muted">${h([band ? t('limitBand', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }) : '', tickSize(q.market, q.kind, q.price, q.symbol) ? t('tickIs', { tick: num(tickSize(q.market, q.kind, q.price, q.symbol), 4, 0) }) : ''].filter(Boolean).join(' · '))}</p>` : ''}
     <p class="muted">${h(d.side === 'buy' ? t('cashAvail', { amount: money(cash, q.currency) }) : t('sharesAvail', { qty: fmtQty(shares), unit }))}${d.side === 'buy' && sources.length ? ` <button class="link-button" type="button" data-action="ticket-fx" data-from="${h(sources[0])}" data-to="${h(q.currency)}">${h(t('fxOpen'))}</button>` : ''}</p>
     ${covers.length ? `<div class="qty-presets fx-cover">${covers.slice(0, 3).map(c => `<button class="q-chip small" type="button" data-action="topup" data-from="${h(c.from)}" data-cur="${h(q.currency)}" data-need="${c.need}">${h(t('fxCover', { pay: money(c.need, c.from), get: money(c.get, q.currency) }))}</button>`).join('')}</div>` : ''}
     ${d.side === 'sell' && heldMargin(d.symbol) > 0 ? `<p class="note margin-split">${h(t('sellSplit', { cash: fmtQty(Math.max(0, shares - heldMargin(d.symbol))), margin: fmtQty(heldMargin(d.symbol)), unit }))}</p>` : ''}
@@ -2277,12 +2334,14 @@ function renderTicket() {
     }
     ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money(lotsDeposit(q.market, q.kind, shares, qty - shares, quotaPrice(q, d)), q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}${!twCredit && q.market === 'TW' && dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>` : ''}
     ${afterLines.map(x => `<p class="note">${h(x)}</p>`).join('')}
+    ${extOk && d.ext ? `<p class="note">${h(t('extNote'))}</p>` : ''}
+    ${halt && Date.now() < halt.until ? `<p class="warn">${h(halt.level === 3 ? t('haltNoteDay') : t('haltNote', { level: halt.level, time: clock(halt.until) }))}</p>` : ''}
     ${alertOf(d.symbol, alertState) === 'punish' ? `<p class="note alert-note">${h(t('punishHelp'))}</p>` : ''}
     ${split ? `<p class="note lot-split">${h(t(afterLines.length ? 'lotSplitNoteAfter' : 'lotSplitNote', { board: fmtQty(split.board), odd: fmtQty(split.odd) }))}</p>` : ''}
     ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
     ${topUp?.enough ? `<p class="note">${h(t('autoFxLine', { pay: money(topUp.need, BASE), get: money(topUp.get, q.currency) }))}</p>` : ''}
     ${credit && est ? `<p class="note margin-line">${h(t('creditNote', { rate: pct(loanRateAt(q.currency), { digits: 2, sign: false }) }))}</p>` : ''}
-    ${!open && !afterLines.length ? `<p class="note">${h(q.kind === 'metal' ? t('closedMetal') : t('closedQueue'))}</p>` : ''}
+    ${!open && !afterLines.length && !(extOk && d.ext) ? `<p class="note">${h(q.kind === 'metal' ? t('closedMetal') : t('closedQueue'))}</p>` : ''}
     ${qty > 0 && isOddLot(q.market, q.kind, qty) && !afterLines.length ? `<p class="note">${h(t(open && !oddLotOpen(Date.now()) ? 'oddLotWait' : 'oddLotNote', { time: oddLotFirst() }))}</p>` : ''}
     ${d.type !== 'limit' && est && !afterLines.length ? `<p class="note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
     ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
@@ -2300,12 +2359,13 @@ function placeFromTicket() {
   const d = state.detail;
   const q = state.quotes.get(d.symbol);
   if (!q || !state.account || !pricesLive()) return;
-  const req = { symbol: d.symbol, side: d.side, type: d.type, qty: Number(d.qty), fresh: true, ...(d.side === 'buy' && d.credit && collateralRate(q.kind, q.market, q.symbol) > 0 ? { margin: true } : {}) };
+  const req = { symbol: d.symbol, side: d.side, type: d.type, qty: Number(d.qty), fresh: true, ...(d.side === 'buy' && d.credit && !cashOnly(q) && collateralRate(q.kind, q.market, q.symbol) > 0 ? { margin: true } : {}) };
   if (d.type === 'limit') req.limit = Number(d.limit);
   if (d.type === 'stop') req.stop = Number(d.stop);
   if (d.type !== 'market' && d.tif === 'gtc') req.tif = 'gtc';
+  if (d.ext && extOffered(q, d)) req.ext = true;
   // A mixed Taiwan quantity goes in as two orders (lib/preview.mjs placeLots).
-  const { account, parts, failed } = placeLots(state.account, req, { quote: q, rates: state.rates, valuation: valuation(), now: Date.now() }, place);
+  const { account, parts, failed } = placeLots(state.account, req, { quote: q, rates: state.rates, valuation: valuation(), now: Date.now(), halt: haltNow() }, place);
   if (account) {
     commit(account);
     track(symbolKeys(d.symbol), 3);
@@ -2439,7 +2499,13 @@ function errorText(r) {
     case 'afterHoursWait':
       return t('err_afterHoursWait', { from: clock(r.from) });
     case 'planAmount':
-      return t('err_planAmount', { min: money(PLAN_MIN, BASE) });
+      return t('err_planAmount', { min: money(r.min ?? PLAN_MIN, BASE) });
+    case 'cashOnly':
+      return r.have != null ? t('err_cashOnlyHave', { have: fmtQty(r.have) }) : t('err_cashOnly');
+    case 'northboundBoard': {
+      const board = r.board === 'chinext' ? 'chinext' : 'star';
+      return t('err_northboundBoard', { board: t(`cnBoard_${board}`) });
+    }
     case 'planDay':
       return t('err_planDay', { max: planDayMax() });
     case 'lendRate':
@@ -2888,12 +2954,12 @@ function orderRow(o) {
       : wait === 'closeMatch'
         ? t('closeMatchWait', { time: clock(closeAt) })
         : o.status === 'open'
-          ? (q && !isOpen(q) ? t('waitingOpen') : t('waitingPrice')) + (ends ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(ends) : weekdayClock(ends) })}` : '')
+          ? (q && !isOpen(q) && !(o.ext && ['pre', 'post'].includes(usSessionOf(q))) ? t('waitingOpen') : t('waitingPrice')) + (ends ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(ends) : weekdayClock(ends) })}` : '')
           : t(`status_${o.status}`);
   return `<div class="order-row" role="button" tabindex="0" data-action="open" data-symbol="${h(o.symbol)}">
     <span class="side-tag ${o.side}">${h(t(o.side))}</span>
     <span class="row-main"><span class="row-title">${h(nameOf(o.symbol, q))} <small>${h(fmtQty(o.qty))} ${h(unitOf(o.symbol))} ${h(price)}</small></span>
-    <span class="row-sub">${h(dateTime(o.t))} · ${h(status)}${o.forced ? ` · ${h(t('forcedTag'))}` : ''}${o.reason ? ` · ${h(t(`err_${o.reason}`))}` : ''}</span></span>
+    <span class="row-sub">${h(dateTime(o.t))} · ${h(status)}${o.ext ? ` · ${h(t('extTag'))}` : ''}${o.forced ? ` · ${h(t('forcedTag'))}` : ''}${o.reason ? ` · ${h(t(`err_${o.reason}`))}` : ''}</span></span>
     ${o.status === 'open' && !o.forced ? `<button class="q-btn small" type="button" data-action="cancel" data-id="${h(o.id)}">${h(t('cancel'))}</button>` : ''}
   </div>`;
 }
@@ -4129,6 +4195,11 @@ document.addEventListener('click', async event => {
       break;
     case 'tif':
       d.tif = el.dataset.tif;
+      renderTicket();
+      break;
+    case 'ext':
+      d.ext = Boolean(el.dataset.ext);
+      d.msg = null;
       renderTicket();
       break;
     case 'otype': {

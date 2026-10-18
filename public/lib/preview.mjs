@@ -7,6 +7,7 @@ import * as kit from './account.mjs';
 import { SHORT_INITIAL, collateralRate, dealPrice, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
 import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
 import * as credit from './credit.mjs';
+import * as mk from './markets.mjs';
 import { addMonths, lendFee, LEND_RATE, tdInterest, tdRate } from './savings.mjs';
 
 const DAY = 86_400_000;
@@ -142,7 +143,7 @@ export const historyRange = age => (age < 25 * DAY ? '1mo' : age < 170 * DAY ? '
 // ticket on a price the exchange refuses); no tick, as it was.
 export function startPrice(q) {
   if (!(q?.price > 0)) return '';
-  const tick = tickSize(q.market, q.kind, q.price);
+  const tick = tickSize(q.market, q.kind, q.price, q.symbol);
   return String(tick ? toTick(q.price, tick) : +q.price.toPrecision(6));
 }
 
@@ -284,11 +285,42 @@ export function maxBuy({ holdFor, spendable, price, kind, margin = 0, cap = Infi
   return roundQty(Math.min(lo * step, cap), kind);
 }
 
+// What a market's ticket offers, by the kit's rules (read through the
+// module: an older kit has none of them, and offers all):
+// - 複委託 is cash only (isSubBrokered): a foreign stock is never bought on
+//   融資 nor sold short, only what's held sold (a currency pair borrows nothing);
+export const cashOnly = quote => Boolean(quote && mk.isSubBrokered?.(quote.market)) && quote.kind !== 'fx';
+// - the order types it takes: Hong Kong limit orders only (limitOnly);
+export const orderTypes = quote => (mk.limitOnly?.(quote?.market) ? ['limit'] : ['market', 'limit', 'stop']);
+// - a US stock or ETF's session now (usSession: 'pre', 'regular', 'post' or
+//   null when shut), undefined for anything else;
+const US_LISTED = new Set(['stock', 'etf']);
+export const usSessionOf = (quote, now = Date.now()) => (quote?.market === 'US' && US_LISTED.has(quote.kind) && mk.usSession ? mk.usSession(now) : undefined);
+// - 盤前／盤後 (`ext`): a US stock or ETF's day limit order, offered while
+//   the pre- or post-market trades;
+export const extOffered = (quote, { type, tif } = {}, now = Date.now()) => ['pre', 'post'].includes(usSessionOf(quote, now)) && type === 'limit' && tif !== 'gtc';
+// - Stock Connect: a STAR or ChiNext share can be sold, never bought
+//   (cnBoard: 'star' or 'chinext'; null when it can be bought).
+export const northboundBlock = quote => {
+  const board = quote?.market === 'CN' ? mk.cnBoard?.(quote.symbol) : null;
+  return board && board !== 'main' ? board : null;
+};
+// - a US stock or ETF sells down to its fractions (a plan's: fractional,
+//   US_FRACTION), bought in whole shares on the ticket;
+export const sellFraction = (quote, side) => (side === 'sell' && mk.fractional?.(quote?.market, quote?.kind) ? mk.US_FRACTION : null);
+export function ticketRound(quote, side, n) {
+  const f = sellFraction(quote, side);
+  return f ? +(Math.floor(n / f + 1e-6) * f).toFixed(4) : roundQty(n, quote.kind);
+}
+export const ticketStepOk = (quote, side, n) => Math.abs(ticketRound(quote, side, n) - n) <= (sellFraction(quote, side) || qtyStep(quote.kind)) * 1e-3;
+// - the US market-wide halt now (marketHalt on the S&P 500's quote), or null.
+export const usHalt = (spx, now = Date.now()) => (spx && mk.marketHalt ? mk.marketHalt(spx, now) : null);
+
 // 融資's rate on the ticket: a buy of what the broker lends against, only
 // with the credit account open and not after a default (no 融資 then,
 // DEFAULT_BAN long); else 0.
 export function marginRateFor(account, quote, side, now = Date.now()) {
-  if (side !== 'buy' || !creditAccount(account, now).open || defaulted(account, now)) return 0;
+  if (side !== 'buy' || cashOnly(quote) || !creditAccount(account, now).open || defaulted(account, now)) return 0;
   return collateralRate(quote.kind, quote.market, quote.symbol);
 }
 
