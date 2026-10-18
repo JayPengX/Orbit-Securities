@@ -235,14 +235,31 @@ export const TRACKERS = {
   'ZC=F': ['DBA'], 'ZW=F': ['DBA'], 'KC=F': ['DBA']
 };
 
-// Chinese or English names, symbols: every word of the query must match.
+// Words that mean one thing however a name writes it: a fund's English name
+// cut short ("Cathay ESG High Div", "High Div Yield"), a Taiwan ETF's
+// Chinese one (高息, 優息 for 高股息): "dividend" or 高股息 finds them all
+// (00878, 00919, 00929, 00940, 00713 and VYM were missed, 2026-10). Latin
+// ones whole words only (div isn't divine).
+const SAME = [
+  ['dividend', 'dividends', 'div', 'dvd', '股息', '股利', '高息', '優息', '配息', '填息'],
+  ['高股息', '高息', '優息', 'high dividend', 'high div'],
+  ['income', '收益', '月配', 'premium income'],
+  ['yield', '殖利率', '收益率']
+];
+// What a thing is, searched too ("dividend etf", 台股 台積): its list's words.
+const KIND_WORDS = { tw: '台股 stock', twetf: 'etf 台灣etf', us: '美股 stock', usetf: 'etf 美國etf', govbond: '公債 bond', bond: 'etf 債券 bond', crypto: '加密 crypto', fx: '外匯 forex', metal: '原物料 commodity', jp: '日股 stock', hk: '港股 陸股 stock', kr: '韓股 stock', eu: '歐股 stock', fund: '基金 fund', index: '指數 index' };
+const has = (hay, w) => (/^[a-z ]+$/.test(w) ? new RegExp(`(^|[^a-z])${w}([^a-z]|$)`).test(hay) : hay.includes(w));
+const matches = (hay, w) => hay.includes(w) || SAME.some(g => g.includes(w) && g.some(x => has(hay, x)));
+
+// Chinese or English names, symbols: every word of the query must match
+// (itself, or a word that means the same: SAME).
 export function searchCatalog(query, limit = 30) {
   const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   const scored = [];
   for (const info of INFO.values()) {
-    const hay = `${info.symbol} ${info.symbol.replace(/\.[A-Z]+$|-USD$/, '')} ${info.zh} ${info.en}`.toLowerCase();
-    if (!words.every(w => hay.includes(w))) continue;
+    const hay = `${info.symbol} ${info.symbol.replace(/\.[A-Z]+$|-USD$/, '')} ${info.zh} ${info.en} ${KIND_WORDS[info.category] || ''}`.toLowerCase();
+    if (!words.every(w => matches(hay, w))) continue;
     const bare = info.symbol.toLowerCase().replace(/\.[a-z]+$|-usd$/, '');
     const q = words.join(' ');
     const score = bare === q || info.symbol.toLowerCase() === q ? 0 : info.zh.toLowerCase().startsWith(q) || info.en.toLowerCase().startsWith(q) ? 1 : 2;
