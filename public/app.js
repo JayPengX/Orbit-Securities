@@ -17,7 +17,7 @@ import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestT
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/timemachine.mjs';
-import { ticketEstimate, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft } from './lib/preview.mjs';
+import { ticketEstimate, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, startPrice, lotSplit, maxBuy } from './lib/preview.mjs';
 import { expireAsked } from './lib/orders.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
@@ -1295,8 +1295,8 @@ async function openDetail(symbol) {
     side: 'buy',
     type: 'market',
     qty: '',
-    limit: q0 ? String(+q0.price.toPrecision(6)) : '',
-    stop: q0 ? String(+q0.price.toPrecision(6)) : '',
+    limit: startPrice(q0),
+    stop: startPrice(q0),
     msg: null,
     held: Boolean(held)
   };
@@ -1313,7 +1313,7 @@ async function openDetail(symbol) {
     if (!fresh) absorb(await fetchQuotes([symbol]));
     const q = state.quotes.get(symbol);
     if (q) await ensureRates([q.currency]);
-    if (q && state.detail?.symbol === symbol && !state.detail.limit) state.detail.limit = state.detail.stop = String(+q.price.toPrecision(6));
+    if (q && state.detail?.symbol === symbol && !state.detail.limit) state.detail.limit = state.detail.stop = startPrice(q);
   } catch {}
   if (state.detail?.symbol !== symbol || (fresh && q0 === state.quotes.get(symbol))) return;
   renderDetail();
@@ -1999,13 +1999,9 @@ function ticketInfo() {
   const credit = Boolean(d.credit) && marginRate > 0;
   // (Held for a fresh price, as every order from the ticket is.)
   const holdFor = n => requiredCash({ type: d.type, qty: n, limit: Number(d.limit), stop: Number(d.stop), waitFresh: 1, margin: credit ? marginRate : 0 }, q, Date.now()).reserve;
-  let max = 0;
-  if (ref > 0) {
-    const step = qtyStep(q.kind);
-    const perUnit = dealPrice(q.market, 'buy', ref) * (1 + ((MARKETS[q.market] || MARKETS.INTL).commission.rate || 0) + 0.006) * 1.03;
-    max = roundQty(spendable / perUnit, q.kind);
-    while (max > 0 && holdFor(max) > spendable) max = roundQty(max - (step >= 1 ? 1 : max * 0.001), q.kind);
-  }
+  // (融資 in Taiwan also within the credit limit left, as placeOrder checks.)
+  const loanRoom = credit && q.market === 'TW' ? creditAccount(state.account, now).limit - creditUsed(valuation()).loan : Infinity;
+  const max = ref > 0 ? maxBuy({ holdFor, spendable, price: dealPrice(q.market, 'buy', ref), kind: q.kind, market: q.market, margin: credit ? marginRate : 0, cap: Math.max(0, loanRoom) / (q.price * marginRate || 1) }) : 0;
   // Exactly what the order will hold (placeOrder checks the same figure):
   // the estimate, plus a 3% buffer when it has to wait for its market.
   const req = d.side === 'buy' && est ? requiredCash({ type: d.type, qty, limit: Number(d.limit), stop: Number(d.stop), waitFresh: 1, margin: credit ? marginRate : 0 }, q, Date.now()) : null;
@@ -2078,6 +2074,9 @@ function renderTicket() {
   if (credit && !marginOk) problems.push(t('err_margin'));
   if (short > 0 && !topUp?.enough && !marginBuy) problems.push(t('notEnoughCash', { cur: q.currency, have: money(cash, q.currency), short: money(short, q.currency) }));
   if (d.qty && Math.abs(roundQty(qty, q.kind) - qty) > qtyStep(q.kind) * 1e-3) problems.push(t('err_qtyStep'));
+  // Taiwan: whole lots and odd lots go in as separate orders.
+  const split = lotSplit(q.market, q.kind, qty);
+  if (split) problems.push(t('err_lotMix', { board: fmtQty(split.board), odd: fmtQty(split.odd) }));
   // The exchange's rules for the price typed.
   const typed = d.type === 'limit' ? Number(d.limit) : d.type === 'stop' ? Number(d.stop) : null;
   const band = priceLimits(q);
@@ -3845,7 +3844,7 @@ document.addEventListener('click', async event => {
     case 'otype': {
       d.type = el.dataset.otype;
       const q = state.quotes.get(d.symbol);
-      if (q) d.limit = d.stop = String(+q.price.toPrecision(6));
+      if (q) d.limit = d.stop = startPrice(q);
       d.msg = null;
       renderTicket();
       break;
