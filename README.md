@@ -44,8 +44,10 @@ Live: https://jaypengx.github.io/Quadra-Securities/
     deposit, 0.08% handling);
   - 融資 / 融券 for six months; 定存 at Bank of Taiwan's rates;
   - interest on idle NT$ (0.8%, members alike);
-  - the half day-trade tax only once the account may day trade (3 months
-    open, 10 trades in the year), or on a day trade sold first;
+  - day trading (either way) once the account is 3 months open with 10
+    trades in the year, or has a credit account; the half tax then; what's
+    sold first within the day's 當沖額度 (twice net worth);
+  - whole lots and odd lots as separate orders in Taiwan;
   - a day order that met its price just before the close fills: it
     expires only once the proxy has answered after its end (`lib/orders.mjs`).
 - **Quadra Plus** (`PLUS.stock`): commission ×0.28 (the market's minimum
