@@ -12,6 +12,7 @@
 //   - popularity: a small prior for the well-known names.
 // Held and watched symbols are left out (they're on the portfolio already).
 import { CATEGORIES, catalogInfo } from './catalog.mjs';
+import { isTradable } from './markets.mjs';
 import { rank } from '#kit/quadra.mjs';
 
 // The well-known names, a prior for new accounts.
@@ -64,7 +65,9 @@ export function forYou({ quotes, held = [], watched = [], wallet = null, aff, n 
   for (const symbol of candidates()) {
     if (own.has(symbol)) continue;
     const q = quotes.get(symbol);
-    if (!q) continue;
+    // Only what can be bought: not the yields and futures the bond and
+    // commodity lists show to watch (^TNX, GC=F).
+    if (!q || !isTradable(q.kind)) continue;
     const info = catalogInfo(symbol);
     const kind = q.kind || info?.kind || 'stock';
     let quality = 0.35;
@@ -148,6 +151,6 @@ export function moverGroupNow(now = Date.now()) {
 export function movers(quotes, { up = true, n = 6, group = null } = {}) {
   const list = candidates()
     .map(s => quotes.get(s))
-    .filter(q => q && Number.isFinite(q.pct) && q.kind !== 'fx' && (!group || moverGroupOf(q) === group));
+    .filter(q => q && Number.isFinite(q.pct) && q.kind !== 'fx' && isTradable(q.kind) && (!group || moverGroupOf(q) === group));
   return list.sort((a, b) => (up ? b.pct - a.pct : a.pct - b.pct)).slice(0, n).filter(q => (up ? q.pct > 0 : q.pct < 0));
 }

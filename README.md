@@ -40,11 +40,16 @@ Live: https://jaypengx.github.io/Quadra-Securities/
   - spreads on fills;
   - dividends paid on the market's pay day;
   - margin calls at 130% (two business days, then forced sales);
-  - shorts at 150% cover;
+  - shorts at 150% cover (Taiwan's 融券: its credit limit and a 90%
+    deposit, 0.08% handling);
   - 融資 / 融券 for six months; 定存 at Bank of Taiwan's rates;
-  - interest on idle NT$ (0.8%; Plus 2%).
-- **Quadra Plus** (`PLUS.stock`): commission ×0.28, half the FX spread, 1
-  point off loans, 2% on cash.
+  - interest on idle NT$ (0.8%, members alike);
+  - the half day-trade tax only once the account may day trade (3 months
+    open, 10 trades in the year), or on a day trade sold first;
+  - a day order that met its price just before the close fills: it
+    expires only once the proxy has answered after its end (`lib/orders.mjs`).
+- **Quadra Plus** (`PLUS.stock`): commission ×0.28 (the market's minimum
+  still applies), half the FX spread, 1 point off loans.
 - **Notices** (the kit's `stock` kinds): `alert`, `fill`, `order`, `margin`,
   `income`. The Worker sends alerts and pay days while the app is closed.
 - **Offline:** covered (`onlineOnly`); never trades on old prices.
@@ -73,7 +78,8 @@ Live: https://jaypengx.github.io/Quadra-Securities/
 | `quotes.mjs`, `catalog.mjs` | Yahoo reads; the curated lists |
 | `chart.mjs`, `format.mjs`, `i18n.mjs` | Charts; number formats; text |
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |
-| `foryou.mjs`, `timemachine.mjs` | 為你推薦; the time machine |
+| `foryou.mjs`, `timemachine.mjs` | 為你推薦 (only what can be bought); the time machine |
+| `orders.mjs`, `preview.mjs` | When a day order expires; what a screen shows before it's done (the ticket's estimate, the most a short can sell, Plus's commission, a 定存's end), by the same rules that then do it |
 | `../app.js` | Rendering and wiring |
 
 ## Run and test

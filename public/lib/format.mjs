@@ -22,8 +22,10 @@ export function money(amount, currency, { sign = false, digits } = {}) {
   const info = currencyInfo(currency);
   const d = digits ?? info.digits;
   const body = `${info.symbol}${nf(d, d).format(Math.abs(amount))}`;
-  if (amount < 0 && Math.abs(amount) >= 0.5 * 10 ** -d) return `−${body}`;
-  return sign && amount > 0 ? `+${body}` : body;
+  // A sign only on what shows a figure: NT$0.4 is NT$0 (never +NT$0 or −NT$0).
+  const shows = Math.abs(amount) >= 0.5 * 10 ** -d;
+  if (amount < 0 && shows) return `−${body}`;
+  return sign && amount > 0 && shows ? `+${body}` : body;
 }
 
 // A price: as many decimals as it needs (0.000012 for a tiny coin).
@@ -42,8 +44,9 @@ export function price(p, currency, { short = false } = {}) {
 export function pct(x, { digits = 2, sign = true } = {}) {
   if (!Number.isFinite(x)) return '—';
   const body = `${nf(digits, digits).format(Math.abs(x) * 100)}%`;
-  if (x < 0 && Math.abs(x) * 100 >= 0.5 * 10 ** -digits) return `−${body}`;
-  return sign && x > 0 ? `+${body}` : body;
+  const shows = Math.abs(x) * 100 >= 0.5 * 10 ** -digits;
+  if (x < 0 && shows) return `−${body}`;
+  return sign && x > 0 && shows ? `+${body}` : body;
 }
 
 export function qty(n) {
@@ -87,6 +90,14 @@ export const shortDate = (t, tz) => dtf({ month: 'numeric', day: 'numeric' }, tz
 export const clock = (t, tz) => dtf({ hour: '2-digit', minute: '2-digit', hour12: false }, tz).format(t);
 export const weekdayClock = (t, tz) => dtf({ weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }, tz).format(t);
 export const monthYear = (t, tz) => dtf({ year: 'numeric', month: 'short' }, tz).format(t);
+
+// What's typed (or pasted) in a number field, as a number's text: digits
+// and the first point ("1.2.3.4" is 1.234, a pasted "NT$1,234.5" 1234.5).
+export function cleanNumber(value) {
+  const text = String(value ?? '').replace(/[^\d.]/g, '');
+  const dot = text.indexOf('.');
+  return dot < 0 ? text : text.slice(0, dot + 1) + text.slice(dot + 1).replace(/\./g, '');
+}
 
 export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

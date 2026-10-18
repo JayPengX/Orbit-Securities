@@ -365,11 +365,6 @@ footer { padding: 10px 0 0; text-align: center; }
 .hero-label { font-size: 0.82rem; opacity: 0.85; font-weight: 600; }
 .hero-label small { opacity: 0.8; font-weight: 400; }
 .hero-value { font-size: 2.3rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
-.hero-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.hero-stat { display: grid; min-width: 0; background: rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 8px 10px; }
-.hero-stat > span { font-size: 0.72rem; opacity: 0.85; }
-.hero-stat strong { font-size: 1.02rem; color: #fff; }
-.hero-stat small { font-size: 0.74rem; opacity: 0.85; }
 /* On the dark-green hero, gains and losses need light tints. */
 .hero-card .up { color: #fecaca; }
 .hero-card .down { color: #bbf7d0; }
@@ -380,7 +375,6 @@ body[data-updown='us'] .hero-card .down { color: #fecaca; }
 .hero-actions { margin-top: 2px; }
 .hero-button { border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.12); color: #fff; border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 0.85rem; }
 @media (hover: hover) { .hero-button:hover { background: rgba(255, 255, 255, 0.22); } }
-@media (max-width: 520px) { .hero-row { grid-template-columns: 1fr 1fr; } .hero-row .hero-stat:last-child { grid-column: 1 / -1; } }
 
 .margin-card { display: grid; gap: 8px; }
 .margin-card.alert { border-color: var(--warn); background: var(--warn-wash); }

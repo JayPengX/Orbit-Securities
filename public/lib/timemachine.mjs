@@ -4,18 +4,22 @@
 // month. Costs aren't counted; the answer is about the market, not fees.
 
 // The value of `points` ([t, v], oldest first) at moment `t`: the last one
-// at or before it (the first one before the series starts).
-export function valueAt(points, t) {
-  if (!points?.length) return null;
+// at or before it, or null before the series starts (pointAt); valueAt
+// answers the first one there.
+export function pointAt(points, t) {
   let lo = 0;
-  let hi = points.length - 1;
-  if (t < points[0][0]) return points[0][1];
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (points[mid][0] <= t) lo = mid;
+  let hi = (points?.length || 0) - 1;
+  let v = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid][0] <= t) (v = points[mid][1]), (lo = mid + 1);
     else hi = mid - 1;
   }
-  return points[lo][1];
+  return v;
+}
+export function valueAt(points, t) {
+  if (!points?.length) return null;
+  return t < points[0][0] ? points[0][1] : pointAt(points, t);
 }
 
 // A deposit that earns `rate` a year, compounded monthly: the bank's
