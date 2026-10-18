@@ -149,11 +149,8 @@ test('新股申購 in the account: held at applying, back the day after a lost d
   assert.equal(replay(twice, tpe('2026-11-01', '00:00')).cash.TWD, s1.cash.TWD);
 });
 
-// Kit bug (Shared-Proxy kit/stock-account.mjs: applyCorporateActions and
-// sharesAt count only `fill` events, and a won IPO's shares come in an
-// `ipowin`): shares from a 新股申購 get no dividends or splits. Reported to the
-// kit; marked todo here until the kit counts them.
-test('a 新股申購 holding gets its dividends like any other', { todo: 'kit: applyCorporateActions/sharesAt ignore ipowin' }, () => {
+// A won IPO's shares come in an `ipowin`, not a `fill`: they get dividends too.
+test('a 新股申購 holding gets its dividends like any other', () => {
   const s = parseIpoList({ fields: IPO_FIELDS, data: [row({})] })[0];
   const a = newAccount(100_000, tpe('2026-10-01', '10:00'), 'acc');
   const app = ipoApplyEvent(s, tpe('2026-10-16', '10:00'));

@@ -79,10 +79,13 @@ test('融資 within the limit; a six-month term, 展延 in its last month, sold 
   assert.deepEqual(closeOutPlan(a, val(a, late, [['2330.TW', quote('2330.TW', 1000, late)]]), late).map(p => [p.side, p.qty, p.reason]), [['sell', 1000, 'due']]);
 });
 
-test('day trading sold first: a year open and ten trades; what is not bought back by the close is bought back for you', () => {
-  const young = trader(6, 12);
-  assert.equal(dayTradeSellFirst(young, T0), false);
-  let a = trader(13, 12);
+test('day trading sold first: 3 months open and ten trades (or a credit account); what is not bought back by the close is bought back for you', () => {
+  assert.equal(dayTradeSellFirst(trader(2, 12), T0), false);
+  assert.equal(dayTradeSellFirst(trader(4, 3), T0), false);
+  // A 信用帳戶 holder may, whatever the account's age and trades.
+  const holder = trader(1, 0);
+  assert.equal(dayTradeSellFirst({ ...holder, events: [...holder.events, { id: 'credit:x', type: 'credit', t: holder.created, limit: 500_000 }] }, T0), true);
+  let a = trader(4, 12);
   assert.equal(dayTradeSellFirst(a, T0), true);
   const q = quote('2330.TW', 1000);
   const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: q, rates: RATES, valuation: val(a, T0, [['2330.TW', q]]), now: T0, id: 'd' });
@@ -172,4 +175,16 @@ test('no credit account: no margin or borrowed shorts in any market, and the bro
   assert.equal(s500.fill.marginQty, 200);
   assert.equal(replay(s500.account, t1 + 1).positions['2330.TW'].marginQty, 800);
   assert.deepEqual(closeOutPlan(bought, val(bought, T0 + HOUR, [['2330.TW', q]]), T0 + HOUR), []);
+});
+
+test('a day trade sold first is held to the day-trade limit (twice net worth, at least NT$500,000)', () => {
+  const a = trader(4, 12);
+  const q = quote('2330.TW', 1000);
+  const v = val(a, T0, [['2330.TW', q]]);
+  const limit = Math.floor((v.netWorth * 2) / 100_000) * 100_000;
+  const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: limit / 1000 + 1000 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'big' });
+  assert.equal(r.error, 'dayTradeLimit');
+  assert.equal(r.limit, limit);
+  assert.equal(r.room, limit);
+  assert.equal(placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: limit / 1000 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 'ok' }).error, undefined);
 });
