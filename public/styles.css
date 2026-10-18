@@ -945,3 +945,4 @@ a.activity-row { color: inherit; text-decoration: none; }
 .about-fin .card-head { flex-wrap: nowrap; }
 .about-fin .card-head .about-h { flex: 1 1 0; min-width: 0; white-space: nowrap; }
 .about-fin .card-head .q-seg { flex: none; }
+.keep { white-space: nowrap; }

@@ -13,6 +13,7 @@ import { fetchQuotes, fetchChart, fetchBars, fetchCorporateActions, fetchFundame
 import { CATEGORIES, OVERVIEW, TRACKERS, catalogInfo, searchCatalog } from './lib/catalog.mjs';
 import { brandIcon, brandLogo } from './lib/brands.mjs';
 import { tvLogos } from './lib/tvlogos.mjs';
+import { TW_NAMES } from './lib/twnames.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
@@ -178,6 +179,8 @@ const L = obj => (obj ? (locale === 'zh' ? obj.zh : obj.en) : '');
 function nameOf(symbol, quote = state.quotes.get(symbol)) {
   const info = catalogInfo(symbol);
   if (info) return locale === 'zh' ? info.zh : info.en;
+  // A Taiwan stock outside the catalogue: its Chinese name (twnames.mjs), as Yahoo has the English only.
+  if (locale === 'zh' && TW_NAMES[symbol]) return TW_NAMES[symbol];
   if (METALS[symbol]) return L(METALS[symbol]);
   if (symbol.endsWith('=X') && symbol.length === 8) return `${symbol.slice(0, 3)}/${symbol.slice(3, 6)}`;
   return quote?.shortName || quote?.name || symbol;
@@ -2476,7 +2479,7 @@ function incomeCardHtml(v) {
     ${parts.length ? `<p class="income-split">${parts.map(([k, x]) => `<span>${h(t(k))} <strong class="num">${h(money(x, BASE))}</strong></span>`).join('')}</p>` : ''}
     ${top.length ? `<p class="muted">${h(t('incomeTop'))} ${top.map(([sym, x]) => `<button class="link" type="button" data-action="open" data-symbol="${h(sym)}">${h(nameOf(sym))}</button> <span class="num">${h(money(x, BASE))}</span>`).join('、')}</p>` : ''}
     ${list
-      .map(e => `<div class="order-row">${icon('coins', 'k-income')}<span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(e.symbol)}">${h(nameOf(e.symbol))}</button></span><span class="row-sub">${h(t('pendingDivLine', { ex: fmtDate(e.ex), pay: fmtDate(e.t), qty: fmtQty(e.shares), per: `${fmtPrice(e.perShare, e.currency)} ${e.currency === 'TWD' && locale === 'zh' ? '元' : e.currency}` }) + (e.nhi > 0 ? ` · ${t('pendingDivNhi', { v: money(e.nhi, e.currency) })}` : ''))}</span></span><strong class="num up-ink">+${h(money(e.net, e.currency))}</strong></div>`)
+      .map(e => `<div class="order-row">${icon('coins', 'k-income')}<span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(e.symbol)}">${h(nameOf(e.symbol))}</button></span><span class="row-sub">${keepParts(t('pendingDivLine', { ex: fmtDate(e.ex), pay: fmtDate(e.t), qty: fmtQty(e.shares), per: `${fmtPrice(e.perShare, e.currency)} ${e.currency === 'TWD' && locale === 'zh' ? '元' : e.currency}` }) + (e.nhi > 0 ? ` · ${t('pendingDivNhi', { v: money(e.nhi, e.currency) })}` : ''))}</span></span><strong class="num up-ink">+${h(money(e.net, e.currency))}</strong></div>`)
       .join('')}
     ${list.length ? `<p class="note">${h(t('pendingDivNote'))}</p>` : ''}
   </div>`;
@@ -2525,6 +2528,8 @@ function alertsListHtml() {
 }
 
 // 1,500 股 (1 張 500 股): Taiwan's stocks and ETFs, a lot or more.
+// A ' · ' line that wraps between its parts, never inside one (an amount left alone on a line).
+const keepParts = text => text.split(' · ').map(x => `<span class="keep">${h(x)}</span>`).join(' · ');
 function lotsNote(p, q) {
   const kind = q?.kind || catalogInfo(p.symbol)?.kind;
   const lots = (q?.market || p.market) === 'TW' && (kind === 'stock' || kind === 'etf') ? boardLots(p.qty) : null;
