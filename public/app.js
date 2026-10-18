@@ -31,6 +31,9 @@ import {
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_URL, IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as stockAccount from './lib/account.mjs';
+// (Read through the module, with a fallback, for what an older kit lacks.)
+import * as stockCredit from './lib/credit.mjs';
+import * as stockIpo from './lib/ipo.mjs';
 
 const $ = id => document.getElementById(id);
 const TABS = ['markets', 'portfolio', 'fx', 'history'];
@@ -90,6 +93,16 @@ const state = {
   alertPrice: '',
   online: navigator.onLine !== false,
   installPrompt: null
+};
+// TWSE's list of public subscriptions, kept half an hour; read before the
+// loading screen lifts (boot), so the section never arrives after it.
+const ipoState = { list: null, at: 0, busy: null };
+// A first listing's listing day on its quote (quote.listed, from the list
+// above): no daily price limit for its first five trading days (kit's
+// stock-ipo.mjs listedOn; an older kit has none, and keeps the ±10%).
+const markListed = q => {
+  if (q?.market === 'TW') q.listed = stockIpo.listedOn?.(ipoState.list, q.symbol) ?? null;
+  return q;
 };
 
 // ---- Settings and storage ------------------------------------------------------
@@ -253,7 +266,7 @@ function absorb(quotes) {
   for (const [sym, q] of quotes) {
     const info = catalogInfo(sym);
     if (info?.kind && q.kind !== info.kind && q.kind !== 'index' && q.kind !== 'future') q.kind = info.kind;
-    state.quotes.set(sym, q);
+    state.quotes.set(sym, markListed(q));
   }
   for (const c of wantedCurrencies()) {
     if (state.crossFx.has(c)) crossRate(c);
@@ -480,10 +493,11 @@ function afterPrices() {
   // close, two business days to pay it back to 166% (補繳), then what was
   // bought on margin is sold if the ratio is still under 130% (處分).
   if (!v.missingRates.length && !v.stale.length) {
-    const c = callState(account.call || null, v, now);
+    // (Also met once the 差額 called is paid in full, on a kit that counts it: callPaid.)
+    const c = callState(account.call || null, v, now, stockAccount.callPaid?.(account, account.call || null, state.rates) ?? 0);
     if (c.event === 'issued') {
       accountNotice('margin', t('callIssued', { ratio: `${Math.floor(v.ratio * 100)}%`, v: money(c.call.need, BASE), date: dateTime(c.call.due) }), { tone: 'bad', tag: `call:${now}`, hash: 'fx' });
-    } else if (c.event === 'met') accountNotice('margin', t('callMet'), { tag: `callmet:${now}`, hash: 'fx' });
+    } else if (c.event === 'met') accountNotice('margin', t(c.paid ? 'callMetPaid' : 'callMet'), { tag: `callmet:${now}`, hash: 'fx' });
     if (c.sell) {
       account = recallAll(account, now);
       for (const plan of callPlan(account, v)) {
@@ -522,7 +536,7 @@ function loadQuotes() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE.quotes) || 'null');
     if (!saved?.quotes?.length) return;
-    for (const [sym, q] of saved.quotes) if (!state.quotes.has(sym)) state.quotes.set(sym, q);
+    for (const [sym, q] of saved.quotes) if (!state.quotes.has(sym)) state.quotes.set(sym, markListed(q));
     Object.assign(state.rates, saved.rates || {});
     for (const c of saved.crossFx || []) state.crossFx.add(c);
     state.fromCache = saved.at;
@@ -566,7 +580,8 @@ function marginCallNotice(account, v) {
     if (localStorage.getItem(STORE.marginNotice) === mark) return;
     localStorage.setItem(STORE.marginNotice, mark);
   } catch {}
-  accountNotice('margin', t('noticeMarginBody', { ratio: `${Math.floor(v.ratio * 100)}%` }), { tone: 'bad', tag: `margin:${mark}`, hash: 'fx' });
+  const key = typeof stockAccount.callPaid === 'function' && account.call?.need > 0 ? 'noticeMarginBodyOrPaid' : 'noticeMarginBody';
+  accountNotice('margin', t(key, { ratio: `${Math.floor(v.ratio * 100)}%` }), { tone: 'bad', tag: `margin:${mark}`, hash: 'fx' });
 }
 
 // Alerts set before the page was closed: checked against the price bars
@@ -699,7 +714,11 @@ async function checkCorporateActions() {
     if (kind === 'crypto' || kind === 'fx') continue;
     try {
       const actions = await fetchCorporateActions(symbol, held.first);
-      const r = applyCorporateActions(state.account, symbol, actions, { rates: state.rates, now: Date.now() });
+      // Yahoo's pay date for its latest dividend (fundamentals' dividendDate, for
+      // the one that went ex on their exDividendDate), where it has one: a kit
+      // that reads it pays on it, else on the market's usual delay.
+      const facts = actions.dividends?.length ? state.about.get(symbol)?.facts || (await fetchFundamentals(symbol).catch(() => null)) : null;
+      const r = applyCorporateActions(state.account, symbol, { ...actions, exDividendDate: facts?.exDividendDate ?? null, dividendDate: facts?.dividendDate ?? null }, { rates: state.rates, now: Date.now() });
       if (r.added.length) {
         commit(r.account);
         credited.push(...r.added);
@@ -799,6 +818,7 @@ function marketRules(q) {
   const share = limitShare(q);
   if (share) parts.push(t('ruleLimit', { p: Math.round(share * 100) }));
   else if (q.market === 'JP' && q.kind === 'stock') parts.push(t('ruleLimitJp'));
+  else if (q.market === 'TW' && q.listed && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleNoLimitNew'));
   const lunch = lunchOf(q.market);
   if (lunch) {
     const hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -1095,9 +1115,7 @@ function openNowHtml() {
 }
 
 // ---- 新股申購 (lib/ipo.mjs) ----
-// TWSE's list of public subscriptions, kept half an hour; read before the
-// loading screen lifts (boot), so the section never arrives after it.
-const ipoState = { list: null, at: 0, busy: null };
+// (TWSE's list of public subscriptions: ipoState, by the state above.)
 // TWSE's 處置 and 注意 lists (lib/alerts.mjs), flagged on a stock as brokers' apps do.
 const alertState = { punish: null, notice: null, at: 0, busy: null };
 function loadAlerts() {
@@ -1124,6 +1142,7 @@ function loadIpo() {
     try {
       ipoState.list = parseIpoList(await proxyJson(IPO_URL, { ttl: 30 * 60_000 }));
       ipoState.at = Date.now();
+      for (const q of state.quotes.values()) markListed(q);
       // A listed company's offer: its price now, for the gap.
       const want = ipoState.list.filter(s => !s.ipo && ipoOpen(s) && !state.quotes.has(s.symbol)).map(s => s.symbol);
       if (want.length) absorb(await fetchQuotes(want).catch(() => new Map()));
@@ -2115,11 +2134,13 @@ function renderTicket() {
     if (!onTick(typed, tick)) problems.push(t('err_tick', { tick: num(tick, 4, 0) }));
     else if (band && d.type === 'limit' && (typed > band.up + 1e-9 || typed < band.down - 1e-9)) problems.push(t('err_priceLimit', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }));
   }
-  const canPlace = est && !problems.length && !(short > 0) && marginOk;
   // After Taiwan's close (to 14:30), what the order goes to: 盤後定價 for
   // whole lots at today's close, 盤後零股 for an odd lot, each matched once
-  // at 14:30 and sent only once its session takes orders (not "at the open").
+  // at 14:30. One placed before its session takes orders (13:40 盤後零股,
+  // 14:00 盤後定價) is refused on a kit that has TWSE's closing auction
+  // (afterHoursWait), as brokers do; an older kit holds it until then.
   const afterLines = [];
+  const twseSessions = typeof stockCredit.closingAuction === 'function';
   if (q.market === 'TW' && d.type !== 'stop' && afterHours(Date.now())) {
     const odd = qty > 0 && isOddLot(q.market, q.kind, qty);
     const parts = [[qty === 0 || qty >= 1000 || !odd, false], [odd, true]];
@@ -2127,9 +2148,16 @@ function renderTicket() {
       if (!has) continue;
       const send = afterHoursSend(Date.now(), isOdd);
       const line = isOdd ? t('afterOddNote') : t('afterBoardNote', { close: fmtPrice(q.price, q.currency) });
-      afterLines.push(send?.waits ? `${line} ${t('afterSends', { time: clock(send.sends) })}` : line);
+      if (send?.waits && twseSessions) {
+        afterLines.push(line);
+        if (qty > 0) problems.push(t('err_afterHoursWait', { from: clock(send.sends) }));
+      } else afterLines.push(send?.waits ? `${line} ${t('afterSends', { time: clock(send.sends) })}` : line);
     }
   }
+  // TWSE's closing call auction (13:25-13:30) takes whole lots at a limit only.
+  const closing = twseSessions && q.market === 'TW' && d.type === 'market' && ['stock', 'etf', 'bond'].includes(q.kind) ? stockCredit.closingAuction(Date.now()) : null;
+  if (closing && Date.now() < closing.match && lotParts(q.market, q.kind, qty).some(n => !isOddLot(q.market, q.kind, n))) problems.push(t('err_closingAuction', { match: clock(closing.match) }));
+  const canPlace = est && !problems.length && !(short > 0) && marginOk;
   // A member's commission on the same trade (the market's minimum after the discount: often no less).
   // (Each of a split's two orders at its own minimum.)
   const plusFee = est?.commission ? lotParts(q.market, q.kind, qty).reduce((sum, n) => sum + plusCommission({ market: q.market, kind: q.kind, side: d.side, gross: (est.gross * n) / qty, currency: q.currency, qty: n, dayTrade: est.dayTrade }, PLUS.stock.commission), 0) : 0;
@@ -2327,6 +2355,10 @@ function errorText(r) {
       return t('err_lendLot', { lot: fmtQty(r.lot) });
     case 'lendQty':
       return t('err_lendQty', { can: fmtQty(r.can) });
+    case 'closingAuction':
+      return t('err_closingAuction', { match: clock(r.match) });
+    case 'afterHoursWait':
+      return t('err_afterHoursWait', { from: clock(r.from) });
     default:
       return t(`err_${r.error}`);
   }
@@ -2601,7 +2633,13 @@ function callPanelHtml(v) {
   if (!call) lines.push(`<p>${h(t('callIntraday'))}</p>`);
   else {
     lines.push(`<p class="warn">${h(t('callDue', { v: money(need, BASE), date: dateTime(call.due) }))}</p>`);
-    if (v.ratio >= MARGIN_CALL) lines.push(`<p>${h(t(Date.now() >= call.due ? 'callStandsLate' : 'callStands'))}</p>`);
+    // A kit that also cancels it once the 差額 called is paid in full (callPaid): what's paid and left.
+    const paidKit = typeof stockAccount.callPaid === 'function' && call.need > 0;
+    if (paidKit) {
+      const paid = stockAccount.callPaid(state.account, call, state.rates);
+      lines.push(`<p>${h(t('callPaidLeft', { need: money(call.need, BASE), paid: money(paid, BASE), left: money(Math.max(0, call.need - paid), BASE) }))}</p>`);
+    }
+    if (v.ratio >= MARGIN_CALL) lines.push(`<p>${h(t(Date.now() >= call.due ? (paidKit ? 'callStandsLateOrPaid' : 'callStandsLate') : paidKit ? 'callStandsOrPaid' : 'callStands'))}</p>`);
     else lines.push(`<p>${h(t('callSale'))}</p>`);
   }
   const ways = `<ol class="call-ways">
@@ -2739,10 +2777,27 @@ function renderNetWorthChart(v, s) {
   attachHover(box, [{ points }, { points: shownDeposits }], frame, (i, tt, [nw, dep]) => `<strong class="num">${money(nw, BASE)}</strong><span>${h(fmtDate(tt))}</span><span class="chg ${dirClass(nw - dep)}">${money(nw - dep, BASE, { sign: true })}</span>`);
 }
 
+// A Taiwan whole-lot day order's 13:30 closing match, where the kit keeps it
+// open past the close (CLOSE_DECIDE) until that match is known: the close it
+// ends with, as the exchange has it. Null otherwise.
+function closeMatchOf(o) {
+  if (o.tif !== 'day' || o.market !== 'TW' || o.after || !o.expires || !['stock', 'etf', 'bond'].includes(o.kind) || isOddLot(o.market, o.kind, o.qty)) return null;
+  const match = stockCredit.closingAuction?.(o.expires)?.match;
+  return match && o.expires > match ? match : null;
+}
 function orderRow(o) {
   const q = state.quotes.get(o.symbol);
   const price = o.type === 'limit' ? t('atLimit', { p: fmtPrice(o.limit, o.currency) }) : o.type === 'stop' ? t('atStop', { p: fmtPrice(o.stop, o.currency) }) : t('atMarket');
-  const status = o.status === 'open' && o.after ? t('afterWait', { time: clock(o.after) }) : o.status === 'open' ? (q && !isOpen(q) ? t('waitingOpen') : t('waitingPrice')) + (o.expires ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(o.expires) : weekdayClock(o.expires) })}` : '') : t(`status_${o.status}`);
+  const closeAt = o.status === 'open' ? closeMatchOf(o) : null;
+  const ends = closeAt ?? o.expires;
+  const status =
+    o.status === 'open' && o.after
+      ? t('afterWait', { time: clock(o.after) })
+      : closeAt && Date.now() >= closeAt
+        ? t('closeMatchWait', { time: clock(closeAt) })
+        : o.status === 'open'
+          ? (q && !isOpen(q) ? t('waitingOpen') : t('waitingPrice')) + (ends ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(ends) : weekdayClock(ends) })}` : '')
+          : t(`status_${o.status}`);
   return `<div class="order-row" role="button" tabindex="0" data-action="open" data-symbol="${h(o.symbol)}">
     <span class="side-tag ${o.side}">${h(t(o.side))}</span>
     <span class="row-main"><span class="row-title">${h(nameOf(o.symbol, q))} <small>${h(fmtQty(o.qty))} ${h(unitOf(o.symbol))} ${h(price)}</small></span>
