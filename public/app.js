@@ -190,11 +190,14 @@ function syncPush() {
 // ---- Names and labels ------------------------------------------------------------
 
 const L = obj => (obj ? (locale === 'zh' ? obj.zh : obj.en) : '');
+// A Taiwan listing's Chinese name: twnames.mjs, else TWSE's subscription list
+// (a listing newer than the names file: 6898 程曦資訊, which Yahoo calls ChainSea).
+const twZhName = symbol => TW_NAMES[symbol] || ipoState.list?.find(s => s.symbol === symbol)?.name || null;
 function nameOf(symbol, quote = state.quotes.get(symbol)) {
   const info = catalogInfo(symbol);
   if (info) return locale === 'zh' ? info.zh : info.en;
-  // A Taiwan stock outside the catalogue: its Chinese name (twnames.mjs), as Yahoo has the English only.
-  if (locale === 'zh' && TW_NAMES[symbol]) return TW_NAMES[symbol];
+  // A Taiwan stock outside the catalogue: its Chinese name, as Yahoo has the English only.
+  if (locale === 'zh' && twZhName(symbol)) return twZhName(symbol);
   if (METALS[symbol]) return L(METALS[symbol]);
   if (symbol.endsWith('=X') && symbol.length === 8) return `${symbol.slice(0, 3)}/${symbol.slice(3, 6)}`;
   return quote?.shortName || quote?.name || symbol;
@@ -920,7 +923,8 @@ const saveLogos = () => {
 };
 function symbolBadge(symbol, q) {
   const kind = q?.kind || catalogInfo(symbol)?.kind || 'stock';
-  const zhShort = twSymbol(symbol) && catalogInfo(symbol)?.zh ? catalogInfo(symbol).zh.replace(kind === 'etf' ? /^(元大|富邦|國泰|群益|復華|統一|凱基|大華|中信|永豐|兆豐)/ : /[-*].*$/, '').slice(0, 2) : '';
+  const zh = twSymbol(symbol) ? catalogInfo(symbol)?.zh || twZhName(symbol) : null;
+  const zhShort = zh ? zh.replace(kind === 'etf' ? /^(元大|富邦|國泰|群益|復華|統一|凱基|大華|中信|永豐|兆豐)/ : /[-*].*$/, '').slice(0, 2) : '';
   const text = BONDS[symbol] ? symbol.split('-')[1] : /^[A-Z]{6}=X$/.test(symbol) ? symbol.slice(0, 3) : zhShort || bareSymbol(symbol).replace(/-USD$/, '').replace(/^\^/, '').slice(0, 4);
   const plain = `<span class="sym-badge k-${h(kind)}${text === zhShort && zhShort ? ' zh' : ''}">${h(text)}</span>`;
   const choice = logoChoices(symbol, kind).find(c => c.urls.every(u => !logoBad.has(u) && !logoMiss.has(u)));
