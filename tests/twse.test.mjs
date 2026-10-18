@@ -3,7 +3,7 @@
 // the after-hours sessions (盤後零股 13:40, 盤後定價 14:00, both matched at 14:30).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { twPhase } from '../public/lib/twse.mjs';
+import { twPhase, afterHoursSend } from '../public/lib/twse.mjs';
 
 const tpe = (d, hm) => Date.parse(`${d}T${hm}:00+08:00`);
 
@@ -26,4 +26,17 @@ test("Taiwan's day in its phases, on a trading day only", () => {
   // A Saturday and 國慶日 (10/10) have none.
   assert.equal(twPhase(tpe('2026-10-17', '10:00')), null);
   assert.equal(twPhase(tpe('2026-10-09', '10:00')), null);
+});
+
+test('after hours: 盤後零股 takes orders from 13:40, 盤後定價 from 14:00, both matched once at 14:30', () => {
+  const day = '2026-10-16';
+  // Before its window, an order waits to be sent; in it, it goes at once.
+  assert.deepEqual(afterHoursSend(tpe(day, '13:35'), false), { sends: tpe(day, '14:00'), match: tpe(day, '14:30'), waits: true });
+  assert.deepEqual(afterHoursSend(tpe(day, '13:35'), true), { sends: tpe(day, '13:40'), match: tpe(day, '14:30'), waits: true });
+  assert.deepEqual(afterHoursSend(tpe(day, '13:45'), true), { sends: tpe(day, '13:45'), match: tpe(day, '14:30'), waits: false });
+  assert.deepEqual(afterHoursSend(tpe(day, '14:10'), false), { sends: tpe(day, '14:10'), match: tpe(day, '14:30'), waits: false });
+  // Not after hours: during the session, from 14:30, on a Saturday.
+  assert.equal(afterHoursSend(tpe(day, '13:20'), false), null);
+  assert.equal(afterHoursSend(tpe(day, '14:30'), false), null);
+  assert.equal(afterHoursSend(tpe('2026-10-17', '14:00'), false), null);
 });

@@ -26,3 +26,13 @@ export function twPhase(t) {
   }
   return null;
 }
+
+// An order placed after hours (13:30–14:30): when it reaches the exchange,
+// 盤後零股 (`odd`) from 13:40 and 盤後定價 from 14:00 (one placed before is
+// held until then), and the 14:30 match. Null outside those hours.
+export function afterHoursSend(t, odd) {
+  const p = twPhase(t);
+  if (p?.id !== 'after') return null;
+  const opens = at(localDay(t, 'Asia/Taipei'), odd ? '13:40' : '14:00');
+  return { sends: Math.max(t, opens), match: p.until, waits: t < opens };
+}

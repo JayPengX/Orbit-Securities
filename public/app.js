@@ -19,7 +19,7 @@ import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donu
 import { movingAverage, pointAt } from './lib/series.mjs';
 import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
-import { twPhase } from './lib/twse.mjs';
+import { twPhase, afterHoursSend } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
@@ -2089,6 +2089,20 @@ function renderTicket() {
     else if (band && d.type === 'limit' && (typed > band.up + 1e-9 || typed < band.down - 1e-9)) problems.push(t('err_priceLimit', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }));
   }
   const canPlace = est && !problems.length && !(short > 0) && marginOk;
+  // After Taiwan's close (to 14:30), what the order goes to: 盤後定價 for
+  // whole lots at today's close, 盤後零股 for an odd lot, each matched once
+  // at 14:30 and sent only once its session takes orders (not "at the open").
+  const afterLines = [];
+  if (q.market === 'TW' && d.type !== 'stop' && afterHours(Date.now())) {
+    const odd = qty > 0 && isOddLot(q.market, q.kind, qty);
+    const parts = [[qty === 0 || qty >= 1000 || !odd, false], [odd, true]];
+    for (const [has, isOdd] of parts) {
+      if (!has) continue;
+      const send = afterHoursSend(Date.now(), isOdd);
+      const line = isOdd ? t('afterOddNote') : t('afterBoardNote', { close: fmtPrice(q.price, q.currency) });
+      afterLines.push(send?.waits ? `${line} ${t('afterSends', { time: clock(send.sends) })}` : line);
+    }
+  }
   // A member's commission on the same trade (the market's minimum after the discount: often no less).
   // (Each of a split's two orders at its own minimum.)
   const plusFee = est?.commission ? lotParts(q.market, q.kind, qty).reduce((sum, n) => sum + plusCommission({ market: q.market, kind: q.kind, side: d.side, gross: (est.gross * n) / qty, currency: q.currency, qty: n, dayTrade: est.dayTrade }, PLUS.stock.commission), 0) : 0;
@@ -2128,14 +2142,14 @@ function renderTicket() {
         : ''
     }
     ${shorting && isShortable(q.kind) && !problems.length ? `<p class="note">${h(q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money(lotsDeposit(q.market, q.kind, shares, qty - shares, quotaPrice(q, d)), q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit }))}${!twCredit && q.market === 'TW' && dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>` : ''}
-    ${q.market === 'TW' && afterHours(Date.now()) ? `<p class="note">${h(t('afterHoursNote'))}</p>` : ''}
-    ${split ? `<p class="note lot-split">${h(t('lotSplitNote', { board: fmtQty(split.board), odd: fmtQty(split.odd) }))}</p>` : ''}
+    ${afterLines.map(x => `<p class="note">${h(x)}</p>`).join('')}
+    ${split ? `<p class="note lot-split">${h(t(afterLines.length ? 'lotSplitNoteAfter' : 'lotSplitNote', { board: fmtQty(split.board), odd: fmtQty(split.odd) }))}</p>` : ''}
     ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
     ${topUp?.enough ? `<p class="note">${h(t('autoFxLine', { pay: money(topUp.need, BASE), get: money(topUp.get, q.currency) }))}</p>` : ''}
     ${credit && est ? `<p class="note margin-line">${h(t('creditNote', { rate: pct(loanRateAt(q.currency), { digits: 2, sign: false }) }))}</p>` : ''}
-    ${!open ? `<p class="note">${h(q.kind === 'metal' ? t('closedMetal') : t('closedQueue'))}</p>` : ''}
-    ${qty > 0 && isOddLot(q.market, q.kind, qty) ? `<p class="note">${h(open && !oddLotOpen(Date.now()) ? t('oddLotWait') : t('oddLotNote'))}</p>` : ''}
-    ${d.type !== 'limit' && est ? `<p class="note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
+    ${!open && !afterLines.length ? `<p class="note">${h(q.kind === 'metal' ? t('closedMetal') : t('closedQueue'))}</p>` : ''}
+    ${qty > 0 && isOddLot(q.market, q.kind, qty) && !afterLines.length ? `<p class="note">${h(open && !oddLotOpen(Date.now()) ? t('oddLotWait') : t('oddLotNote'))}</p>` : ''}
+    ${d.type !== 'limit' && est && !afterLines.length ? `<p class="note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
     ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
     ${
       topUp?.enough && est && !problems.length
@@ -2691,7 +2705,7 @@ function renderNetWorthChart(v, s) {
 function orderRow(o) {
   const q = state.quotes.get(o.symbol);
   const price = o.type === 'limit' ? t('atLimit', { p: fmtPrice(o.limit, o.currency) }) : o.type === 'stop' ? t('atStop', { p: fmtPrice(o.stop, o.currency) }) : t('atMarket');
-  const status = o.status === 'open' ? (q && !isOpen(q) ? t('waitingOpen') : t('waitingPrice')) + (o.expires ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(o.expires) : weekdayClock(o.expires) })}` : '') : t(`status_${o.status}`);
+  const status = o.status === 'open' && o.after ? t('afterWait', { time: clock(o.after) }) : o.status === 'open' ? (q && !isOpen(q) ? t('waitingOpen') : t('waitingPrice')) + (o.expires ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(o.expires) : weekdayClock(o.expires) })}` : '') : t(`status_${o.status}`);
   return `<div class="order-row" role="button" tabindex="0" data-action="open" data-symbol="${h(o.symbol)}">
     <span class="side-tag ${o.side}">${h(t(o.side))}</span>
     <span class="row-main"><span class="row-title">${h(nameOf(o.symbol, q))} <small>${h(fmtQty(o.qty))} ${h(unitOf(o.symbol))} ${h(price)}</small></span>
