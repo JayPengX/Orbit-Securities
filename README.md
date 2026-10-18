@@ -69,8 +69,14 @@ Live: https://jaypengx.github.io/Quadra-Securities/
 - 新股申購 uses TWSE's real list, drawn by the proxy at TWSE's rate.
 - 處置 and 注意 stocks (TWSE's lists, via the proxy) are tagged on holdings and the quote, with the 處置 rules on the ticket (lib/alerts.mjs).
 - Non-US government bonds use reference curves (no free live source).
-- Logo tables are generated (`scripts/brand-logos.mjs`,
-  `scripts/tv-logos.mjs`); never edit them by hand.
+- Taiwan stocks are found by code and by Chinese name (`lib/twsearch.mjs`),
+  ahead of Yahoo's results (which give Tokyo's 6898 for TW's), and named in
+  Chinese from `lib/twnames.mjs` or TWSE's subscription list.
+- TWSE's sessions as the kit has them: 13:25-13:30 closing call auction,
+  after-hours odd lots from 13:40 and 盤後定價 from 14:00; a whole-lot day
+  order waits for the 13:30 match (`lib/twse.mjs`).
+- Logo and name tables are generated (`scripts/brand-logos.mjs`,
+  `scripts/tv-logos.mjs`, `scripts/tw-names.mjs`); never edit them by hand.
 
 ## Files (`public/lib`)
 
