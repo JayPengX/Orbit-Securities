@@ -18,7 +18,7 @@ import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, d
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
 import { ticketEstimate, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, startPrice, lotSplit, maxBuy } from './lib/preview.mjs';
-import { expireAsked } from './lib/orders.mjs';
+import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
@@ -437,15 +437,15 @@ function afterPrices() {
     v = valuate(replay(account, now), state.quotes, state.rates);
   }
   // An overdraft (NT$ cash below zero) is collected like an unpaid
-  // settlement (違約交割): OD_GRACE to cover it, then the broker sells
+  // settlement (違約交割): until T+2 (odDeadline) to cover it, then the broker sells
   // holdings for it (coverPlan's sales, at market, one order each).
   if (!v.missingRates.length && !v.stale.length) {
     const owed = overdrawnBy(v);
     if (owed >= 1) {
       if (!account.od) {
         account = { ...account, od: { since: now } };
-        accountNotice('margin', t('odWarn', { v: money(owed, BASE), date: fmtDate(now + OD_GRACE) }), { tone: 'bad', tag: `od:${now}`, hash: 'portfolio' });
-      } else if (now - account.od.since >= OD_GRACE && !account.orders.some(o => o.status === 'open' && o.cover) && !coverPending(v, account)) {
+        accountNotice('margin', t('odWarn', { v: money(owed, BASE), date: fmtDate(odDeadline(now)) }), { tone: 'bad', tag: `od:${now}`, hash: 'portfolio' });
+      } else if (now >= odDeadline(account.od.since) && !account.orders.some(o => o.status === 'open' && o.cover) && !coverPending(v, account)) {
         // A default: 違約金 on what's owed (it's sold for too), on the record;
         // time deposits are broken against it (the bank's set-off, at the
         // early rate) and lent shares called back to be sold. Once per
@@ -2283,15 +2283,13 @@ function pendingSales(v, account = state.account) {
   return (account?.orders || []).filter(o => o.status === 'open' && o.side === 'sell' && !o.short).reduce((sum, o) => sum + (unit.get(o.symbol) || 0) * (o.qty || 0), 0);
 }
 const coverPending = (v, account) => overdrawnBy(v) >= 1 && pendingSales(v, account) >= overdrawnBy(v) * 0.99;
-// How long an overdraft can stand before holdings are sold for it (T+2).
-const OD_GRACE = 2 * 86_400_000;
 function overdraftHtml(v) {
   const owed = overdrawnBy(v);
   if (owed < 1) return '';
   const { plan, covered } = coverPlan(v, owed);
   const rows = plan.map(x => `<li><span>${h(nameOf(x.symbol))}</span><span class="num">${h(t('coverSell', { qty: fmtQty(x.qty) }))}${x.all ? ` · ${h(t('coverAll'))}` : ''}</span><strong class="num">≈ ${h(money(x.twd, BASE))}</strong></li>`).join('');
   return `<div class="card overdraft-card">
-    <div class="od-head"><strong>${h(t('odTitle', { v: money(owed, BASE) }))}</strong><small>${h(state.account.od ? t('odDeadline', { date: fmtDate(state.account.od.since + OD_GRACE) }) : t('odSub'))}</small></div>
+    <div class="od-head"><strong>${h(t('odTitle', { v: money(owed, BASE) }))}</strong><small>${h(state.account.od ? t('odDeadline', { date: fmtDate(odDeadline(state.account.od.since)) }) : t('odSub'))}</small></div>
     ${coverPending(v) ? `<p class="note">${h(t('odPending'))}</p>` : plan.length ? `<ul class="od-plan">${rows}</ul><button class="q-btn primary block" type="button" data-action="cover" ${pricesLive() ? '' : 'disabled'}>${h(t(covered ? 'coverGo' : 'coverGoPart'))}</button>` : `<p class="note">${h(t('odNothing'))}</p>`}
   </div>`;
 }
