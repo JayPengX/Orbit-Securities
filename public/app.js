@@ -1,11 +1,11 @@
 // Stock Study: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
-  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, defaulted, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, LEND_TERM_DAYS, lendFee, lendable } from './lib/savings.mjs';
 import {
-  BASE, CURRENCIES, MARKETS, METALS, collateralRate, MARGIN_CALL, MARGIN_RESTORE, SHORT_FEE, currencyInfo, isOpen, isTradable, isShortable, qtyStep, roundQty, dealPrice, delayOf, tickSize, onTick, priceLimits, marketFill, isOddLot, oddLotOpen, CASH_RATE, lotSize, lunchOf, atLunch, limitShare, settleDays
+  BASE, CURRENCIES, MARKETS, METALS, collateralRate, MARGIN_CALL, MARGIN_RESTORE, SHORT_FEE, currencyInfo, isOpen, isTradable, isShortable, qtyStep, roundQty, delayOf, tickSize, onTick, priceLimits, marketFill, isOddLot, oddLotOpen, CASH_RATE, lotSize, lunchOf, atLunch, limitShare, settleDays
 } from './lib/markets.mjs';
 import { BONDS } from './lib/bonds.mjs';
 import { nextTradingStart, upcomingHolidays, localDay } from './lib/holidays.mjs';
@@ -17,7 +17,7 @@ import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestT
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
-import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, maxBuy } from './lib/preview.mjs';
+import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
@@ -1988,16 +1988,12 @@ function ticketInfo() {
   const fromOthers = sources.reduce((sum, c) => sum + (quoteExchange(c, q.currency, spare(c), state.rates, state.fxOpen)?.received || 0), 0);
   const spendable = cash + fromOthers;
   // 融資: a buy of what the broker lends against, lent its share as it fills
-  // (only one's own part is needed now).
-  // (Only with a credit account, and not after a default: no 融資 then, DEFAULT_BAN long.)
-  const hasCredit = creditAccount(state.account, Date.now()).open;
-  const marginRate = d.side === 'buy' && hasCredit && !defaulted(state.account) ? collateralRate(q.kind, q.market, q.symbol) : 0;
+  // (only one's own part is needed now); 最大 within the credit limit left
+  // (lib/preview.mjs marginRateFor, ticketMax).
+  const hasCredit = creditAccount(state.account, now).open;
+  const marginRate = marginRateFor(state.account, q, d.side, now);
   const credit = Boolean(d.credit) && marginRate > 0;
-  // (Held for a fresh price, as every order from the ticket is.)
-  const holdFor = n => lotsHold({ type: d.type, qty: n, limit: Number(d.limit), stop: Number(d.stop), waitFresh: 1, margin: credit ? marginRate : 0 }, q, Date.now()).reserve;
-  // (融資 in Taiwan also within the credit limit left, as placeOrder checks.)
-  const loanRoom = credit && q.market === 'TW' ? creditAccount(state.account, now).limit - creditUsed(valuation()).loan : Infinity;
-  const max = ref > 0 ? maxBuy({ holdFor, spendable, price: dealPrice(q.market, 'buy', ref), kind: q.kind, margin: credit ? marginRate : 0, cap: Math.max(0, loanRoom) / (q.price * marginRate || 1) }) : 0;
+  const max = ticketMax(state.account, { quote: q, order: d, ref, spendable, margin: credit ? marginRate : 0, valuation: credit ? valuation() : null, now });
   // Exactly what the order will hold (placeOrder checks the same figure):
   // the estimate, plus a 3% buffer when it has to wait for its market.
   const req = d.side === 'buy' && est ? lotsHold({ type: d.type, qty, limit: Number(d.limit), stop: Number(d.stop), waitFresh: 1, margin: credit ? marginRate : 0 }, q, Date.now()) : null;

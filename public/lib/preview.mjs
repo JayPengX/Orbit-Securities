@@ -2,8 +2,8 @@
 // most a short can sell, Plus's price on the same trade, a time deposit's
 // end and interest, a loan of shares' fee. Each is worked out by the very
 // rules that then do it (the kit's stock-*), so the preview is what happens.
-import { estimate, placeOrder, replay, requiredCash } from './account.mjs';
-import { SHORT_INITIAL, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
+import { defaulted, estimate, placeOrder, replay, requiredCash } from './account.mjs';
+import { SHORT_INITIAL, collateralRate, dealPrice, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
 import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
 import * as credit from './credit.mjs';
 import { addMonths, lendFee, LEND_RATE, tdInterest, tdRate } from './savings.mjs';
@@ -194,4 +194,25 @@ export function maxBuy({ holdFor, spendable, price, kind, margin = 0, cap = Infi
     else hi = mid - 1;
   }
   return roundQty(Math.min(lo * step, cap), kind);
+}
+
+// 融資's rate on the ticket: a buy of what the broker lends against, only
+// with the credit account open and not after a default (no 融資 then,
+// DEFAULT_BAN long); else 0.
+export function marginRateFor(account, quote, side, now = Date.now()) {
+  if (side !== 'buy' || !creditAccount(account, now).open || defaulted(account, now)) return 0;
+  return collateralRate(quote.kind, quote.market, quote.symbol);
+}
+
+// The ticket's 最大 for a buy of `order` ({ type, limit, stop }) filling at
+// `ref`: what `spendable` holds (lotsHold, held for a fresh price as every
+// order from the ticket is); on 融資 (`margin`, its rate) one's own part
+// only and, in Taiwan, within the credit limit left as placeOrder counts it
+// (the last price × shares × rate against the limit less what's lent).
+export function ticketMax(account, { quote, order, ref, spendable, margin = 0, valuation = null, now = Date.now() }) {
+  if (!(ref > 0)) return 0;
+  const holdFor = n => lotsHold({ type: order.type, qty: n, limit: Number(order.limit), stop: Number(order.stop), waitFresh: 1, margin }, quote, now).reserve;
+  const room = margin > 0 && quote.market === 'TW' ? creditAccount(account, now).limit - creditUsed(valuation).loan : Infinity;
+  const cap = margin > 0 ? Math.max(0, room) / (quote.price * margin) : Infinity;
+  return maxBuy({ holdFor, spendable, price: dealPrice(quote.market, 'buy', ref), kind: quote.kind, margin, cap });
 }

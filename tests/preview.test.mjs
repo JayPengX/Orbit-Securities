@@ -287,3 +287,46 @@ test("整零合併: the ticket's estimate and hold are the two orders' added up,
   // One order: as requiredCash has it.
   assert.deepEqual(lotsHold({ ...order, qty: 2000 }, q, T0).reserve, requiredCash({ ...order, qty: 2000 }, q, T0).reserve);
 });
+
+test("the ticket's 最大 is what the ticket's own order then takes: the most the cash holds, one more refused (market, limit, mixed lots)", async () => {
+  const { ticketMax, placeLots } = await import('../public/lib/preview.mjs');
+  const { marketFill } = await import('../public/lib/markets.mjs');
+  const q = quote('2330.TW', 500);
+  const a = newAccount(1_000_000, T0, 'acc');
+  const opts = { quote: q, rates: RATES, valuation: val(a, T0, [['2330.TW', q]]), now: T0 };
+  for (const order of [{ type: 'limit', limit: 495 }, { type: 'market' }]) {
+    const ref = order.type === 'limit' ? order.limit : marketFill('TW', 'stock', 'buy', q.price);
+    const max = ticketMax(a, { quote: q, order, ref, spendable: 1_000_000, now: T0 });
+    assert.ok(max > 1000 && max % 1000, `${order.type}: ${max} mixes lots`);
+    const req = n => ({ symbol: '2330.TW', side: 'buy', ...order, qty: n, fresh: true });
+    assert.equal(placeLots(a, req(max), opts).failed, null, `${order.type}: ${max} goes in`);
+    assert.equal(placeLots(a, req(max + 1), opts).failed?.r.error, 'funds', `${order.type}: ${max + 1} is refused`);
+  }
+  assert.equal(ticketMax(a, { quote: q, order: { type: 'market' }, ref: 0, spendable: 1_000_000, now: T0 }), 0);
+});
+
+test("融資 on the ticket: only with an open credit account and no default, and its 最大 stops at the credit limit left, as placeOrder counts it", async () => {
+  const { ticketMax, marginRateFor, placeLots } = await import('../public/lib/preview.mjs');
+  const q = quote('2330.TW', 500);
+  const plain = trader(4, 12);
+  const a = withCredit(plain, 300_000);
+  assert.equal(marginRateFor(plain, q, 'buy', T0), 0);
+  assert.equal(marginRateFor(a, q, 'buy', T0), 0.6);
+  assert.equal(marginRateFor(a, q, 'sell', T0), 0);
+  assert.equal(marginRateFor(a, quote('6488.TWO', 500), 'buy', T0), 0.5);
+  const valuation = val(a, T0, [['2330.TW', q]]);
+  const opts = { quote: q, rates: RATES, valuation, now: T0 };
+  // NT$300,000 of room at 500 × 60%: 1,000 shares, a limit above the last price alike (the limit is checked at the last price).
+  for (const order of [{ type: 'market' }, { type: 'limit', limit: 510 }]) {
+    const max = ticketMax(a, { quote: q, order, ref: order.limit || 501, spendable: 5_000_000, margin: 0.6, valuation, now: T0 });
+    assert.equal(max, 1000);
+    const req = n => ({ symbol: '2330.TW', side: 'buy', ...order, qty: n, margin: true, fresh: true });
+    assert.equal(placeLots(a, req(max), opts).failed, null);
+    assert.equal(placeLots(a, req(max + 1), opts).failed?.r.error, 'creditLimit');
+  }
+  // What's already lent counts: NT$120,000 out leaves 600 shares.
+  const lent = { ...valuation, positions: [...valuation.positions, { market: 'TW', financed: 120_000 }] };
+  assert.equal(ticketMax(a, { quote: q, order: { type: 'market' }, ref: 501, spendable: 5_000_000, margin: 0.6, valuation: lent, now: T0 }), 600);
+  // No 融資: the cash alone, no cap.
+  assert.ok(ticketMax(a, { quote: q, order: { type: 'market' }, ref: 501, spendable: 5_000_000, valuation, now: T0 }) > 9000);
+});
