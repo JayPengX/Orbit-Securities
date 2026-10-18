@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newAccount, replay, placeOrder, valuate, estimate, openDeposit, matureDeposits } from '../public/lib/account.mjs';
 import { tradeCosts, SHORT_INITIAL } from '../public/lib/markets.mjs';
+import * as markets from '../public/lib/markets.mjs';
 import { LEND_RATE, TD_TERMS, tdRate } from '../public/lib/savings.mjs';
 import { PLUS } from '#kit/plus.mjs';
+import * as kit from '../public/lib/account.mjs';
 import { ticketEstimate, isDayTradeSell, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from '../public/lib/preview.mjs';
 import { oddLotNeedsLimit, boardLots, placeLots } from '../public/lib/preview.mjs';
 
@@ -17,6 +19,8 @@ const quote = (symbol, price, at = T0, over = {}) => ({
   session: { start: tpe(new Date(at + 8 * HOUR).toISOString().slice(0, 10), '09:00'), end: tpe(new Date(at + 8 * HOUR).toISOString().slice(0, 10), '13:30') }, marketTime: at, line: [], ...over
 });
 const val = (a, t, quotes) => valuate(replay(a, t), new Map(quotes), RATES);
+// The day-trade tax (half of 0.3%) ends with 2027 in law; a kit without that date keeps it.
+const HALF_TAX = (markets.DAY_TRADE_TAX_UNTIL ?? Infinity) > T0 ? 1500 : 3000;
 // An account opened `months` before T0 with `n` trades in the last year.
 function trader(months, n) {
   const created = T0 - months * 31 * DAY;
@@ -33,7 +37,7 @@ test('the ticket shows the day-trade tax a same-day sale pays (it showed the ful
   const lq = quote('2330.TW', 1000, later);
   const fill = placeOrder(bought, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: lq, rates: RATES, valuation: val(bought, later, [['2330.TW', lq]]), now: later, id: 's' }).fill;
   const shown = ticketEstimate(bought, { quote: lq, side: 'sell', qty: 1000, price: 1000, now: later });
-  assert.equal(fill.tax, 1500);
+  assert.equal(fill.tax, HALF_TAX);
   assert.equal(shown.tax, fill.tax);
   assert.equal(shown.total, fill.total);
   assert.equal(shown.dayTrade, true);
@@ -48,6 +52,32 @@ test('the ticket shows the day-trade tax a same-day sale pays (it showed the ful
   assert.equal(isDayTradeSell(bought, { symbol: '2330.TW', market: 'TW', side: 'buy' }, later), false);
   // A day trade sold first is one by definition.
   assert.equal(isDayTradeSell(newAccount(), { symbol: 'X', market: 'TW', side: 'sell', dayShort: true }, later), true);
+});
+
+test('a sale of more lots than were bought today pays the day-trade tax on the matched lots only, on the ticket as on the fill', () => {
+  // 2027: the half tax still stands (to 2027-12-31).
+  const at = tpe('2027-03-03', '10:00');
+  const yesterday = tpe('2027-03-02', '10:00');
+  let a = withCredit(newAccount(10_000_000, at - 200 * DAY, 'acc'));
+  const q = (t0, over) => quote('2330.TW', 1000, t0, over);
+  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 1000, qty: 2000 }, { quote: q(yesterday), rates: RATES, valuation: val(a, yesterday, [['2330.TW', q(yesterday)]]), now: yesterday, id: 'old' }).account;
+  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 1000, qty: 1000 }, { quote: q(at), rates: RATES, valuation: val(a, at, [['2330.TW', q(at)]]), now: at, id: 'today' }).account;
+  const later = at + HOUR;
+  const lq = q(later);
+  const shown = ticketEstimate(a, { quote: lq, side: 'sell', qty: 3000, price: 1000, now: later });
+  const fill = placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: 3000 }, { quote: lq, rates: RATES, valuation: val(a, later, [['2330.TW', lq]]), now: later, id: 's' }).fill;
+  // 3 lots sold, 1 bought today: a third at 0.15%, the rest at 0.3% (an older kit: all at 0.15%).
+  assert.equal(fill.tax, kit.dayTradeShare ? Math.floor(3_000_000 * (0.0015 / 3 + (0.003 * 2) / 3)) : 4500);
+  assert.equal(shown.tax, fill.tax);
+  assert.equal(shown.dayTrade, true);
+});
+
+test('lending at the lender’s own ask: the year’s figure at that rate', () => {
+  const going = lendYear('stock', 1000, 100);
+  assert.equal(going.rate, LEND_RATE.stock);
+  const mine = lendYear('stock', 1000, 100, 0.005);
+  assert.equal(mine.rate, 0.005);
+  assert.ok(mine.net < going.net);
 });
 
 test('the ticket shows 融券 handling (0.08% of the part sold short) as the fill charges it', () => {

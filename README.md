@@ -42,11 +42,29 @@ Live: https://jaypengx.github.io/Quadra-Securities/
   - margin calls at 130% (two business days, then forced sales);
   - shorts at 150% cover (Taiwan's 融券: its credit limit and a 90%
     deposit, 0.08% handling);
-  - 融資 / 融券 for six months; 定存 at Bank of Taiwan's rates;
+  - 融資 / 融券 for six months; 定存 at Bank of Taiwan's posted rates;
+  - Hong Kong orders in each security's HKEX board lot (the kit's
+    `stock-hk-lots.mjs`); one not on HKEX's list can't be ordered
+    (`lotUnknown`, said on the ticket);
+  - taxes that end on a date in law, shown with it: bond ETFs' exemption
+    to 2026-12-31 (then 0.1%), 當沖's 0.15% to 2027-12-31;
   - interest on idle NT$ (0.8%, members alike);
   - day trading (either way) once the account is 3 months open with 10
-    trades in the year, or has a credit account; the half tax then; what's
+    trades in the year, or has a credit account; the half tax then, only
+    on the whole lots the day's cash buys match (`dayTradeShareOf`: 3 lots
+    sold, 1 bought today, a third at 0.15%), never on odd lots; what's
     sold first within the day's 當沖額度 (twice net worth);
+  - 定期定額 on Taiwan and US shares only: from NT$100 on any day 1-31 (a
+    shorter month's last day); a Taiwan stock or ETF bought as an odd-lot
+    limit order at the session's first match (09:10, 09:00 from
+    2026-12-07); NT$1 a buy to 2026-12-31, then 0.1425% with a NT$1
+    minimum; three months running without the cash end it (the card and
+    the plans list say so);
+  - 借券出借 at the lender's own ask (0.01-16% a year; above the going
+    rate no borrower takes it), six months, renewed twice where agreed;
+    the fee accrues daily at each close (read for what's lent) and is
+    paid, less the cut, 10% withheld and the NHI premium, when the shares
+    come back;
   - a mixed Taiwan quantity (1,500 shares) placed in one tap as two
     orders, 整股 and 盤中零股, at one price and type (`placeLots`);
   - a day order that met its price just before the close fills: it

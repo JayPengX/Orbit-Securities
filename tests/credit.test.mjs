@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { newAccount, replay, placeOrder, processOrders, valuate, repayAll } from '../public/lib/account.mjs';
 import { creditAccount, creditCheck, openCredit, bestTier, terms, extendTerm, closeOutPlan, afterHours, dayTradeSellFirst, CREDIT_TIERS } from '../public/lib/credit.mjs';
 import { tradeCosts } from '../public/lib/markets.mjs';
+import * as markets from '../public/lib/markets.mjs';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -15,6 +16,9 @@ const quote = (symbol, price, at = T0, over = {}) => ({
   session: { start: tpe(new Date(at + 8 * HOUR).toISOString().slice(0, 10), '09:00'), end: tpe(new Date(at + 8 * HOUR).toISOString().slice(0, 10), '13:30') }, marketTime: at, line: [], ...over
 });
 const val = (a, t, quotes) => valuate(replay(a, t), new Map(quotes), RATES);
+// The day-trade tax (half of 0.3%) ends with 2027 in law (證券交易稅條例 §2-2); a kit
+// without that date keeps it.
+const HALF_TAX = (markets.DAY_TRADE_TAX_UNTIL ?? Infinity) > T0 ? 1500 : 3000;
 
 // An account opened `months` before T0 with `n` trades of NT$`each` in the last year.
 function trader(months, n, each = 100_000) {
@@ -91,8 +95,8 @@ test('day trading sold first: 3 months open and ten trades (or a credit account)
   const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: q, rates: RATES, valuation: val(a, T0, [['2330.TW', q]]), now: T0, id: 'd' });
   assert.equal(r.error, undefined);
   assert.equal(r.fill.dayShort, true);
-  // Day-trade tax: half of 0.3%.
-  assert.equal(r.fill.tax, 1500);
+  // Day-trade tax: half of 0.3% (while the law has it).
+  assert.equal(r.fill.tax, HALF_TAX);
   a = r.account;
   const close = tpe('2028-03-01', '13:31');
   assert.deepEqual(closeOutPlan(a, val(a, close, [['2330.TW', quote('2330.TW', 1000, close)]]), close).map(p => [p.side, p.qty, p.reason]), [['buy', 1000, 'dayTrade']]);
@@ -107,7 +111,7 @@ test('day trading bought first: the half tax once the account is 3 months open w
     const lq = quote('2330.TW', 1000, later);
     return placeOrder(bought, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: lq, rates: RATES, valuation: val(bought, later, [['2330.TW', lq]]), now: later, id: 's' }).fill;
   };
-  assert.equal(roundTrip(trader(4, 12)).tax, 1500);
+  assert.equal(roundTrip(trader(4, 12)).tax, HALF_TAX);
   assert.equal(roundTrip(trader(1, 12)).tax, 3000);
   assert.equal(roundTrip(trader(4, 3)).tax, 3000);
 });

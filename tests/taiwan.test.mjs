@@ -44,14 +44,18 @@ test("Taiwan's ±10%: the up limit cut down to its tick, the down limit rounded 
   assert.equal(placeOrder(a, { side: 'buy', type: 'limit', limit: 1003, qty: 1000 }, opts).error, 'tick');
 });
 
-test('odd lots: under 1,000 or not whole lots; only from 09:10 Taipei', () => {
+test('odd lots: under 1,000 or not whole lots; only from 09:10 Taipei (09:00 from 2026-12-07)', () => {
   assert.equal(isOddLot('TW', 'stock', 999), true);
   assert.equal(isOddLot('TW', 'stock', 1500), true);
   assert.equal(isOddLot('TW', 'stock', 2000), false);
   assert.equal(isOddLot('TW', 'etf', 1), true);
   assert.equal(isOddLot('US', 'stock', 1), false);
   assert.equal(isOddLot('TW', 'metal', 3), false);
-  assert.equal(oddLotOpen(tpe('2028-03-01', '09:09')), false);
+  assert.equal(oddLotOpen(tpe('2026-12-04', '09:09')), false);
+  assert.equal(oddLotOpen(tpe('2026-12-04', '09:10')), true);
+  // TWSE: from 2026-12-07 the odd-lot session's first match is at 09:00 (a kit
+  // without it: still 09:10).
+  assert.equal(oddLotOpen(tpe('2028-03-01', '09:00')), Boolean(SM.oddLotOpenAt));
   assert.equal(oddLotOpen(tpe('2028-03-01', '09:10')), true);
   // Taiwan's market orders cross half a tick (no share of the price on top).
   assert.equal(marketFill('TW', 'stock', 'buy', 1000), 1000 + 2.5);

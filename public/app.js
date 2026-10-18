@@ -35,6 +35,8 @@ import * as stockAccount from './lib/account.mjs';
 // (Read through the module, with a fallback, for what an older kit lacks.)
 import * as stockCredit from './lib/credit.mjs';
 import * as stockIpo from './lib/ipo.mjs';
+import * as stockSavings from './lib/savings.mjs';
+import * as stockMarkets from './lib/markets.mjs';
 
 const $ = id => document.getElementById(id);
 const TABS = ['markets', 'portfolio', 'fx', 'history'];
@@ -77,6 +79,8 @@ const state = {
   fx: { from: BASE, to: 'USD', amount: '', mode: 'pay', view: 'exchange' },
   loan: { currency: BASE, amount: '', mode: 'borrow' },
   td: { amount: '', months: 12, renew: false },
+  // 借券出借's own ask (a yearly %, blank: the going rate) and its renewals.
+  lend: { rate: '', renew: false },
   alloc: 'kind',
   historyView: 'activity',
   activityFilter: 'all',
@@ -416,7 +420,9 @@ function afterPrices() {
   const now = Date.now();
   // Deposits that matured and lending contracts that ran their term.
   // (And old 融資 loans tied to what they bought, once.)
-  let account = matureLending(matureDeposits(state.account, now), now);
+  loadLendCloses(state.account, now);
+  let account = matureDeposits(state.account, now);
+  if (lendClosesReady(account, now)) account = matureLending(account, now, { closesOf: lendClosesOf });
   for (const e of account.events.filter(e => e.type === 'tdend' && !state.account.events.some(x => x.id === e.id))) accountNotice('income', t('tdMatured', { v: money(e.amount + e.net, BASE) }), { tag: e.id, hash: 'fx' });
   // Filled by the proxy at its own quote (Shared-Proxy stock-fill.js; the
   // owner, 2026-10-14): its fills applied here (one from a session the page
@@ -640,7 +646,12 @@ async function checkPlans() {
         if (r.account === state.account) continue;
         commit(r.account);
         if (r.fill) accountNotice('fill', t('toastPlan', { name: nameOf(plan.symbol), qty: fmtQty(r.fill.qty), price: fmtPrice(r.fill.price, r.fill.currency), time: fmtDate(r.fill.t) }), { tag: `plan:${plan.id}:${run.month}`, hash: 'history' });
-        else if (r.order?.status === 'rejected') accountNotice('order', t('toastPlanSkipped', { name: nameOf(plan.symbol), why: t(`err_${r.order.reason}`) }), { tone: 'bad', tag: `plan:${plan.id}:${run.month}`, hash: 'portfolio' });
+        else if (r.order?.status === 'rejected') accountNotice('order', t('toastPlanSkipped', { name: nameOf(plan.symbol), why: planReason(r.order.reason) }), { tone: 'bad', tag: `plan:${plan.id}:${run.month}`, hash: 'portfolio' });
+        // Months running without the cash ended it (the kit's PLAN_FAIL_LIMIT): no later month runs.
+        if (r.ended) {
+          accountNotice('order', t('toastPlanEnded', { name: nameOf(plan.symbol), n: stockAccount.PLAN_FAIL_LIMIT ?? 3 }), { tone: 'bad', tag: `plan:${plan.id}:ended`, hash: 'portfolio' });
+          break;
+        }
       }
     }
   } finally {
@@ -831,7 +842,12 @@ function marketRules(q) {
   const n = settleDays(q.market);
   parts.push(n ? t('ruleSettle', { n }) : t('ruleInstant'));
   if (q.market === 'CN') parts.push(t('ruleCn'));
-  if (q.market === 'TW' && q.kind === 'stock') parts.push(t('ruleDayTrade'));
+  if (q.market === 'TW' && q.kind === 'stock') {
+    // 0.15% to the date the law sets (the kit's DAY_TRADE_TAX_UNTIL), then the full tax.
+    const until = stockMarkets.DAY_TRADE_TAX_UNTIL;
+    if (!until) parts.push(t('ruleDayTrade'));
+    else if (Date.now() < until) parts.push(t('ruleDayTradeUntil', { date: fmtDate(until - 1) }));
+  }
   if (q.kind !== 'crypto' && q.kind !== 'fx') parts.push(t('ruleDayOrder'));
   return parts.join(' · ');
 }
@@ -1578,7 +1594,13 @@ function feeSummary(q) {
     const rules = m[side];
     if (!rules) continue;
     const r = rules[q.kind] || rules.all;
-    if (r?.tax) parts.push(t(side === 'buy' ? 'feeBuyTax' : 'feeSellTax', { rate: rateText(r.tax) }));
+    // A rate with an end in law (a bond ETF's exemption, the kit's until/after).
+    if (r?.until != null) {
+      const key = side === 'buy' ? 'feeBuyTax' : 'feeSellTax';
+      if (Date.now() >= r.until) {
+        if (r.after) parts.push(t(key, { rate: rateText(r.after) }));
+      } else parts.push(t(r.tax ? 'feeTaxUntil' : 'feeTaxFreeUntil', { tax: t(key, { rate: rateText(r.tax || 0) }), date: fmtDate(r.until - 1), after: rateText(r.after || 0) }));
+    } else if (r?.tax) parts.push(t(side === 'buy' ? 'feeBuyTax' : 'feeSellTax', { rate: rateText(r.tax) }));
   }
   if (!parts.length) parts.push(t('feeNone'));
   return parts.join(' · ');
@@ -1702,6 +1724,42 @@ function alertCardHtml(symbol, q) {
   );
 }
 
+// 定期定額's terms, the kit's (read through the module: an older kit has
+// days 1-28, no fee or session of its own, and no end).
+const planDayMax = () => stockAccount.PLAN_DAY_MAX ?? 28;
+// The day picker: 29-31 fall on a shorter month's last day.
+const planDayOptions = selected =>
+  Array.from({ length: planDayMax() }, (_, i) => i + 1)
+    .map(n => `<option value="${n}" ${String(n) === selected ? 'selected' : ''}>${h(t(n > 28 ? 'dayOfMonthEnd' : 'dayOfMonth', { n }))}</option>`)
+    .join('');
+const hhmm = ({ h: hh, m }) => `${String(hh).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+// The odd-lot session's first match today (09:10; 09:00 from 2026-12-07, the kit's oddLotOpenAt).
+const oddLotFirst = (at = Date.now()) => hhmm(stockMarkets.oddLotOpenAt?.(at) ?? { h: 9, m: 10 });
+// How a plan buys and what a buy costs, as the kit does it: a Taiwan stock
+// or ETF a limit order at the odd-lot session's first match (09:10, 09:00
+// from 2026-12-07), any whole lots a trade of their own; NT$1 a buy to the
+// end of the brokers' offer, then 0.1425% with a NT$1 minimum. A US one at
+// the first price on its day, at the 複委託 commission.
+function planTermsHtml(q, at = Date.now()) {
+  const lines = [];
+  if (q.market === 'TW' && stockAccount.planOrderType) {
+    const nine = stockMarkets.ODD_LOT_NINE;
+    const open = hhmm(stockMarkets.oddLotOpenAt?.(at) ?? { h: 9, m: 10 });
+    lines.push(t('planTimeTw', { time: nine && at < nine ? t('planTimeNine', { time: open, date: fmtDate(nine) }) : open }));
+  } else lines.push(t('planTimeOpen'));
+  const m = MARKETS[q.market] || MARKETS.INTL;
+  const fee = m.plan;
+  if (fee) lines.push(at < fee.flatUntil ? t('planFeeFlat', { fee: money(fee.flat, BASE), until: fmtDate(fee.flatUntil - 1), rate: rateText(fee.rate), min: money(fee.min, BASE) }) : t('planFeeRate', { rate: rateText(fee.rate), min: money(fee.min, BASE) }));
+  else if (q.market !== 'TW' && m.commission?.rate) lines.push(t('feeCommission', { rate: rateText(m.commission.rate), min: money(m.commission.min, m.currency || q.currency) }));
+  return lines.map(x => `<p class="note">${h(x)}</p>`).join('');
+}
+// The plan of `symbol` that ended by itself (three months running without
+// the cash: the kit's plan.ended), shown until another is set.
+const endedPlan = symbol => Object.values(state.account?.plans || {}).filter(p => !p.on && p.ended && p.symbol === symbol).sort((a, b) => b.t - a.t)[0] || null;
+// Why a month's buy didn't happen, in a few words (err_funds needs figures a plan's month doesn't keep).
+const planReason = reason => (reason === 'funds' ? t('planNoCash') : t(`err_${reason}`));
+const planEndedText = p => t('planEnded', { date: fmtDate(p.t), n: stockAccount.PLAN_FAIL_LIMIT ?? 3 });
+
 function planCardHtml(symbol, q) {
   const plan = activePlans(state.account).find(p => p.symbol === symbol);
   const editing = plan && state.planEdit === plan.id;
@@ -1713,11 +1771,13 @@ function planCardHtml(symbol, q) {
       `<p>${h(t('planActive', { amount: money(plan.amount, BASE), day: plan.day }))}</p>
       <p class="muted">${h(t('planNext', { date: next ? fmtDate(next) : '—' }))}</p>
       ${planHistoryHtml(plan)}
+      ${planTermsHtml(q, next || Date.now())}
       <div class="button-row"><button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(plan.id)}">${h(t('planEdit'))}</button><button class="q-btn small danger tinted" type="button" data-action="plan-off" data-id="${h(plan.id)}">${h(t('planStop'))}</button></div>`,
       true,
       'tool:plan'
     );
   }
+  const ended = plan ? null : endedPlan(symbol);
   const amount = Number(state.plan.amount);
   const perUnit = q.price * (state.rates[q.currency] || 0);
   const units = perUnit > 0 ? amount / perUnit : 0;
@@ -1725,16 +1785,18 @@ function planCardHtml(symbol, q) {
     '📅',
     t('planTitle'),
     `
+    ${ended ? `<p class="warn">${h(planEndedText(ended))}</p>${planHistoryHtml(ended)}` : ''}
     <div class="loan-form">
       <label class="field grow"><span>${h(t('planAmount'))} (NT$)</span><input id="plan-amount" inputmode="numeric" autocomplete="off" value="${h(state.plan.amount)}" /></label>
-      <label class="field"><span>${h(t('planDay'))}</span><select id="plan-day">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}" ${String(i + 1) === state.plan.day ? 'selected' : ''}>${h(t('dayOfMonth', { n: i + 1 }))}</option>`).join('')}</select></label>
+      <label class="field"><span>${h(t('planDay'))}</span><select id="plan-day">${planDayOptions(state.plan.day)}</select></label>
     </div>
     ${perUnit > 0 && amount > 0 ? `<p class="muted">${h(t('planBuys', { units: num(units, units < 10 ? 2 : 0), unit: unitOf(symbol) }))}${q.currency !== BASE ? ` · ${h(t('planFx', { cur: q.currency }))}` : ''}</p>` : ''}
     ${state.account ? '' : `<p class="note">${h(t('needAccount'))}</p>`}
     <button class="q-btn primary" type="button" data-action="plan-add" ${amount >= PLAN_MIN && state.account ? '' : 'disabled'}>${h(t(editing ? 'planSave' : 'planStart'))}</button>
     ${editing ? `<button class="q-btn small" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button>` : ''}
-    <p class="note">${h(t('planNote', { min: money(PLAN_MIN, BASE) }))}</p>`,
-    Boolean(editing),
+    <p class="note">${h(stockAccount.PLAN_FAIL_LIMIT ? t('planNoteEnd', { min: money(PLAN_MIN, BASE), n: stockAccount.PLAN_FAIL_LIMIT }) : t('planNote', { min: money(PLAN_MIN, BASE) }))}</p>
+    ${planTermsHtml(q)}`,
+    Boolean(editing) || Boolean(ended),
     'tool:plan'
   );
 }
@@ -1743,7 +1805,7 @@ function planHistoryHtml(plan) {
   const runs = state.account.orders.filter(o => o.plan === plan.id).slice(-4).reverse();
   if (!runs.length) return '';
   return `<ul class="tool-list">${runs
-    .map(o => `<li><span>${h(fmtDate(o.done || o.t))}</span><span class="num">${o.status === 'filled' ? h(`${fmtQty(o.qty)} ${unitOf(o.symbol)} @ ${fmtPrice(o.price, o.currency)}`) : h(t(`err_${o.reason}`))}</span></li>`)
+    .map(o => `<li><span>${h(fmtDate(o.done || o.t))}</span><span class="num">${o.status === 'filled' ? h(`${fmtQty(o.qty)} ${unitOf(o.symbol)} @ ${fmtPrice(o.price, o.currency)}`) : h(planReason(o.reason))}</span></li>`)
     .join('')}</ul>`;
 }
 
@@ -1772,7 +1834,7 @@ async function addPlan() {
   // The keyboard away, so the sheet redraws with the plan in place.
   document.activeElement?.blur?.();
   const r = setPlan(state.account, { symbol: d.symbol, amount: state.plan.amount, day: state.plan.day, name: q.name, kind: q.kind, market: q.market, currency: q.currency });
-  if (r.error) return toast(t(`err_${r.error}`), 'bad');
+  if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
   state.planEdit = null;
   track(symbolKeys(d.symbol), 2);
@@ -1791,7 +1853,7 @@ async function savePlanRow(id) {
   document.activeElement?.blur?.();
   const q = state.quotes.get(plan.symbol) || {};
   const r = setPlan(state.account, { id: plan.id, symbol: plan.symbol, amount: state.plan.amount, day: state.plan.day, name: q.name || plan.name, kind: q.kind || plan.kind, market: q.market || plan.market, currency: q.currency || plan.currency });
-  if (r.error) return toast(t(`err_${r.error}`), 'bad');
+  if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
   state.planEdit = null;
   recordAffinity('stock', symbolKeys(plan.symbol), 2);
@@ -2139,6 +2201,8 @@ function renderTicket() {
   if (short > 0 && !topUp?.enough) problems.push(t('notEnoughCash', { cur: q.currency, have: money(cash, q.currency), short: money(short, q.currency) }));
   if (d.qty && Math.abs(roundQty(qty, q.kind) - qty) > qtyStep(q.kind) * 1e-3) problems.push(t('err_qtyStep'));
   if (qty > 0 && oddLotNeedsLimit(q.market, q.kind, qty, d.type)) problems.push(t('err_oddLotLimit'));
+  // A Hong Kong security not on HKEX's list of board lots can't be sized (the kit refuses it: lotUnknown).
+  if (q.market === 'HK' && stockMarkets.hkLot && ['stock', 'etf', 'bond'].includes(q.kind) && !stockMarkets.hkLot(q.symbol)) problems.push(t('err_lotUnknown'));
   // Taiwan: whole lots and odd lots go in as two orders, placed in one tap (整零合併).
   const split = lotSplit(q.market, q.kind, qty);
   // The exchange's rules for the price typed.
@@ -2219,7 +2283,7 @@ function renderTicket() {
     ${topUp?.enough ? `<p class="note">${h(t('autoFxLine', { pay: money(topUp.need, BASE), get: money(topUp.get, q.currency) }))}</p>` : ''}
     ${credit && est ? `<p class="note margin-line">${h(t('creditNote', { rate: pct(loanRateAt(q.currency), { digits: 2, sign: false }) }))}</p>` : ''}
     ${!open && !afterLines.length ? `<p class="note">${h(q.kind === 'metal' ? t('closedMetal') : t('closedQueue'))}</p>` : ''}
-    ${qty > 0 && isOddLot(q.market, q.kind, qty) && !afterLines.length ? `<p class="note">${h(open && !oddLotOpen(Date.now()) ? t('oddLotWait') : t('oddLotNote'))}</p>` : ''}
+    ${qty > 0 && isOddLot(q.market, q.kind, qty) && !afterLines.length ? `<p class="note">${h(t(open && !oddLotOpen(Date.now()) ? 'oddLotWait' : 'oddLotNote', { time: oddLotFirst() }))}</p>` : ''}
     ${d.type !== 'limit' && est && !afterLines.length ? `<p class="note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
     ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
     ${
@@ -2374,6 +2438,14 @@ function errorText(r) {
       return t('err_closingAuction', { match: clock(r.match) });
     case 'afterHoursWait':
       return t('err_afterHoursWait', { from: clock(r.from) });
+    case 'planAmount':
+      return t('err_planAmount', { min: money(PLAN_MIN, BASE) });
+    case 'planDay':
+      return t('err_planDay', { max: planDayMax() });
+    case 'lendRate':
+      return t('err_lendRate', { min: rateText(r.min), max: rateText(r.max) });
+    case 'lendNoTaker':
+      return t('err_lendNoTaker', { rate: lendPct(r.rate) });
     default:
       return t(`err_${r.error}`);
   }
@@ -2532,10 +2604,20 @@ function incomeCardHtml(v) {
   </div>`;
 }
 
+// A plan that ended by itself stays in the list for a quarter (its card in
+// the stock's sheet keeps saying so until another is set).
+const ENDED_SHOWN = 92 * 86_400_000;
 function plansListHtml() {
   const plans = activePlans(state.account);
-  if (!plans.length) return '';
-  return `<div class="card"><h3 class="card-title">${h(t('plansTitle'))} <span class="count">${plans.length}</span></h3>${plans
+  const live = new Set(plans.map(p => p.symbol));
+  const ended = Object.values(state.account?.plans || {}).filter(p => !p.on && p.ended && !live.has(p.symbol) && Date.now() - (p.t || 0) < ENDED_SHOWN && endedPlan(p.symbol) === p);
+  if (!plans.length && !ended.length) return '';
+  const endedRows = ended
+    .map(p => `<div class="order-row">${icon('calendar', 'k-cash')}
+      <span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(p.symbol)}">${h(nameOf(p.symbol))}</button></span>
+      <span class="row-sub">${h(planEndedText(p))}</span></span></div>`)
+    .join('');
+  return `<div class="card"><h3 class="card-title">${h(t('plansTitle'))} <span class="count">${plans.length}</span></h3>${endedRows}${plans
     .map(p => {
       const next = nextPlanRun(p);
       const last = state.account.orders.filter(o => o.plan === p.id).at(-1);
@@ -2546,13 +2628,13 @@ function plansListHtml() {
       <span class="row-main"><span class="row-title">${h(nameOf(p.symbol))}</span>
       <span class="loan-form">
         <label class="field grow"><span>${h(t('planAmount'))} (NT$)</span><input id="plan-row-amount" inputmode="numeric" autocomplete="off" value="${h(state.plan.amount)}" /></label>
-        <label class="field"><span>${h(t('planDay'))}</span><select id="plan-row-day">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}" ${String(i + 1) === state.plan.day ? 'selected' : ''}>${h(t('dayOfMonth', { n: i + 1 }))}</option>`).join('')}</select></label>
+        <label class="field"><span>${h(t('planDay'))}</span><select id="plan-row-day">${planDayOptions(state.plan.day)}</select></label>
       </span>
       <span class="button-row"><button class="q-btn primary small" type="button" data-action="plan-row-save" data-id="${h(p.id)}">${h(t('planSave'))}</button><button class="q-btn small" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button></span></span></div>`;
       }
       return `<div class="order-row">${icon('calendar', 'k-cash')}
       <span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(p.symbol)}">${h(nameOf(p.symbol))}</button></span>
-      <span class="row-sub">${h(t('planActive', { amount: money(p.amount, BASE), day: p.day }))} · ${h(t('planNext', { date: next ? fmtDate(next) : '—' }))}${last ? ` · ${h(last.status === 'filled' ? t('planLast', { qty: fmtQty(last.qty), unit: unitOf(p.symbol) }) : t(`err_${last.reason}`))}` : ''}</span></span>
+      <span class="row-sub">${h(t('planActive', { amount: money(p.amount, BASE), day: p.day }))} · ${h(t('planNext', { date: next ? fmtDate(next) : '—' }))}${last ? ` · ${h(last.status === 'filled' ? t('planLast', { qty: fmtQty(last.qty), unit: unitOf(p.symbol) }) : planReason(last.reason))}` : ''}</span></span>
       <button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(p.id)}" data-row="1">${h(t('planEdit'))}</button>
       <button class="q-btn small" type="button" data-action="plan-off" data-id="${h(p.id)}">${h(t('planStop'))}</button></div>`;
     })
@@ -2984,23 +3066,76 @@ function growHtml() {
     <div class="card">
       <div class="card-head"><h3 class="card-title">🤝 ${h(t('lendTitle'))}</h3>${v.lendIncome > 0 ? `<strong class="num up-ink">+${h(money(v.lendIncome, BASE))}</strong>` : ''}</div>
       ${lendRows.length ? lendRows.map(p => lendRowHtml(p, now)).join('') : `<p class="muted">${h(t('lendNone'))}</p>`}
+      ${lendAsks() && lendRows.some(p => lendableQty(state.account, p.symbol, now) > 0) ? lendFormHtml() : ''}
       ${lent.map(l => lentRowHtml(l, now)).join('')}
-      <p class="note">${h(t('lendNote', { cut: pct(LEND_CUT, { digits: 0, sign: false }), days: LEND_RECALL, term: LEND_TERM_DAYS }))}</p>
+      <p class="note">${h(lendAsks() ? t('lendTermNote', { months: stockSavings.LEND_TERM_MONTHS, n: stockSavings.LEND_RENEWALS, cut: pct(LEND_CUT, { digits: 0, sign: false }), days: LEND_RECALL }) : t('lendNote', { cut: pct(LEND_CUT, { digits: 0, sign: false }), days: LEND_RECALL, term: LEND_TERM_DAYS }))}</p>
     </div>
   </div>`;
 }
 
 
+// 借券出借 as the kit has it (read through the module: an older kit lends at
+// the going rate only, for 180 days): the lender's own yearly ask, 0.01% to
+// 16%, lent only at or under the going rate a borrower pays (LEND_RATE);
+// six months, renewed twice where the lender agrees; the fee accrued day by
+// day on each day's close and paid when the shares come back.
+const lendPct = x => pct(x, { digits: 2, sign: false });
+const lendAsks = () => stockSavings.LEND_RATE_MAX != null;
+// The ask typed (a yearly %, as a share), or null for the going rate.
+const lendAsk = () => (lendAsks() && state.lend.rate !== '' && Number.isFinite(Number(state.lend.rate)) ? Number(state.lend.rate) / 100 : null);
+// Why an ask won't lend `kind`: out of the range, or above the going rate.
+function lendAskProblem(kind, ask = lendAsk()) {
+  if (ask == null) return '';
+  const min = stockSavings.LEND_RATE_MIN;
+  const max = stockSavings.LEND_RATE_MAX;
+  if (!(ask >= min - 1e-9 && ask <= max + 1e-9)) return t('err_lendRate', { min: rateText(min), max: rateText(max) });
+  const going = stockSavings.LEND_RATE?.[kind] ?? 0;
+  return ask > going + 1e-9 ? t('lendTooHigh', { rate: lendPct(going) }) : '';
+}
+// When a contract ends by itself (lendEnds: six months, or 18 with its renewals).
+const lendEndsAt = l => stockSavings.lendEnds?.(l) ?? l.t + LEND_TERM_DAYS * 86_400_000;
+
+// The daily closes of what's lent (lendFee charges each day at its close),
+// read once a session per symbol: a Promise while loading, the closes, or
+// null when the read failed (the lending price stands in).
+const lendCloses = new Map();
+const lendClosesOf = symbol => (Array.isArray(lendCloses.get(symbol)) ? lendCloses.get(symbol) : null);
+function loadLendCloses(account, now = Date.now()) {
+  if (!lendAsks() || !account) return;
+  for (const l of Object.values(replay(account, now).lent || {})) {
+    if (l.back || lendCloses.has(l.symbol)) continue;
+    const read = fetchChart(l.symbol, historyRange(now - l.t))
+      .then(c => (c?.points?.length ? c.points.filter(([, c]) => c > 0).map(([t, c]) => ({ t, c })) : null))
+      .catch(() => null)
+      .then(closes => {
+        lendCloses.set(l.symbol, closes);
+        if (state.tab === 'fx') renderFx();
+        return closes;
+      });
+    lendCloses.set(l.symbol, read);
+  }
+}
+// Whether every contract due to end has its closes read (or failed): it ends then, its fee day by day.
+const lendClosesReady = (account, now) => !lendAsks() || Object.values(replay(account, now).lent || {}).every(l => l.back || lendEndsAt(l) > now || !(lendCloses.get(l.symbol) instanceof Promise || !lendCloses.has(l.symbol)));
+
+function lendFormHtml() {
+  const going = stockSavings.LEND_RATE || {};
+  return `<div class="loan-form"><label class="field grow"><span>${h(t('lendRateLabel'))} (%)</span><input id="lend-rate" inputmode="decimal" autocomplete="off" value="${h(state.lend.rate)}" placeholder="${h(t('lendRateGoing'))}" /></label></div>
+    <label class="check-row"><input id="lend-renew" type="checkbox" ${state.lend.renew ? 'checked' : ''} /> <span>${h(t('lendRenew', { n: stockSavings.LEND_RENEWALS, months: stockSavings.LEND_TERM_MONTHS }))}</span></label>
+    <p class="note">${h(t('lendRateHelp', { min: rateText(stockSavings.LEND_RATE_MIN), max: rateText(stockSavings.LEND_RATE_MAX), stock: rateText(going.stock || 0), etf: rateText(going.etf || 0) }))}</p>`;
+}
+
 function lendRowHtml(p, now) {
   const can = lendableQty(state.account, p.symbol, now);
-  const { rate, net: yearNet } = lendYear(p.kind, can, p.price);
-  const why = p.financed > 0 ? t('lendWhyMargin') : can ? '' : p.qty - (p.lent || 0) < LEND_LOT ? t('lendWhyLot') : t('lendWhySettle');
-  return `<div class="order-row"><span class="side-tag buy">${h(t('lendTag'))}</span><span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(p.symbol)}">${h(nameOf(p.symbol))}</button></span><span class="row-sub">${h(can ? t('lendCan', { qty: fmtQty(can), rate: pct(rate * (1 - LEND_CUT), { digits: 2, sign: false }), v: money(yearNet, BASE) }) : why)}</span></span>${can ? `<button class="q-btn small" type="button" data-action="lend" data-symbol="${h(p.symbol)}" data-qty="${can}">${h(t('lendGo'))}</button>` : ''}</div>`;
+  const { rate, net: yearNet } = lendYear(p.kind, can, p.price, lendAsk());
+  const why = p.financed > 0 ? t('lendWhyMargin') : can ? lendAskProblem(p.kind) : p.qty - (p.lent || 0) < LEND_LOT ? t('lendWhyLot') : t('lendWhySettle');
+  return `<div class="order-row"><span class="side-tag buy">${h(t('lendTag'))}</span><span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(p.symbol)}">${h(nameOf(p.symbol))}</button></span><span class="row-sub">${h(can && !why ? t('lendCan', { qty: fmtQty(can), rate: pct(rate * (1 - LEND_CUT), { digits: 2, sign: false }), v: money(yearNet, BASE) }) : why)}</span></span>${can ? `<button class="q-btn small" type="button" data-action="lend" data-symbol="${h(p.symbol)}" data-qty="${can}">${h(t('lendGo'))}</button>` : ''}</div>`;
 }
 
 function lentRowHtml(l, now) {
-  const so = lendFee(l, l.back || now).net;
-  return `<div class="order-row">${icon('hand', 'k-income')}<span class="row-main"><span class="row-title">${h(nameOf(l.symbol))} · ${h(fmtQty(l.qty))} ${h(unitOf(l.symbol))}</span><span class="row-sub">${h(l.back ? t('lendBack', { date: fmtDate(l.back) }) : t('lendSince', { date: fmtDate(l.t) }))} · ${h(t('lendSoFar', { v: money(so, BASE) }))}</span></span>${l.back ? '' : `<button class="q-btn small" type="button" data-action="recall" data-id="${h(l.id)}">${h(t('lendRecall'))}</button>`}</div>`;
+  const so = lendFee(l, l.back || now, lendClosesOf(l.symbol)).net;
+  const terms = lendAsks() ? ` · ${t('lendAt', { rate: lendPct(l.rate) })}${l.back ? '' : ` · ${t(l.renew ? 'lendEndsRenew' : 'lendEnds', { date: fmtDate(lendEndsAt(l)) })}`}` : '';
+  return `<div class="order-row">${icon('hand', 'k-income')}<span class="row-main"><span class="row-title">${h(nameOf(l.symbol))} · ${h(fmtQty(l.qty))} ${h(unitOf(l.symbol))}</span><span class="row-sub">${h(l.back ? t('lendBack', { date: fmtDate(l.back) }) : t('lendSince', { date: fmtDate(l.t) }))}${h(terms)} · ${h(t('lendSoFar', { v: money(so, BASE) }))}</span></span>${l.back ? '' : `<button class="q-btn small" type="button" data-action="recall" data-id="${h(l.id)}">${h(t('lendRecall'))}</button>`}</div>`;
 }
 
 async function doOpenDeposit() {
@@ -3037,9 +3172,18 @@ async function doLend(symbol, qty) {
   if (!q?.price) return toast(t('err_noQuote'), 'bad');
   const v = valuation();
   const p = v.positions.find(x => x.symbol === symbol);
-  const { net: yearNet } = lendYear(p?.kind || 'stock', qty, q.price);
-  if (!(await ask({ lang: locale, icon: '🤝', title: t('lendAsk', { qty: fmtQty(qty), name: nameOf(symbol) }), points: [['💰', t('lendAskEarn', { v: money(yearNet, BASE) }), t('lendAskCut', { cut: pct(LEND_CUT, { digits: 0, sign: false }) })], ['🔒', t('lendAskLock'), t('lendAskRecall', { days: LEND_RECALL })]], ok: t('lendGo'), cancel: t('orderAskCancel') }))) return;
-  const r = lendShares(state.account, { symbol, qty, price: q.price }, Date.now());
+  const mine = lendAsk();
+  const renew = lendAsks() && state.lend.renew;
+  const req = { symbol, qty, price: q.price, ...(mine != null ? { rate: mine } : {}), ...(renew ? { renew: true } : {}) };
+  // The kit's checks first (the ask's range, a borrower at that rate), before asking.
+  const tried = lendShares(state.account, req, Date.now());
+  if (tried.error) return toast(errorText(tried), 'bad');
+  const { net: yearNet } = lendYear(p?.kind || 'stock', qty, q.price, mine);
+  const term = lendAsks()
+    ? [['📅', t('lendAskTerm', { rate: lendPct(tried.event.rate), date: fmtDate(lendEndsAt(tried.event)) }), t(renew ? 'lendAskRenew' : 'lendAskNoRenew', { n: stockSavings.LEND_RENEWALS, months: stockSavings.LEND_TERM_MONTHS })]]
+    : [];
+  if (!(await ask({ lang: locale, icon: '🤝', title: t('lendAsk', { qty: fmtQty(qty), name: nameOf(symbol) }), points: [['💰', t('lendAskEarn', { v: money(yearNet, BASE) }), t('lendAskCut', { cut: pct(LEND_CUT, { digits: 0, sign: false }) })], ...term, ['🔒', t('lendAskLock'), t('lendAskRecall', { days: LEND_RECALL })]], ok: t('lendGo'), cancel: t('orderAskCancel') }))) return;
+  const r = lendShares(state.account, req, Date.now());
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
   toast(t('lendDone', { qty: fmtQty(qty), name: nameOf(symbol) }), 'good');
@@ -3048,7 +3192,13 @@ async function doLend(symbol, qty) {
 
 async function doRecall(id) {
   if (!(await ask({ lang: locale, icon: '↩️', title: t('lendRecallAsk'), body: t('lendRecallBody', { days: LEND_RECALL }), ok: t('lendRecall'), cancel: t('orderAskCancel') }))) return;
-  const r = recallShares(state.account, id, Date.now());
+  // The fee day by day at each day's close (read now if it isn't yet).
+  const l = replay(state.account, Date.now()).lent?.[id];
+  if (l && lendAsks()) {
+    loadLendCloses(state.account);
+    await lendCloses.get(l.symbol);
+  }
+  const r = recallShares(state.account, id, Date.now(), { closes: l ? lendClosesOf(l.symbol) : null });
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
   toast(t('lendRecalled', { date: fmtDate(r.back) }), 'good');
@@ -4324,7 +4474,7 @@ function patchElement(o, n) {
 // A second point typed into a number field ends the number: that point and
 // what's typed after it are refused (1.2.3.4 key by key stays 1.2, as pasted),
 // until a deletion or the field is left.
-const NUMBER_FIELDS = new Set(['t-qty', 't-limit', 't-stop', 'fx-amount', 'loan-amount', 'td-amount', 'alert-price', 'plan-amount', 'plan-row-amount']);
+const NUMBER_FIELDS = new Set(['t-qty', 't-limit', 't-stop', 'fx-amount', 'loan-amount', 'td-amount', 'alert-price', 'plan-amount', 'plan-row-amount', 'lend-rate']);
 const numberJam = new WeakMap();
 function refuseExtraPoint(el, event) {
   const kept = numberJam.get(el);
@@ -4385,6 +4535,10 @@ document.addEventListener('input', event => {
     case 'plan-row-amount':
       state.plan.amount = cleanNumber(el.value);
       break;
+    case 'lend-rate':
+      state.lend.rate = cleanNumber(el.value);
+      keepCaret(renderFx);
+      break;
   }
 });
 
@@ -4398,6 +4552,7 @@ document.addEventListener('change', event => {
     renderFx();
   }
   if (el.id === 'td-renew') state.td.renew = el.checked;
+  if (el.id === 'lend-renew') state.lend.renew = el.checked;
   if (el.id === 'loan-cur') {
     state.loan.currency = el.value;
     renderFx();

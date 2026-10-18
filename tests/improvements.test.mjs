@@ -5,6 +5,7 @@ import {
   newAccount, replay, setPlan, dedupePlans, planRuns, nextPlanRun, runPlan, activePlans, setAlert, checkAlerts, alertHitInBars, markAlertHit, activeAlerts,
   mergeAccounts, planDue
 } from '../public/lib/account.mjs';
+import * as kit from '../public/lib/account.mjs';
 import { movingAverage } from '../public/lib/series.mjs';
 import { parseFundamentals, parseChart } from '../public/lib/quotes.mjs';
 import { candleChart } from '../public/lib/chart.mjs';
@@ -22,7 +23,10 @@ test('a monthly plan is due on its day every month from the next one on', () => 
   assert.deepEqual(runs.map(r => r.month), ['2026-02', '2026-03', '2026-04']);
   assert.equal(runs[0].t, planDue('2026-02', 5));
   assert.equal(setPlan(a, { symbol: 'X', amount: 10, day: 5 }).error, 'planAmount');
-  assert.equal(setPlan(a, { symbol: 'X', amount: 5000, day: 31 }).error, 'planDay');
+  // Any day 1-31 (a shorter month's last day), or 1-28 on a kit without it.
+  const maxDay = kit.PLAN_DAY_MAX ?? 28;
+  assert.equal(setPlan(a, { symbol: 'X', amount: 5000, day: maxDay + 1 }).error, 'planDay');
+  assert.equal(setPlan(a, { symbol: 'X', amount: 5000, day: maxDay }).error, undefined);
   const off = setPlan(a, { id: 'p', on: false }, T0 + DAY).account;
   assert.deepEqual(activePlans(off), []);
   assert.deepEqual(planRuns(off.plans.p, T0 + 400 * DAY), []);

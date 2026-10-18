@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newAccount, replay, valuate, placeOrder, available, openDeposit, breakDeposit, matureDeposits, lendShares, lendableQty, recallShares, matureLending, recallAll, incomeSummary } from '../public/lib/account.mjs';
 import { TD_TERMS, tdInterest, addMonths, incomeTaxes, lendFee, addWeekdays, LEND_CUT } from '../public/lib/savings.mjs';
+import * as savings from '../public/lib/savings.mjs';
 // A credit account at the top tier, opened before T0 (the tests' trading is about the loans, not the limit).
 const withCredit = (a, at) => ({ ...a, events: [...a.events, { id: 'credit:t', type: 'credit', t: at - 1, limit: 5_000_000 }] });
 
@@ -23,15 +24,17 @@ test('a time deposit: locked, paid in full at maturity, rolled over when asked',
   const v = valuate(replay(a, T0), new Map(), RATES);
   assert.equal(v.savedTWD, 50_000);
   assert.equal(Math.round(v.netWorth), 100_000);
-  // Matures a year on: 50,000 × 1.72% = 860, back in cash, dated then.
+  // Matures a year on: 50,000 × the 12-month rate (1.70%, 850, at Bank of
+  // Taiwan's posted rate), back in cash, dated then.
+  const yearly = Math.round(50_000 * TD_TERMS.find(x => x.months === 12).rate);
   const ends = addMonths(T0, 12);
   assert.equal(r.event.ends, ends);
   const m = matureDeposits(a, ends + DAY);
   const end = m.events.find(e => e.type === 'tdend');
   assert.equal(end.t, ends);
-  assert.equal(end.interest, 860);
-  assert.equal(end.net, 860);
-  assert.equal(Math.round(replay(m, ends + DAY).cash.TWD - replay(a, ends + DAY).cash.TWD), 50_860);
+  assert.equal(end.interest, yearly);
+  assert.equal(end.net, yearly);
+  assert.equal(Math.round(replay(m, ends + DAY).cash.TWD - replay(a, ends + DAY).cash.TWD), 50_000 + yearly);
   assert.equal(matureDeposits(m, ends + DAY), m);
   // Rolled over: principal again, at the rate posted then; the interest paid out.
   const rr = openDeposit(newAccount(100_000, T0 - DAY, 'b'), { amount: 50_000, months: 1, renew: true }, T0, 'y').account;
@@ -93,12 +96,13 @@ test('lending shares: whole settled lots only, locked while lent, the fee paid o
   assert.equal(incomeSummary(a, rc.back + HOUR).lending, fee.net);
 });
 
-test('lending ends by itself after 180 days; a default or call recalls everything', () => {
+test('lending ends by itself at its term (six months; 180 days on an older kit); a default or call recalls everything', () => {
   let a = newAccount(2_000_000, T0 - DAY, 'acc');
   const q = quote('0050.TW', 100, { kind: 'etf' });
   a = placeOrder(a, { side: 'buy', type: 'market', qty: 3_000 }, { quote: q, rates: RATES, now: T0, id: 'b1' }).account;
   a = lendShares(a, { symbol: '0050.TW', qty: 3_000, price: 100 }, T0 + 4 * DAY, 'l1').account;
-  const end = T0 + 184 * DAY;
+  const lent = T0 + 4 * DAY;
+  const end = savings.lendEnds ? savings.lendEnds({ t: lent }) : lent + 180 * DAY;
   const m = matureLending(a, end + DAY);
   assert.equal(m.events.find(e => e.type === 'lendpay').t, end);
   assert.equal(Object.keys(replay(m, end + DAY).lent).length, 0);

@@ -27,28 +27,33 @@ export const marginLoan = (market, currency, gross, total, rate) => (kit.marginL
 // - 融券's deposit on a sale of `value` (90%, up to the next NT$100).
 export const shortDeposit = value => (credit.shortDeposit ? credit.shortDeposit(value) : Math.round(SHORT_DEPOSIT * value));
 
-// A Taiwan sale that pays the day-trade tax (half): a day trade sold first
-// (現股當沖), or shares bought today by an account that may day trade
-// buying first (3 months open, 10 trades in the year), as a fill has it.
-export function isDayTradeSell(account, { symbol, market, side, dayShort = false }, now = Date.now()) {
-  if (side !== 'sell' || market !== 'TW') return false;
-  if (dayShort) return true;
-  if (!dayTradeBuyFirst(account, now)) return false;
+// The share of a Taiwan sale that pays the day-trade tax (half), as a fill
+// has it: all of a day trade sold first (現股當沖); else, once the account may
+// day trade buying first (3 months open, 10 trades in the year), the kit's
+// dayTradeShare (only the quantity the day's whole-lot cash buys match, never
+// odd lots: 證券交易稅條例 §2-2). An older kit: all of it, with any buy today.
+export function dayTradeShareOf(account, { symbol, market, side, kind = 'stock', qty = 0, dayShort = false }, now = Date.now()) {
+  if (side !== 'sell' || market !== 'TW') return 0;
+  if (dayShort) return 1;
+  if (!dayTradeBuyFirst(account, now)) return 0;
+  if (kit.dayTradeShare) return qty > 0 ? kit.dayTradeShare({ events: account?.events || [] }, { symbol, market, side, kind, qty }, now) : 0;
   const today = localDayOf(now, 'TW');
-  return (account?.events || []).some(e => e.type === 'fill' && e.symbol === symbol && e.side === 'buy' && e.t <= now && localDayOf(e.t, 'TW') === today);
+  return (account?.events || []).some(e => e.type === 'fill' && e.symbol === symbol && e.side === 'buy' && e.t <= now && localDayOf(e.t, 'TW') === today) ? 1 : 0;
 }
+// Whether a Taiwan sale pays the day-trade tax on any of it.
+export const isDayTradeSell = (account, order, now = Date.now()) => dayTradeShareOf(account, { qty: 1000, ...order }, now) > 0;
 
 // The ticket's estimate, as the fill will be: the day-trade tax where it
-// applies, and a 融券 sale's 0.08% handling on the part sold short (`held`:
-// the shares there are).
+// applies (on the share that's day-traded), and a 融券 sale's 0.08% handling
+// on the part sold short (`held`: the shares there are).
 export function ticketEstimate(account, { quote, side, qty, price, first = false, credit = false, dayShort = false, held = 0, now = Date.now() }) {
-  const dayTrade = isDayTradeSell(account, { symbol: quote.symbol, market: quote.market, side, dayShort }, now);
-  let est = estimate({ market: quote.market, kind: quote.kind, currency: quote.currency, side, qty, price, t: now, dayTrade, first });
+  const share = dayTradeShareOf(account, { symbol: quote.symbol, market: quote.market, kind: quote.kind, side, qty, dayShort }, now);
+  let est = estimate({ market: quote.market, kind: quote.kind, currency: quote.currency, side, qty, price, t: now, dayTrade: share >= 1 ? true : share, first });
   if (credit && side === 'sell' && qty > 0) {
     const handling = Math.floor(((est.gross * Math.max(0, qty - Math.max(0, held))) / qty) * SHORT_HANDLING);
     if (handling > 0) est = { ...est, fee: est.fee + handling, costs: est.costs + handling, total: est.total - handling, handling };
   }
-  return { ...est, dayTrade };
+  return { ...est, dayTrade: share > 0 };
 }
 
 // The commission the same trade pays a Quadra Plus member: the discount,
@@ -122,9 +127,10 @@ export function tdPreview(amount, months, now = Date.now()) {
 // What a deposit pays at maturity.
 export const tdFull = td => tdInterest(td, td.ends).gross;
 
-// Lending `qty` shares at `price` for a year: the rate, and what comes in after the broker's cut and taxes.
-export function lendYear(kind, qty, price) {
-  const rate = LEND_RATE[kind] ?? 0;
+// Lending `qty` shares at `price` for a year: the rate (the going rate, or
+// the lender's own `ask`), and what comes in after the broker's cut and taxes.
+export function lendYear(kind, qty, price, ask = null) {
+  const rate = ask > 0 ? ask : (LEND_RATE[kind] ?? 0);
   return { rate, net: qty > 0 && price > 0 ? lendFee({ qty, price, rate, t: 0 }, YEAR).net : 0 };
 }
 
