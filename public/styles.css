@@ -344,6 +344,8 @@ footer { padding: 10px 0 0; text-align: center; }
 .ticket .note { margin: 0; }
 .ticket-fields { display: flex; gap: 10px; flex-wrap: wrap; }
 .ticket-fields .field { flex: 1 1 160px; }
+/* An input's own width (about 20 characters) would push past its field. */
+.ticket-fields .field input { width: 100%; min-width: 0; box-sizing: border-box; }
 .qty-presets { display: flex; gap: 6px; flex-wrap: wrap; }
 /* A quantity's quick picks: one row of equal chips (最多's amount in its tooltip: with it they ran onto a second row). */
 .qty-presets.one-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
