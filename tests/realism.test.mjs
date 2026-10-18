@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { tickSize, priceLimits, lotProblem, lotSize, atLunch, isOpen, settleDate, settleDays, tradeCosts, T1_EUROPE } from '../public/lib/markets.mjs';
 import { newAccount, placeOrder, expireOrders, dayOrderEnd, replay, exchange, GTC_DAYS } from '../public/lib/account.mjs';
+import * as SA from '../public/lib/account.mjs';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -91,11 +92,13 @@ test('orders: day orders end with their session, GTC lasts a month, crypto never
   const a = newAccount(5_000_000, now - DAY, 'o');
   const day = placeOrder(a, { side: 'buy', type: 'limit', limit: 900, qty: 1000 }, { quote: twQuote(1000, now), rates: { TWD: 1 }, now, id: 'd' });
   assert.equal(day.order.tif, 'day');
-  assert.equal(day.order.expires, at('2026-09-30T13:30:00', '+08:00'));
+  // (A whole-lot one, on a kit with the 13:30 closing call auction, waits CLOSE_DECIDE more for that match's result.)
+  const ends = at('2026-09-30T13:30:00', '+08:00') + (SA.CLOSE_DECIDE ?? 0);
+  assert.equal(day.order.expires, ends);
   const gtc = placeOrder(day.account, { side: 'buy', type: 'limit', limit: 900, qty: 1000, tif: 'gtc' }, { quote: twQuote(1000, now), rates: { TWD: 1 }, now, id: 'g' });
   assert.equal(gtc.order.expires, now + GTC_DAYS * DAY);
   // After the close the day order is gone and its cash is free; the GTC one stays.
-  const r = expireOrders(gtc.account, at('2026-09-30T13:31:00', '+08:00'));
+  const r = expireOrders(gtc.account, ends + 60_000);
   assert.deepEqual(r.expired.map(o => o.id), ['d']);
   assert.equal(r.account.orders.find(o => o.id === 'd').status, 'expired');
   assert.equal(r.account.orders.find(o => o.id === 'g').status, 'open');
