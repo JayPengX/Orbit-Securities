@@ -63,9 +63,9 @@ test('quantities, 萬/億, and plain numbers', () => {
 test('what a number field keeps: digits and the first point only', () => {
   assert.equal(cleanNumber('1,234.5'), '1234.5');
   assert.equal(cleanNumber('NT$ 1,000'), '1000');
-  assert.equal(cleanNumber('1.2.3'), '1.23');
-  // A paste with three points: one number still (it kept two points: "1.2.34", not a number).
-  assert.equal(cleanNumber('1.2.3.4'), '1.234');
+  assert.equal(cleanNumber('1.2.3'), '1.2');
+  // A second point ends the number, so a paste can't move the decimal point.
+  assert.equal(cleanNumber('1.2.3.4'), '1.2');
   assert.ok(Number.isFinite(Number(cleanNumber('1.2.3.4'))));
   assert.equal(cleanNumber('.5'), '.5');
   assert.equal(cleanNumber('abc'), '');

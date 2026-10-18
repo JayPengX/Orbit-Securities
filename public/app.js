@@ -2045,9 +2045,11 @@ function renderTicket() {
   const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom } = ticketInfo();
   const open = isOpen(q);
   const unit = unitOf(d.symbol);
+  // A Taiwan market or stop order sells whole lots only (an odd lot takes limit orders), as ticketMax buys.
+  const sellable = n => (oddLotNeedsLimit(q.market, q.kind, n, d.type) ? Math.floor(n / 1000) * 1000 : n);
   const presets =
     d.side === 'sell'
-      ? [[t('pct25'), roundQty(shares * 0.25, q.kind)], [t('pct50'), roundQty(shares * 0.5, q.kind)], [t('all'), roundQty(shares, q.kind)], [t('maxShort'), roundQty(shares + shortRoom, q.kind)]]
+      ? [[t('pct25'), shares * 0.25], [t('pct50'), shares * 0.5], [t('all'), shares], [t('maxShort'), shares + shortRoom]].map(([k, n]) => [k, sellable(roundQty(n, q.kind))])
       : q.kind === 'govbond'
         ? [[t('max'), max], ['1', 1], ['10', 10], ['100', 100]]
         : q.kind === 'fx'

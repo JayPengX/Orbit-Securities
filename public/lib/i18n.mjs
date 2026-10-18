@@ -1508,7 +1508,12 @@ export const STRINGS = {
   }
 };
 
+// The language chosen in any Quadra app (kit quadra.mjs detectLang, 'quadra.lang'), else the phone's.
 export function detectLocale() {
+  try {
+    const saved = globalThis.localStorage?.getItem('quadra.lang');
+    if (saved === 'zh' || saved === 'en') return saved;
+  } catch {}
   const languages = navigator.languages?.length ? navigator.languages : [navigator.language || ''];
   return languages.some(l => /^zh/i.test(l)) ? 'zh' : 'en';
 }

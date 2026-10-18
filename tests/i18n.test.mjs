@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { KEYS } from '../public/lib/i18n.mjs';
+import { KEYS, detectLocale } from '../public/lib/i18n.mjs';
 
 const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
@@ -47,4 +47,20 @@ test('no string is empty: a blank key only kept a dead branch alive (lotNote, fo
 test('the old margin-buy flag is gone (it was always null, and its 融資買進 string unshown)', () => {
   assert.doesNotMatch(app, /\bmarginBuy\b/);
   assert.ok(!zh.has('marginBuy') && !en.has('marginBuy'));
+});
+
+test('the language saved in any Quadra app wins over the phone', () => {
+  const before = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const store = v => Object.defineProperty(globalThis, 'localStorage', { value: { getItem: k => (k === 'quadra.lang' ? v : null) }, configurable: true });
+  try {
+    store('en');
+    assert.equal(detectLocale(), 'en');
+    store('zh');
+    assert.equal(detectLocale(), 'zh');
+    store('fr');
+    assert.ok(['zh', 'en'].includes(detectLocale()));
+  } finally {
+    if (before) Object.defineProperty(globalThis, 'localStorage', before);
+    else delete globalThis.localStorage;
+  }
 });
