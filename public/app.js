@@ -1344,6 +1344,15 @@ async function loadAbout(symbol) {
       if (state.detail?.symbol === symbol) refreshDetailLive();
     }
   }
+  // Its industry, city and a fund's category too (Yahoo's English: Semiconductors, Hsinchu City, Taiwan; Large Blend), one line each.
+  const words = { industryLocal: facts?.industry, placeLocal: [facts?.city, facts?.country].filter(Boolean).join(', '), categoryLocal: facts?.category };
+  if (Object.values(words).some(Boolean) && locale !== 'en') {
+    const lines = (await translate(Object.values(words).map(x => x || '-').join('\n'), 'zh-TW', 'en')).split('\n').map(x => x.trim());
+    if (lines.length === 3) {
+      state.about.set(symbol, { ...state.about.get(symbol), ...Object.fromEntries(Object.entries(words).map(([k, x], i) => [k, x && lines[i] !== '-' ? lines[i] : ''])) });
+      if (state.detail?.symbol === symbol) refreshDetailLive();
+    }
+  }
 }
 
 // A chart that failed (Yahoo turning the proxy away now and then) is asked
@@ -1752,7 +1761,7 @@ function aboutHtml(symbol, q) {
   const title = fund ? t('aboutFund') : t('aboutCompany');
   if (!a || a.loading) return fold(icon, title, `<p class="muted">${h(t('aboutLoading'))}</p>`, true, 'about');
   const f = a.facts;
-  const body = !f ? `<p class="muted">${h(t('aboutNone'))}</p>` : fund ? fundAboutHtml(f, q) : stockAboutHtml(f, q);
+  const body = !f ? `<p class="muted">${h(t('aboutNone'))}</p>` : fund ? fundAboutHtml(f, q, a) : stockAboutHtml(f, q, a);
   // In the reader's language once translated; the English original a tap away.
   const local = a.summaryLocal && locale !== 'en';
   const summary = f?.summary
@@ -1772,14 +1781,14 @@ function factGroup(title, rows) {
   return `<h3 class="about-h">${h(title)}</h3><dl class="about-grid">${list.map(([k, v, e]) => `<div><dt>${h(t(k))}</dt><dd class="num">${h(v)}</dd>${e ? `<p>${h(t(e))}</p>` : ''}</div>`).join('')}</dl>`;
 }
 
-function stockAboutHtml(f, q) {
+function stockAboutHtml(f, q, a) {
   const cur = f.currency || q.currency;
   const rc = f.reportCurrency || cur;
   const inTwd = (x, c) => (x != null && c !== BASE && state.rates[c] ? ` (≈ ${compactMoney(x * state.rates[c], BASE)})` : '');
   const pctOf = (x, digits = 1) => (x != null ? pct(x, { sign: false, digits }) : null);
   const profile = [
-    f.sector ? `${sectorName(f.sector)}${f.industry ? ` · ${f.industry}` : ''}` : '',
-    [f.city, f.country].filter(Boolean).join(', '),
+    f.sector ? `${sectorName(f.sector)}${f.industry ? ` · ${(locale !== 'en' && a?.industryLocal) || f.industry}` : ''}` : '',
+    (locale !== 'en' && a?.placeLocal) || [f.city, f.country].filter(Boolean).join(', '),
     f.ceo ? t('ceoIs', { name: f.ceo }) : '',
     f.employees ? t('employeesN', { n: num(f.employees) }) : ''
   ].filter(Boolean);
@@ -1896,7 +1905,7 @@ function targetHtml(f, q) {
   </div>`;
 }
 
-function fundAboutHtml(f, q) {
+function fundAboutHtml(f, q, a) {
   const cur = f.currency || q.currency;
   const sizeTwd = f.totalAssets != null ? f.totalAssets * (cur === BASE ? 1 : state.rates[cur] || 0) : null;
   const top = f.holdings?.[0]?.weight || 0;
@@ -1927,7 +1936,7 @@ function fundAboutHtml(f, q) {
         .map(x => `<li><button class="link bar-label" type="button" data-action="open" data-symbol="${h(x.symbol)}">${h(catalogInfo(x.symbol) ? nameOf(x.symbol) : x.name)}</button><span class="bar-track"><span class="bar flat" style="width:${Math.min(100, (x.weight / f.holdings[0].weight) * 100)}%"></span></span><strong class="num">${h(pct(x.weight, { sign: false, digits: 1 }))}</strong></li>`)
         .join('')}</ul><p class="note">${h(t('topHoldingsNote', { pct: pct(top10, { sign: false, digits: 0 }) }))}</p>`
     : '';
-  const profile = [f.family, f.category, f.inception ? t('since', { date: fmtDate(f.inception) }) : ''].filter(Boolean);
+  const profile = [f.family, (locale !== 'en' && a?.categoryLocal) || f.category, f.inception ? t('fundSince', { date: fmtDate(f.inception) }) : ''].filter(Boolean);
   return `
     ${profile.length ? `<p class="about-profile">${profile.map(x => `<span>${h(x)}</span>`).join('')}</p>` : ''}
     ${v.length ? `<div class="verdicts">${v.join('')}</div><p class="note">${h(t('verdictNote'))}</p>` : ''}
@@ -4406,7 +4415,7 @@ topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 
 // Big numbers shrink (to 60% at most) to stay on one line.
 // (And a fact or an order's hint, a line each.)
-const FIT_SELECTOR = '.quote-row .row-title, .mover-name, .stat-value, .big-price, .hero-value, .q-rec-big, .q-rec-title, .q-rec-sub, .tile-name, .facts-grid dd, .hint-lines span';
+const FIT_SELECTOR = '.quote-row .row-title, .about-fin .about-h, .verdict strong, .mover-name, .stat-value, .big-price, .hero-value, .q-rec-big, .q-rec-title, .q-rec-sub, .tile-name, .facts-grid dd, .hint-lines span';
 function fitNumbers(nodes) {
   for (const node of nodes) {
     node.style.fontSize = '';

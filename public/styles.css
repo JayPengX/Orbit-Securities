@@ -583,7 +583,7 @@ body[data-updown='us'] .hero-card .down { color: #fecaca; }
 .verdicts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 8px; }
 .verdict { display: grid; gap: 1px; border-radius: 12px; padding: 9px 11px; background: var(--surface-raised); border-left: 4px solid var(--axis); }
 .verdict span { font-size: 0.72rem; color: var(--text-muted); }
-.verdict strong { font-size: 1rem; }
+.verdict strong { font-size: 1rem; white-space: nowrap; }
 .verdict small { font-size: 0.74rem; color: var(--text-secondary); }
 /* Tones say "reassuring / middling / worth a look", never up or down. */
 .verdict.good { border-left-color: var(--accent); }
@@ -941,3 +941,7 @@ a.activity-row { color: inherit; text-decoration: none; }
   .quote-row > .pill { grid-area: c; align-self: start; justify-self: end; min-width: 64px; font-size: 0.76rem; padding-block: 3px; }
   .quote-row .row-title { white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; }
 }
+/* Revenue and profit's head: its title and the year/quarter switch on one line (the title fitted, never wrapped). */
+.about-fin .card-head { flex-wrap: nowrap; }
+.about-fin .card-head .about-h { flex: 1 1 0; min-width: 0; white-space: nowrap; }
+.about-fin .card-head .q-seg { flex: none; }
