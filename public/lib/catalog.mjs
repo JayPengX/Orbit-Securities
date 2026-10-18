@@ -127,7 +127,7 @@ const HK_CN = [
   ['9618.HK', '京東', 'JD.com'], ['1211.HK', '比亞迪', 'BYD'], ['0005.HK', '滙豐控股', 'HSBC'], ['0941.HK', '中國移動', 'China Mobile'],
   ['1299.HK', '友邦保險', 'AIA'], ['0388.HK', '香港交易所', 'HKEX'], ['2318.HK', '中國平安', 'Ping An'], ['2800.HK', '盈富基金', 'Tracker Fund of Hong Kong'],
   ['2828.HK', '恒生中國企業 ETF', 'Hang Seng China Enterprises ETF'], ['3033.HK', '南方恒生科技 ETF', 'CSOP Hang Seng Tech ETF'],
-  ['600519.SS', '貴州茅台', 'Kweichow Moutai'], ['300750.SZ', '寧德時代', 'CATL'], ['601318.SS', '中國平安 (A股)', 'Ping An (A)'],
+  ['600519.SS', '貴州茅台', 'Kweichow Moutai'], ['000333.SZ', '美的集團', 'Midea Group'], ['601318.SS', '中國平安 (A股)', 'Ping An (A)'],
   ['000858.SZ', '五糧液', 'Wuliangye'], ['600036.SS', '招商銀行', 'China Merchants Bank'], ['510300.SS', '滬深300 ETF', 'CSI 300 ETF']
 ];
 

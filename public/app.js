@@ -1667,10 +1667,14 @@ function trackersHtml(symbol) {
 
 // ---- Detail sheet: alerts, monthly plan, time machine ---------------------------
 
-const canPlan = q => isTradable(q.kind) && !BONDS[q.symbol];
+// Taiwan brokers sell 定期定額 on Taiwan and US shares only. A plan saved
+// before this rule keeps its card so it can still be stopped.
+const PLAN_MARKETS = ['TW', 'US'];
+const canPlan = (q, symbol) => isTradable(q.kind) && !BONDS[q.symbol]
+  && (PLAN_MARKETS.includes(q.market) || activePlans(state.account).some(p => p.symbol === symbol));
 
 function toolsHtml(symbol, q) {
-  return [alertCardHtml(symbol, q), canPlan(q) ? planCardHtml(symbol, q) : ''].join('');
+  return [alertCardHtml(symbol, q), canPlan(q, symbol) ? planCardHtml(symbol, q) : ''].join('');
 }
 
 function alertCardHtml(symbol, q) {
