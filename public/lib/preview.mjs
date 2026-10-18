@@ -2,7 +2,7 @@
 // most a short can sell, Plus's price on the same trade, a time deposit's
 // end and interest, a loan of shares' fee. Each is worked out by the very
 // rules that then do it (the kit's stock-*), so the preview is what happens.
-import { estimate, replay } from './account.mjs';
+import { estimate, placeOrder, replay, requiredCash } from './account.mjs';
 import { SHORT_INITIAL, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
 import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
 import * as credit from './credit.mjs';
@@ -114,13 +114,75 @@ export function lotSplit(market, kind, qty) {
   const board = Math.floor(qty / 1000) * 1000;
   return { board, odd: qty - board };
 }
+// The orders a quantity goes in as (整零合併, as Taiwan's broker apps do it):
+// a mixed one is two, the whole lots then the odd lot; any other, itself.
+export function lotParts(market, kind, qty) {
+  const split = lotSplit(market, kind, qty);
+  return split ? [split.board, split.odd] : [qty];
+}
+
+// The ticket's estimate over those orders, added up (each pays its own
+// commission, the odd lot at its NT$1 minimum); the welcome's free first
+// trade on the first, a 融券 sale's shares held taken by the first.
+const ADDED = ['gross', 'commission', 'tax', 'fee', 'costs', 'total'];
+export function lotsEstimate(account, opts) {
+  const parts = lotParts(opts.quote.market, opts.quote.kind, opts.qty);
+  if (parts.length === 1) return ticketEstimate(account, opts);
+  let held = opts.held || 0;
+  const each = parts.map((qty, i) => {
+    const est = ticketEstimate(account, { ...opts, qty, held, first: Boolean(opts.first) && i === 0 });
+    held = Math.max(0, held - qty);
+    return est;
+  });
+  const sum = { ...each[0] };
+  for (const k of ADDED) if (typeof sum[k] === 'number') sum[k] = each.reduce((n, e) => n + (e[k] || 0), 0);
+  const handling = each.reduce((n, e) => n + (e.handling || 0), 0);
+  if (handling) sum.handling = handling;
+  return sum;
+}
+
+// What a buy holds (requiredCash) over those orders, added up: { reserve, buffer }.
+export function lotsHold(order, quote, now = Date.now()) {
+  const held = lotParts(quote.market, quote.kind, order.qty).map(qty => requiredCash({ ...order, qty }, quote, now));
+  if (held.length === 1) return held[0];
+  return { reserve: held.reduce((n, x) => n + x.reserve, 0), buffer: held.reduce((n, x) => n + x.buffer, 0) };
+}
+
+// Places `req` as those orders, each on the account the one before left.
+// A mixed quantity is first checked whole (what's checked per order, such
+// as 融資's credit limit, counts both): when the whole would fail, neither
+// goes in. When the odd lot fails after the whole lots went in, the whole
+// lots stand (two orders, as at a broker). `place`: placeOrder or the
+// app's wrapper of it.
+// { account (null: nothing changed), parts: [{ qty, r }], failed: { qty, r } | null }.
+const refused = r => Boolean((r.error && !r.account) || r.order?.status === 'rejected');
+export function placeLots(account, req, opts, place = placeOrder) {
+  const qty = Number(req.qty);
+  const parts = opts.quote ? lotParts(opts.quote.market, opts.quote.kind, qty) : [qty];
+  if (parts.length > 1) {
+    const whole = place(account, req, opts);
+    if (whole.error && !whole.account) return { account: null, parts: [], failed: { qty, r: whole } };
+  }
+  const done = [];
+  let next = account;
+  let changed = false;
+  for (const [i, n] of parts.entries()) {
+    const r = place(next, { ...req, qty: n }, i && opts.id ? { ...opts, id: `${opts.id}:${i}` } : opts);
+    done.push({ qty: n, r });
+    if (r.account) {
+      next = r.account;
+      changed = true;
+    }
+    if (refused(r)) return { account: changed ? next : null, parts: done, failed: { qty: n, r } };
+  }
+  return { account: changed ? next : null, parts: done, failed: null };
+}
 
 // The most a buy can be for: the largest quantity whose hold (`holdFor(n)`,
-// requiredCash's reserve, 融資's own part only) fits `spendable`; in
-// Taiwan from a lot up, whole lots (one order can't mix them). `price`:
-// one unit's price, for the search's top. `cap`: a quantity it can't pass
+// lotsHold's reserve, 融資's own part only) fits `spendable`. `price`: one
+// unit's price, for the search's top. `cap`: a quantity it can't pass
 // (融資 within the credit limit left).
-export function maxBuy({ holdFor, spendable, price, kind, market, margin = 0, cap = Infinity }) {
+export function maxBuy({ holdFor, spendable, price, kind, margin = 0, cap = Infinity }) {
   if (!(spendable > 0) || !(price > 0)) return 0;
   const step = qtyStep(kind);
   // In steps: the top a little past what the cash buys on its own part.
@@ -131,6 +193,5 @@ export function maxBuy({ holdFor, spendable, price, kind, market, margin = 0, ca
     if (holdFor(roundQty(mid * step, kind)) <= spendable + 1e-9) lo = mid;
     else hi = mid - 1;
   }
-  const max = roundQty(Math.min(lo * step, cap), kind);
-  return lotSplit(market, kind, max) ? Math.floor(max / 1000) * 1000 : max;
+  return roundQty(Math.min(lo * step, cap), kind);
 }
