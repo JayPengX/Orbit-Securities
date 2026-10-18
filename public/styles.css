@@ -260,6 +260,13 @@ footer { padding: 10px 0 0; text-align: center; }
 .sheet-title h2 { font-size: 1.12rem; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
 .sheet-title p { font-size: 0.76rem; color: var(--text-muted); white-space: normal; overflow-wrap: anywhere; }
 .price-block { display: grid; gap: 2px; margin-bottom: 12px; }
+/* 漲停 / 跌停: the price on a red or green fill (white figures), as Taiwan's apps show it. */
+.num.at-limit { color: #fff; border-radius: 6px; padding: 0 5px; }
+.num.at-limit.up { background: var(--up); }
+.num.at-limit.down { background: var(--down); }
+.limit-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; font-size: 0.78rem; font-weight: 700; color: #fff; vertical-align: 1px; }
+.limit-tag.up { background: var(--up); }
+.limit-tag.down { background: var(--down); }
 .big-price { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; display: inline-block; max-width: 100%; white-space: nowrap; }
 .cur { color: var(--text-muted); font-weight: 600; font-size: 0.9rem; }
 .price-meta { font-size: 0.78rem; color: var(--text-muted); }

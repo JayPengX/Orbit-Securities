@@ -19,7 +19,7 @@ import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donu
 import { movingAverage, pointAt } from './lib/series.mjs';
 import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
-import { twPhase, afterHoursSend } from './lib/twse.mjs';
+import { twPhase, afterHoursSend, atLimit } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
@@ -767,6 +767,8 @@ function showToast(text, kind = '', more = [], hash = '') {
 
 // ---- Shared bits of markup --------------------------------------------------------
 
+// A price at 漲停 or 跌停, filled red or green as Taiwan's brokers show it.
+const limitClass = q => (atLimit(q) ? ` at-limit ${atLimit(q)}` : '');
 function changeHtml(q, { big = false } = {}) {
   if (!q) return '<span class="chg flat">—</span>';
   const d = dirClass(q.change);
@@ -952,7 +954,7 @@ function quoteRow(symbol, { note = '' } = {}) {
     ${symbolBadge(symbol, q || info)}
     <span class="row-main"><span class="row-title">${h(due ? due[1] : nameOf(symbol, q))}${held ? `<span class="held-tag">${h(t('heldTag'))}</span>` : ''}</span><span class="row-sub">${flagOf(symbol, q)} ${h(sub)}</span></span>
     <span class="row-spark">${q ? sparkline(q.line, q.kind === 'crypto' ? null : q.prev) : ''}</span>
-    <span class="row-price"><strong class="num" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong><small><span class="row-cur">${q ? h(q.currency) : ''}</span>${q ? statusDot(q) : ''}</small></span>
+    <span class="row-price"><strong class="num${limitClass(q)}" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong><small><span class="row-cur">${q ? h(q.currency) : ''}</span>${q ? statusDot(q) : ''}</small></span>
     ${pctPill(q)}
   </button>`;
 }
@@ -1415,8 +1417,8 @@ function renderDetail() {
     ${
       q
         ? `<div class="price-block">
-      <div><strong class="big-price num" data-q-live="big:${h(d.symbol)}">${fmtPrice(q.price, q.currency)}</strong> <span class="cur">${h(q.currency)}${METALS[d.symbol] ? ` / ${h(unitOf(d.symbol))}` : ''}</span></div>
-      <div>${changeHtml(q, { big: true })}</div>
+      <div><strong class="big-price num${limitClass(q)}" data-q-live="big:${h(d.symbol)}">${fmtPrice(q.price, q.currency)}</strong> <span class="cur">${h(q.currency)}${METALS[d.symbol] ? ` / ${h(unitOf(d.symbol))}` : ''}</span></div>
+      <div>${changeHtml(q, { big: true })}${atLimit(q) ? ` <span class="limit-tag ${atLimit(q)}">${h(atLimit(q) === 'up' ? t('limitUpTag') : t('limitDownTag'))}</span>` : ''}</div>
       <div class="price-meta">${marketStatus(q)}</div>
       <div class="price-meta">${q.marketTime ? `<span>${h(t('asOf', { time: dateTime(q.marketTime) }))}</span> · ` : ''}${delayOf(q.market) ? `<span class="delay-tag" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="delay-tag live" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`}</div>
     </div>`
@@ -1556,6 +1558,7 @@ function factsHtml(q) {
   }
   const rows = [
     [t('prevClose'), fmtPrice(q.prev, q.currency)],
+    ...(priceLimits(q) ? [[t('limitPrices'), `${fmtPrice(priceLimits(q).up, q.currency)} / ${fmtPrice(priceLimits(q).down, q.currency)}`]] : []),
     [t('dayRange'), q.dayLow != null ? `${fmtPrice(q.dayLow, q.currency)} – ${fmtPrice(q.dayHigh, q.currency)}` : '—'],
     [t('range52'), q.low52 != null ? `${fmtPrice(q.low52, q.currency)} – ${fmtPrice(q.high52, q.currency)}` : '—'],
     [t('volume'), q.volume ? compact(q.volume) : '—'],

@@ -4,6 +4,7 @@
 // (試撮 again); then the after-hours sessions, 盤後零股 taking orders from
 // 13:40 and 盤後定價 from 14:00, each matched once at 14:30.
 import { isTradingDay, localDay } from './holidays.mjs';
+import { priceLimits, tickSize } from './markets.mjs';
 
 const at = (day, hm) => Date.parse(`${day}T${hm}:00+08:00`);
 const PHASES = [
@@ -35,4 +36,16 @@ export function afterHoursSend(t, odd) {
   if (p?.id !== 'after') return null;
   const opens = at(localDay(t, 'Asia/Taipei'), odd ? '13:40' : '14:00');
   return { sends: Math.max(t, opens), match: p.until, waits: t < opens };
+}
+
+// A price at the day's limit: 'up' at 漲停, 'down' at 跌停, else null (no
+// band, as in the US, or no previous close to count it from). Taiwan's
+// brokers mark it on the price (a red or green fill).
+export function atLimit(q) {
+  const band = q ? priceLimits(q) : null;
+  if (!band || !(q.price > 0)) return null;
+  const tick = tickSize(q.market, q.kind, q.price) || 1e-6;
+  if (q.price >= band.up - tick / 2) return 'up';
+  if (q.price <= band.down + tick / 2) return 'down';
+  return null;
 }

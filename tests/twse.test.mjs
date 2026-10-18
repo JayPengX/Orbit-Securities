@@ -3,7 +3,7 @@
 // the after-hours sessions (盤後零股 13:40, 盤後定價 14:00, both matched at 14:30).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { twPhase, afterHoursSend } from '../public/lib/twse.mjs';
+import { twPhase, afterHoursSend, atLimit } from '../public/lib/twse.mjs';
 
 const tpe = (d, hm) => Date.parse(`${d}T${hm}:00+08:00`);
 
@@ -39,4 +39,17 @@ test('after hours: 盤後零股 takes orders from 13:40, 盤後定價 from 14:00
   assert.equal(afterHoursSend(tpe(day, '13:20'), false), null);
   assert.equal(afterHoursSend(tpe(day, '14:30'), false), null);
   assert.equal(afterHoursSend(tpe('2026-10-17', '14:00'), false), null);
+});
+
+test('漲停 and 跌停: a price at the day limit, on its tick, and none where a market has no band', () => {
+  const q = (price, prev = 100, over = {}) => ({ symbol: '2330.TW', market: 'TW', kind: 'stock', currency: 'TWD', price, prev, ...over });
+  assert.equal(atLimit(q(110)), 'up');
+  assert.equal(atLimit(q(90)), 'down');
+  assert.equal(atLimit(q(109.5)), null);
+  assert.equal(atLimit(q(100)), null);
+  // 9.1 × 1.1 = 10.01, cut to the 0.05 tick: 10.00 is 漲停.
+  assert.equal(atLimit(q(10, 9.1)), 'up');
+  assert.equal(atLimit({ ...q(110), market: 'US', symbol: 'AAPL', currency: 'USD' }), null);
+  assert.equal(atLimit(q(110, null)), null);
+  assert.equal(atLimit(null), null);
 });
