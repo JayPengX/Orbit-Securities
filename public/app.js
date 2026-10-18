@@ -19,7 +19,7 @@ import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donu
 import { movingAverage, pointAt } from './lib/series.mjs';
 import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
-import { twPhase, afterHoursSend, atLimit } from './lib/twse.mjs';
+import { twPhase, afterHoursSend, atLimit, exDayTags } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
@@ -2454,7 +2454,7 @@ function incomeCardHtml(v) {
     ${parts.length ? `<p class="income-split">${parts.map(([k, x]) => `<span>${h(t(k))} <strong class="num">${h(money(x, BASE))}</strong></span>`).join('')}</p>` : ''}
     ${top.length ? `<p class="muted">${h(t('incomeTop'))} ${top.map(([sym, x]) => `<button class="link" type="button" data-action="open" data-symbol="${h(sym)}">${h(nameOf(sym))}</button> <span class="num">${h(money(x, BASE))}</span>`).join('、')}</p>` : ''}
     ${list
-      .map(e => `<div class="order-row">${icon('coins', 'k-income')}<span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(e.symbol)}">${h(nameOf(e.symbol))}</button></span><span class="row-sub">${h(t('pendingDivLine', { ex: fmtDate(e.ex), pay: fmtDate(e.t), qty: fmtQty(e.shares) }))}</span></span><strong class="num up-ink">+${h(money(e.net, e.currency))}</strong></div>`)
+      .map(e => `<div class="order-row">${icon('coins', 'k-income')}<span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(e.symbol)}">${h(nameOf(e.symbol))}</button></span><span class="row-sub">${h(t('pendingDivLine', { ex: fmtDate(e.ex), pay: fmtDate(e.t), qty: fmtQty(e.shares), per: `${fmtPrice(e.perShare, e.currency)} ${e.currency === 'TWD' && locale === 'zh' ? '元' : e.currency}` }) + (e.nhi > 0 ? ` · ${t('pendingDivNhi', { v: money(e.nhi, e.currency) })}` : ''))}</span></span><strong class="num up-ink">+${h(money(e.net, e.currency))}</strong></div>`)
       .join('')}
     ${list.length ? `<p class="note">${h(t('pendingDivNote'))}</p>` : ''}
   </div>`;
@@ -2509,11 +2509,17 @@ function lotsNote(p, q) {
   if (!lots) return '';
   return ` (${lots.odd ? t('lotsOdd', { lots: fmtQty(lots.lots), odd: fmtQty(lots.odd) }) : t('lotsWhole', { lots: fmtQty(lots.lots) })})`;
 }
+// 除息 / 除權 / 除權息 on a holding on its ex-date, as brokers mark it.
+function exTagHtml(symbol) {
+  const tag = exDayTags(state.account?.events).get(symbol);
+  const text = tag && { div: t('exDivTag'), split: t('exRightTag'), both: t('exBothTag') }[tag];
+  return text ? `<span class="held-tag">${h(text)}</span>` : '';
+}
 function positionRow(p) {
   const q = p.quote;
   return `<button class="row position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
-    <span class="row-main"><span class="row-title">${h(nameOf(p.symbol, q))}${p.short ? `<span class="held-tag short">${h(t('shortTag'))}</span>` : ''}${p.financed > 0 ? `<span class="held-tag">${h(t('marginTag'))}</span>` : ''}${p.lent ? `<span class="held-tag">${h(t('lentTag', { qty: fmtQty(p.lent) }))}</span>` : ''}</span>
+    <span class="row-main"><span class="row-title">${h(nameOf(p.symbol, q))}${p.short ? `<span class="held-tag short">${h(t('shortTag'))}</span>` : ''}${p.financed > 0 ? `<span class="held-tag">${h(t('marginTag'))}</span>` : ''}${p.lent ? `<span class="held-tag">${h(t('lentTag', { qty: fmtQty(p.lent) }))}</span>` : ''}${exTagHtml(p.symbol)}</span>
       <span class="row-sub">${h(p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}${lotsNote(p, q)}`)} · ${h(t('avgShort'))} ${h(fmtPrice(p.avg, p.currency))} · ${h(pct(p.weight, { digits: 1, sign: false }))}</span>
       <span class="row-meta">${h(t('nowShort'))} ${h(fmtPrice(p.price, p.currency))} ${h(p.currency)} · <span class="${dirClass(p.dayTWD)}">${h(t('todayShort'))} ${h(money(p.dayTWD, BASE, { sign: true }))}</span></span></span>
     <span class="pos-right"><strong class="num">${h(money(p.valueTWD, BASE))}</strong><span class="pl-pill ${p.pl > 0 ? 'up' : p.pl < 0 ? 'down' : ''}">${h(pct(p.plPct))}</span><small class="num ${dirClass(p.pl)}">${h(money(p.pl, BASE, { sign: true }))}</small></span>

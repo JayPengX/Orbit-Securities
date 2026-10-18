@@ -4,7 +4,7 @@
 // (試撮 again); then the after-hours sessions, 盤後零股 taking orders from
 // 13:40 and 盤後定價 from 14:00, each matched once at 14:30.
 import { isTradingDay, localDay } from './holidays.mjs';
-import { priceLimits, tickSize } from './markets.mjs';
+import { MARKET_TZ, marketOf, priceLimits, tickSize } from './markets.mjs';
 
 const at = (day, hm) => Date.parse(`${day}T${hm}:00+08:00`);
 const PHASES = [
@@ -48,4 +48,20 @@ export function atLimit(q) {
   if (q.price >= band.up - tick / 2) return 'up';
   if (q.price <= band.down + tick / 2) return 'down';
   return null;
+}
+
+// The holdings that go 除息 (a dividend's ex-date) or 除權 (a split, Yahoo's
+// stock dividends among them) today, in each one's own market day:
+// Map symbol → 'div' | 'split' | 'both'.
+export function exDayTags(events, now = Date.now()) {
+  const out = new Map();
+  for (const e of events || []) {
+    const at = e.type === 'div' ? e.ex : e.type === 'split' ? e.t : null;
+    if (at == null) continue;
+    const tz = MARKET_TZ[e.market || marketOf(e.symbol)] || 'Asia/Taipei';
+    if (localDay(at, tz) !== localDay(now, tz)) continue;
+    const was = out.get(e.symbol);
+    out.set(e.symbol, !was || was === e.type ? e.type : 'both');
+  }
+  return out;
 }

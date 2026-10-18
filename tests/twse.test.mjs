@@ -3,7 +3,7 @@
 // the after-hours sessions (盤後零股 13:40, 盤後定價 14:00, both matched at 14:30).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { twPhase, afterHoursSend, atLimit } from '../public/lib/twse.mjs';
+import { twPhase, afterHoursSend, atLimit, exDayTags } from '../public/lib/twse.mjs';
 
 const tpe = (d, hm) => Date.parse(`${d}T${hm}:00+08:00`);
 
@@ -52,4 +52,20 @@ test('漲停 and 跌停: a price at the day limit, on its tick, and none where a
   assert.equal(atLimit({ ...q(110), market: 'US', symbol: 'AAPL', currency: 'USD' }), null);
   assert.equal(atLimit(q(110, null)), null);
   assert.equal(atLimit(null), null);
+});
+
+test('除息 and 除權 on a holding: only on its ex-date, in its market’s own day', () => {
+  const ex = tpe('2026-10-16', '09:00');
+  const events = [
+    { type: 'div', symbol: '2330.TW', market: 'TW', ex, t: ex + 28 * 86_400_000 },
+    { type: 'split', symbol: '2884.TW', t: tpe('2026-10-16', '09:00') },
+    { type: 'div', symbol: '2884.TW', market: 'TW', ex: tpe('2026-10-16', '09:00') },
+    { type: 'div', symbol: 'AAPL', market: 'US', ex: Date.parse('2026-10-15T09:30:00-04:00') },
+    { type: 'fill', symbol: '0050.TW', t: ex }
+  ];
+  const at = exDayTags(events, tpe('2026-10-16', '20:00'));
+  assert.deepEqual(Object.fromEntries(at), { '2330.TW': 'div', '2884.TW': 'both' });
+  // The US one on its own day there: Taipei's morning of the 16th is still the 15th in New York.
+  assert.deepEqual(Object.fromEntries(exDayTags(events, tpe('2026-10-16', '08:00'))), { '2330.TW': 'div', '2884.TW': 'both', AAPL: 'div' });
+  assert.equal(exDayTags(events, tpe('2026-10-17', '10:00')).size, 0);
 });
