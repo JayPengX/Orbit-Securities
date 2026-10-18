@@ -3194,7 +3194,7 @@ function lendFormHtml() {
 function lendRowHtml(p, now) {
   const can = lendableQty(state.account, p.symbol, now);
   const { rate, net: yearNet } = lendYear(p.kind, can, p.price, lendAsk());
-  const why = p.financed > 0 ? t('lendWhyMargin') : can ? lendAskProblem(p.kind) : p.qty - (p.lent || 0) < LEND_LOT ? t('lendWhyLot') : t('lendWhySettle');
+  const why = p.financed > 0 ? t('lendWhyMargin') : can ? lendAskProblem(p.kind) : p.lent > 0 && p.qty - p.lent <= 0 ? t('lendWhyAllLent') : p.qty - (p.lent || 0) < LEND_LOT ? t('lendWhyLot') : t('lendWhySettle');
   return `<div class="order-row"><span class="side-tag buy">${h(t('lendTag'))}</span><span class="row-main"><span class="row-title"><button class="link" type="button" data-action="open" data-symbol="${h(p.symbol)}">${h(nameOf(p.symbol))}</button></span><span class="row-sub">${h(can && !why ? t('lendCan', { qty: fmtQty(can), rate: pct(rate * (1 - LEND_CUT), { digits: 2, sign: false }), v: money(yearNet, BASE) }) : why)}</span></span>${can ? `<button class="q-btn small" type="button" data-action="lend" data-symbol="${h(p.symbol)}" data-qty="${can}">${h(t('lendGo'))}</button>` : ''}</div>`;
 }
 
