@@ -1831,7 +1831,7 @@ function planCardHtml(symbol, q) {
       <label class="field grow"><span>${h(t('planAmount'))} (NT$)</span><input id="plan-amount" inputmode="numeric" autocomplete="off" value="${h(state.plan.amount)}" /></label>
       <label class="field"><span>${h(t('planDay'))}</span><select id="plan-day">${planDayOptions(state.plan.day)}</select></label>
     </div>
-    ${perUnit > 0 && amount > 0 ? `<p class="muted">${h(t('planBuys', { units: num(units, units < 10 ? 2 : 0), unit: unitOf(symbol) }))}${q.currency !== BASE ? ` · ${h(t('planFx', { cur: q.currency }))}` : ''}</p>` : ''}
+    ${perUnit > 0 && amount > 0 ? `<p class="muted">${h(t('planBuys', { units: num(units, stockMarkets.fractional?.(q.market, q.kind) && units < 1 ? 4 : units < 10 ? 2 : 0), unit: unitOf(symbol) }))}${q.currency !== BASE ? ` · ${h(t('planFx', { cur: q.currency }))}` : ''}</p>` : ''}
     ${state.account ? '' : `<p class="note">${h(t('needAccount'))}</p>`}
     <button class="q-btn primary" type="button" data-action="plan-add" ${amount >= planMin(q) && state.account ? '' : 'disabled'}>${h(t(editing ? 'planSave' : 'planStart'))}</button>
     ${editing ? `<button class="q-btn small" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button>` : ''}
@@ -2305,7 +2305,7 @@ function renderTicket() {
         <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t('buy'))}</button>
         <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(t('sell'))}</button>
       </div>
-      <div class="q-seg" role="group">${orderTypes(q).map(x => `<button type="button" data-action="otype" data-otype="${x}" aria-pressed="${d.type === x}">${h(t(`otype_${x}`))}</button>`).join('')}</div>
+      ${orderTypes(q).length > 1 ? `<div class="q-seg" role="group">${orderTypes(q).map(x => `<button type="button" data-action="otype" data-otype="${x}" aria-pressed="${d.type === x}">${h(t(`otype_${x}`))}</button>`).join('')}</div>` : ''}
       ${d.type !== 'market' && q.kind !== 'crypto' && q.kind !== 'fx' ? `<div class="q-seg tif" role="group">${['day', 'gtc'].map(x => `<button type="button" data-action="tif" data-tif="${x}" aria-pressed="${(d.tif || 'day') === x}">${h(t(`tif_${x}`, { n: GTC_DAYS }))}</button>`).join('')}</div>` : ''}
       ${extOk ? `<div class="q-seg ext-toggle" role="group"><button type="button" data-action="ext" data-ext="" aria-pressed="${!d.ext}">${h(t('session_regular'))}</button><button type="button" data-action="ext" data-ext="1" aria-pressed="${Boolean(d.ext)}">${h(t(`session_${usSession}`))}</button></div>` : ''}
     </div>
