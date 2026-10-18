@@ -18,7 +18,7 @@ test('every key the page asks for exists', () => {
   // Keys picked by a condition inside t(...).
   for (const m of app.matchAll(/\bt\(([^()]*\?[^()]*)\)/g)) for (const k of m[1].matchAll(/'([a-z][A-Za-z0-9_]*)'/g)) used.add(k[1]);
   for (const m of html.matchAll(/data-t="([A-Za-z0-9_]+)"/g)) used.add(m[1]);
-  for (const k of ['alertHitAbove', 'alertHitBelow', 'alertWhenAbove', 'alertWhenBelow', 'alertAddAbove', 'alertAddBelow', 'tmResult', 'tmResultDca', 'tmAnnual', 'tmAnnualDca']) used.add(k);
+  for (const k of ['alertHitAbove', 'alertHitBelow', 'alertWhenAbove', 'alertWhenBelow', 'alertAddAbove', 'alertAddBelow']) used.add(k);
   const families = {
     kind_: ['stock', 'etf', 'bond', 'fund', 'crypto', 'metal', 'index', 'future', 'fx', 'cash', 'govbond'],
     range_: ['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max'],

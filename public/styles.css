@@ -569,11 +569,6 @@ body[data-updown='us'] .hero-card .down { color: #fecaca; }
 .guide-text .loan-form, .guide-text .fx-amount { margin: 0; }
 
 /* ---- Time machine ------------------------------------------------------------------------- */
-.tm-card { display: grid; gap: 12px; }
-.tm-card h2 { font-size: 1.15rem; margin: 0; }
-.tm-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 10px; align-items: end; }
-.tm-form .tm-card > .tm-result { display: grid; gap: 10px; border-top: 1px solid var(--grid); padding-top: 12px; }
-.tm-line { font-weight: 700; margin: 0; }
 
 /* ---- Company card: quick read, results, analysts ---------------------------------------- */
 .about-h { font-size: 0.92rem; margin: 16px 0 8px; display: flex; align-items: center; gap: 6px; }

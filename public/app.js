@@ -16,7 +16,7 @@ import { tvLogos } from './lib/tvlogos.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
-import { timeMachine, movingAverage } from './lib/timemachine.mjs';
+import { movingAverage } from './lib/timemachine.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
@@ -83,7 +83,6 @@ const state = {
   about: new Map(),
   plan: { amount: '5000', day: '5' },
   alertPrice: '',
-  tm: { symbol: '0050.TW', amount: '100000', start: String(new Date().getFullYear() - 10), mode: 'lump', result: null, loading: false, error: false },
   online: navigator.onLine !== false,
   installPrompt: null
 };
@@ -3278,11 +3277,6 @@ function renderHistory() {
   }
   const views = ['activity', 'orders', 'stats'];
   const tabs = `<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${state.historyView === x}">${h(t(`hview_${x}`))}</button>`).join('')}</div>`;
-  if (state.historyView === 'tm') {
-    box.innerHTML = `${tabs}${tmHtml()}`;
-    renderTmChart();
-    return;
-  }
   if (state.historyView === 'orders') {
     const open = state.account.orders.filter(o => o.status === 'open').reverse();
     const done = state.account.orders.filter(o => o.status !== 'open').reverse().slice(0, 100);
@@ -3532,114 +3526,6 @@ async function renderBench() {
 function fold(icon, title, body, open = false, id = title) {
   const isOpen = state.openFolds.has(id) || (open && !state.openFolds.has(`closed:${id}`));
   return `<details class="card fold" data-fold="${h(id)}"${isOpen ? ' open' : ''}><summary><span class="fold-icon">${icon}</span><h2>${h(title)}</h2></summary><div class="guide-text">${body}</div></details>`;
-}
-
-// ---- Time machine -------------------------------------------------------------------
-
-const TM_CHOICES = ['0050.TW', '0056.TW', '2330.TW', '2317.TW', 'VT', 'VOO', 'QQQ', 'AAPL', 'NVDA', 'BTC-USD', 'XAU'];
-const TM_FIRST_YEAR = 2000;
-
-function tmHtml() {
-  const tm = state.tm;
-  const choices = [...new Set([...TM_CHOICES, tm.symbol])];
-  const year = new Date().getFullYear();
-  const years = [];
-  for (let y = year - 1; y >= TM_FIRST_YEAR; y--) years.push(y);
-  return `<div class="card tm-card" id="time-machine">
-    <h2>⏳ ${h(t('tmTitle'))}</h2>
-    <p class="lede">${h(t('tmIntro'))}</p>
-    <div class="tm-form">
-      <label class="field"><span>${h(t('tmWhat'))}</span><select id="tm-symbol">${choices.map(sym => `<option value="${h(sym)}" ${sym === tm.symbol ? 'selected' : ''}>${h(nameOf(sym))} · ${h(bareSymbol(sym))}</option>`).join('')}</select></label>
-      <label class="field"><span>${h(t('tmFrom'))}</span><select id="tm-start">${years.map(y => `<option value="${y}" ${String(y) === tm.start ? 'selected' : ''}>${y}</option>`).join('')}</select></label>
-      <label class="field"><span>${h(tm.mode === 'monthly' ? t('tmMonthly') : t('tmAmount'))} (NT$)</span><input id="tm-amount" inputmode="numeric" autocomplete="off" value="${h(tm.amount)}" /></label>
-      <div class="q-seg" role="group"><button type="button" data-action="tm-mode" data-v="lump" aria-pressed="${tm.mode === 'lump'}">${h(t('tmLump'))}</button><button type="button" data-action="tm-mode" data-v="monthly" aria-pressed="${tm.mode === 'monthly'}">${h(t('tmDca'))}</button></div>
-    </div>
-    <button class="q-btn primary" type="button" data-action="tm-go" ${tm.loading ? 'disabled' : ''}>${h(tm.loading ? t('tmLoading') : t('tmGo'))}</button>
-    <div id="tm-result">${tmResultHtml()}</div>
-  </div>`;
-}
-
-function tmResultHtml() {
-  const tm = state.tm;
-  if (tm.error) return `<p class="warn">${h(t('tmError'))}</p>`;
-  const r = tm.result;
-  if (!r) return '';
-  const dir = dirClass(r.gain);
-  const late = r.start > Date.parse(`${r.asked}-02-01T00:00:00+08:00`);
-  const facts = [
-    r.annual != null ? t(r.mode === 'monthly' ? 'tmAnnualDca' : 'tmAnnual', { pct: pct(r.annual, { digits: 1 }) }) : '',
-    t('tmDrawdown', { pct: pct(r.maxDrawdown, { digits: 0 }), from: monthYear(r.drawdownFrom ?? r.start), to: monthYear(r.drawdownTo ?? r.start) }),
-    r.best && r.worst && r.yearly.length > 1 ? t('tmYears', { best: r.best[0], bestPct: pct(r.best[1], { digits: 0 }), worst: r.worst[0], worstPct: pct(r.worst[1], { digits: 0 }) }) : '',
-    t('tmBank', { amount: money(r.bank, BASE), rate: pct(r.bankRate, { sign: false, digits: 1 }) })
-  ].filter(Boolean);
-  return `<div class="tm-result">
-    <p class="tm-line">${h(t(r.mode === 'monthly' ? 'tmResultDca' : 'tmResult', { name: nameOf(r.symbol), date: monthYear(r.start), amount: money(r.mode === 'monthly' ? r.amount : r.putIn, BASE) }))}</p>
-    <div class="kpis">
-      ${kpi(t('tmPutIn'), money(r.putIn, BASE))}
-      ${kpi(t('tmNow'), money(r.value, BASE), '', dir)}
-      ${kpi(t('tmGain'), money(r.gain, BASE, { sign: true }), pct(r.ratio - 1), dir)}
-    </div>
-    <div id="tm-chart" class="chart-box"></div>
-    <ul class="facts">${facts.map(f => `<li>${h(f)}</li>`).join('')}</ul>
-    <p class="note">${h(r.maxDrawdown < -0.2 ? t('tmLessonDrop', { pct: pct(-r.maxDrawdown, { sign: false, digits: 0 }) }) : t('tmLessonCalm'))}</p>
-    <p class="note">${h(t('tmNote'))}${late ? ` ${h(t('tmLate', { date: monthYear(r.start) }))}` : ''}</p>
-  </div>`;
-}
-
-function renderTmChart() {
-  const box = $('tm-chart');
-  const r = state.tm.result;
-  if (!box || !r) return;
-  const width = Math.max(300, Math.round(box.clientWidth || 480));
-  const value = r.series.map(([tt, v]) => [tt, v]);
-  const put = r.series.map(([tt, , p]) => [tt, p]);
-  const dir = dirClass(r.gain);
-  const { svg, frame } = lineChart([{ points: value }, { points: put, cls: 'ref' }], { width, height: 200, dir, yFormat: x => compact(x), xFormat: tt => monthYear(tt) });
-  box.innerHTML = `<ul class="legend-inline"><li><i class="sw ${dir}"></i>${h(t('tmNow'))}</li><li><i class="sw ref"></i>${h(t('tmPutIn'))}</li></ul>${svg}`;
-  attachHover(box, [{ points: value }, { points: put }], frame, (i, tt, [v, p]) => `<strong class="num">${money(v, BASE)}</strong><span>${h(monthYear(tt))}</span><span class="chg ${dirClass(v - p)}">${money(v - p, BASE, { sign: true })}</span>`);
-}
-
-async function runTimeMachine() {
-  const tm = state.tm;
-  const amount = Math.round(Number(tm.amount));
-  if (!(amount >= 100)) return toast(t('err_amount'), 'bad');
-  tm.loading = true;
-  tm.error = false;
-  if (state.tab === 'history') renderHistory();
-  try {
-    const symbol = tm.symbol;
-    const chart = await fetchChart(symbol, 'max');
-    const q = chart?.quote || state.quotes.get(symbol);
-    const currency = METALS[symbol] ? BASE : q?.currency;
-    const points = chart?.adjusted?.length > 1 ? chart.adjusted : chart?.points;
-    if (!points?.length || !currency) throw new Error('no history');
-    let fx = null;
-    if (currency !== BASE) {
-      await ensureRates([currency]);
-      fx = (await fetchChart(fxSymbol(currency), 'max'))?.points || null;
-      if (!fx?.length) throw new Error('no fx history');
-    }
-    const live = state.quotes.get(symbol);
-    const result = timeMachine({
-      points,
-      fx,
-      amount,
-      start: Date.parse(`${tm.start}-01-01T00:00:00+08:00`),
-      mode: tm.mode,
-      price: live?.price ?? null,
-      rate: currency === BASE ? 1 : state.rates[currency]
-    });
-    if (!result) throw new Error('no result');
-    tm.result = { ...result, symbol, mode: tm.mode, amount, asked: tm.start };
-  } catch {
-    tm.error = true;
-    tm.result = null;
-  }
-  tm.loading = false;
-  if (state.tab === 'history') {
-    renderHistory();
-    $('tm-result')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
 }
 
 // ---- The Quadra Pass: the account lives with it ------------------------------------------
@@ -4225,25 +4111,6 @@ document.addEventListener('click', async event => {
       });
       break;
     }
-    case 'tm-open':
-      state.tm.symbol = el.dataset.symbol;
-      state.tm.result = null;
-      closeDetail();
-      state.historyView = 'tm';
-      showTab('history');
-      document.getElementById('time-machine')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      runTimeMachine();
-      break;
-    case 'tm-mode':
-      state.tm.mode = el.dataset.v;
-      if (el.dataset.v === 'monthly' && Number(state.tm.amount) > 50_000) state.tm.amount = '5000';
-      if (el.dataset.v === 'lump' && Number(state.tm.amount) < 10_000) state.tm.amount = '100000';
-      state.tm.result = null;
-      renderHistory();
-      break;
-    case 'tm-go':
-      runTimeMachine();
-      break;
   }
 });
 
@@ -4368,9 +4235,6 @@ document.addEventListener('input', event => {
     case 'plan-row-amount':
       state.plan.amount = cleanNumber(el.value);
       break;
-    case 'tm-amount':
-      state.tm.amount = cleanNumber(el.value);
-      break;
   }
 });
 
@@ -4389,11 +4253,6 @@ document.addEventListener('change', event => {
     renderFx();
   }
   if (el.id === 'plan-day' || el.id === 'plan-row-day') state.plan.day = el.value;
-  if (el.id === 'tm-symbol' || el.id === 'tm-start') {
-    state.tm[el.id === 'tm-symbol' ? 'symbol' : 'start'] = el.value;
-    state.tm.result = null;
-    runTimeMachine();
-  }
 });
 
 $('detail').addEventListener('close', () => (state.detail = null));
