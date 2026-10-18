@@ -44,9 +44,9 @@ const TW = [
 
 const TW_ETF = [
   ['0050.TW', '元大台灣50', 'Yuanta Taiwan Top 50'], ['006208.TW', '富邦台50', 'Fubon Taiwan 50'], ['0056.TW', '元大高股息', 'Yuanta High Dividend'],
-  ['00878.TW', '國泰永續高股息', 'Cathay Sustainable High Dividend'], ['00919.TW', '群益台灣精選高息', 'Capital Taiwan Select High Dividend'],
-  ['00929.TW', '復華台灣科技優息', 'Fuh Hwa Taiwan Tech Dividend'], ['00940.TW', '元大台灣價值高息', 'Yuanta Taiwan Value High Dividend'],
-  ['00713.TW', '元大台灣高息低波', 'Yuanta High Dividend Low Volatility'], ['00692.TW', '富邦公司治理', 'Fubon Corporate Governance'],
+  ['00878.TW', '國泰永續高股息', 'Cathay ESG High Div'], ['00919.TW', '群益台灣精選高息', 'Capital TW Select High Div'],
+  ['00929.TW', '復華台灣科技優息', 'Fuh Hwa TW Tech Div'], ['00940.TW', '元大台灣價值高息', 'Yuanta TW Value High Div'],
+  ['00713.TW', '元大台灣高息低波', 'Yuanta High Div Low Vol'], ['00692.TW', '富邦公司治理', 'Fubon Corporate Governance'],
   ['00881.TW', '國泰台灣5G+', 'Cathay Taiwan 5G+'], ['00631L.TW', '元大台灣50正2', 'Yuanta Taiwan 50 2x', 'etf'],
   ['00632R.TW', '元大台灣50反1', 'Yuanta Taiwan 50 -1x', 'etf'], ['00646.TW', '元大S&P500', 'Yuanta S&P 500'],
   ['00662.TW', '富邦NASDAQ', 'Fubon NASDAQ-100'], ['00757.TW', '統一FANG+', 'Uni-President FANG+'], ['00830.TW', '國泰費城半導體', 'Cathay Philadelphia Semiconductor'],
@@ -87,12 +87,12 @@ const US = [
 const US_ETF = [
   ['SPY', 'SPDR 標普500', 'SPDR S&P 500'], ['VOO', 'Vanguard 標普500', 'Vanguard S&P 500'], ['IVV', 'iShares 標普500', 'iShares Core S&P 500'],
   ['QQQ', '那斯達克100', 'Invesco QQQ (Nasdaq-100)'], ['VTI', '美國全市場', 'Vanguard Total Stock Market'], ['VT', '全世界股票', 'Vanguard Total World Stock'],
-  ['VXUS', '美國以外全球', 'Vanguard Total International'], ['SCHD', '美國高股息', 'Schwab US Dividend Equity'], ['VYM', 'Vanguard 高股息', 'Vanguard High Dividend Yield'],
+  ['VXUS', '美國以外全球', 'Vanguard Total International'], ['SCHD', '美國高股息', 'Schwab US Dividend Equity'], ['VYM', 'Vanguard 高股息', 'Vanguard High Div Yield'],
   ['DIA', '道瓊工業', 'SPDR Dow Jones'], ['IWM', '羅素2000小型股', 'iShares Russell 2000'], ['SOXX', '費城半導體', 'iShares Semiconductor'],
   ['SMH', 'VanEck 半導體', 'VanEck Semiconductor'], ['XLK', '科技類股', 'Technology Select Sector'], ['XLF', '金融類股', 'Financial Select Sector'],
   ['XLE', '能源類股', 'Energy Select Sector'], ['VNQ', '美國房地產', 'Vanguard Real Estate'], ['ARKK', '方舟創新', 'ARK Innovation'],
   ['EWT', '台灣 (iShares)', 'iShares MSCI Taiwan'], ['EWJ', '日本 (iShares)', 'iShares MSCI Japan'], ['EEM', '新興市場', 'iShares MSCI Emerging Markets'],
-  ['IBIT', '比特幣現貨 ETF', 'iShares Bitcoin Trust'], ['TQQQ', '那斯達克100 三倍', 'ProShares UltraPro QQQ (3x)'], ['SQQQ', '那斯達克100 反三倍', 'ProShares UltraPro Short QQQ (-3x)'],
+  ['IBIT', '比特幣現貨 ETF', 'iShares Bitcoin Trust'], ['TQQQ', '那斯達克100 三倍', 'ProShares UltraPro QQQ (3x)'], ['SQQQ', '那斯達克100 反三倍', 'UltraPro Short QQQ (-3x)'],
   ['QQQM', '那斯達克100 (小額)', 'Invesco NASDAQ 100 (QQQM)'], ['SPLG', 'SPDR 標普500 (小額)', 'SPDR Portfolio S&P 500'], ['VUG', 'Vanguard 成長股', 'Vanguard Growth'],
   ['VTV', 'Vanguard 價值股', 'Vanguard Value'], ['VIG', 'Vanguard 股利成長', 'Vanguard Dividend Appreciation'], ['JEPI', 'JPMorgan 股票溢價收益', 'JPMorgan Equity Premium Income'],
   ['JEPQ', 'JPMorgan 那斯達克溢價收益', 'JPMorgan Nasdaq Equity Premium Income'], ['XLV', '醫療保健類股', 'Health Care Select Sector'], ['XLY', '非必需消費類股', 'Consumer Discretionary Select Sector'],
@@ -107,9 +107,9 @@ const BOND_ETFS = [
   ['00937B.TWO', '群益ESG投等債20+', 'Capital ESG IG Corporate 20+'], ['00720B.TWO', '元大投資級公司債', 'Yuanta IG Corporate Bond'],
   ['TLT', '美國20年以上公債', 'iShares 20+ Year Treasury', 'bond'], ['IEF', '美國7–10年公債', 'iShares 7-10 Year Treasury', 'bond'],
   ['SHY', '美國1–3年公債', 'iShares 1-3 Year Treasury', 'bond'], ['SGOV', '美國短期國庫券', 'iShares 0-3 Month Treasury', 'bond'],
-  ['BND', '美國整體債券', 'Vanguard Total Bond Market', 'bond'], ['AGG', 'iShares 美國綜合債', 'iShares Core US Aggregate Bond', 'bond'],
-  ['LQD', '投資級公司債', 'iShares IG Corporate Bond', 'bond'], ['HYG', '高收益債', 'iShares High Yield Corporate Bond', 'bond'],
-  ['TIP', '抗通膨公債', 'iShares TIPS Bond', 'bond'], ['EMB', '新興市場債', 'iShares JPM EM Bond', 'bond'], ['BNDX', '國際債券', 'Vanguard Total International Bond', 'bond'],
+  ['BND', '美國整體債券', 'Vanguard Total Bond Market', 'bond'], ['AGG', 'iShares 美國綜合債', 'iShares Core US Agg Bond', 'bond'],
+  ['LQD', '投資級公司債', 'iShares IG Corporate Bond', 'bond'], ['HYG', '高收益債', 'iShares High Yield Corp Bond', 'bond'],
+  ['TIP', '抗通膨公債', 'iShares TIPS Bond', 'bond'], ['EMB', '新興市場債', 'iShares JPM EM Bond', 'bond'], ['BNDX', '國際債券', 'Vanguard Total Intl Bond', 'bond'],
   ['^IRX', '美國13週國庫券殖利率', 'US 13-week T-bill yield'], ['^FVX', '美國5年公債殖利率', 'US 5-year yield'],
   ['^TNX', '美國10年公債殖利率', 'US 10-year yield'], ['^TYX', '美國30年公債殖利率', 'US 30-year yield']
 ];

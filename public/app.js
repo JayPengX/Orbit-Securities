@@ -938,12 +938,14 @@ function quoteRow(symbol, { note = '' } = {}) {
   const q = state.quotes.get(symbol);
   const info = catalogInfo(symbol);
   const held = snap()?.positions[symbol];
-  const sub = [bareSymbol(symbol), q ? marketLabel(q.market) : '', note].filter(Boolean).join(' · ');
+  // A bond's maturity (its name's last bracket) goes under it, in its symbol's place: the name fits one line.
+  const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
+  const sub = [due ? due[2] : bareSymbol(symbol), q ? marketLabel(q.market) : '', note].filter(Boolean).join(' · ');
   return `<button class="row quote-row" type="button" data-action="open" data-symbol="${h(symbol)}">
     ${symbolBadge(symbol, q || info)}
-    <span class="row-main"><span class="row-title">${h(nameOf(symbol, q))}${held ? `<span class="held-tag">${h(t('heldTag'))}</span>` : ''}</span><span class="row-sub">${flagOf(symbol, q)} ${h(sub)}</span></span>
+    <span class="row-main"><span class="row-title">${h(due ? due[1] : nameOf(symbol, q))}${held ? `<span class="held-tag">${h(t('heldTag'))}</span>` : ''}</span><span class="row-sub">${flagOf(symbol, q)} ${h(sub)}</span></span>
     <span class="row-spark">${q ? sparkline(q.line, q.kind === 'crypto' ? null : q.prev) : ''}</span>
-    <span class="row-price"><strong class="num" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong><small>${q ? h(q.currency) : ''}${q ? statusDot(q) : ''}</small></span>
+    <span class="row-price"><strong class="num" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong><small><span class="row-cur">${q ? h(q.currency) : ''}</span>${q ? statusDot(q) : ''}</small></span>
     ${pctPill(q)}
   </button>`;
 }
@@ -4404,7 +4406,7 @@ topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 
 // Big numbers shrink (to 60% at most) to stay on one line.
 // (And a fact or an order's hint, a line each.)
-const FIT_SELECTOR = '.stat-value, .big-price, .hero-value, .q-rec-big, .q-rec-title, .q-rec-sub, .tile-name, .facts-grid dd, .hint-lines span';
+const FIT_SELECTOR = '.quote-row .row-title, .mover-name, .stat-value, .big-price, .hero-value, .q-rec-big, .q-rec-title, .q-rec-sub, .tile-name, .facts-grid dd, .hint-lines span';
 function fitNumbers(nodes) {
   for (const node of nodes) {
     node.style.fontSize = '';
