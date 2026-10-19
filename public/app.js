@@ -979,7 +979,7 @@ function symbolBadge(symbol, q) {
   const choice = logoChoices(symbol, kind).find(c => c.urls.every(u => !logoBad.has(u) && !logoMiss.has(u)));
   if (!choice) return plain;
   const imgs = choice.urls
-    .map(u => (logoOk.has(u) ? `<img class="sym-logo" src="${h(u)}" alt="" referrerpolicy="no-referrer">` : `<img class="sym-logo fresh" src="${h(u)}" alt="" loading="lazy" referrerpolicy="no-referrer"${choice.guess ? ' data-guess' : ''}>`))
+    .map(u => (logoOk.has(u) ? `<img class="sym-logo" src="${h(u)}" alt="" referrerpolicy="no-referrer">` : `<img class="sym-logo fresh" src="${h(u)}" alt="" referrerpolicy="no-referrer"${choice.guess ? ' data-guess' : ''}>`))
     .join('');
   return `<span class="sym-badge has-logo ${choice.fit}${choice.urls.length > 1 ? ' pair' : ''}" data-symbol="${h(symbol)}" data-kind="${h(kind)}">${imgs}</span>`;
 }
