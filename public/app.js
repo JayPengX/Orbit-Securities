@@ -2991,13 +2991,13 @@ function plansHtml() {
         <span class="row-actions"><button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(p.id)}" data-row="1">${h(t('planEdit'))}</button><button class="q-btn small danger tinted" type="button" data-action="plan-off" data-id="${h(p.id)}">${h(t('planStop'))}</button></span></div>`;
     })
     .join('');
-  return rows || endedRows ? `<div class="q-rowcard">${endedRows}${rows}</div>` : `${plainEmpty(t('nothingYet'))}`;
+  return rows || endedRows ? `<div class="q-rowcard">${endedRows}${rows}</div>` : emptyHtml({ icon: 'calendar', tint: TINT.teal, title: t('nothingYet') });
 }
 
 const alertsShown = () => Object.values(state.account?.alerts || {}).filter(a => a.on || (a.hit && Date.now() - a.hit.t < 7 * 86_400_000)).sort((a, b) => b.t - a.t);
 function alertsHtml() {
   const list = alertsShown();
-  if (!list.length) return `${plainEmpty(t('nothingYet'))}`;
+  if (!list.length) return emptyHtml({ icon: 'bell', tint: TINT.red, title: t('nothingYet') });
   return `<div class="q-rowcard">${list
     .map(a => {
       const q = state.quotes.get(a.symbol);
@@ -3369,7 +3369,6 @@ function ratesHtml() {
     <div class="rates-head"><span>${h(t('ratesCurrency'))}</span><span>${h(t('bankBuys'))}</span><span>${h(t('bankSells'))}</span><span>${h(t('ratesChange'))}</span></div>
     <div class="q-rowcard">${Object.keys(CURRENCIES).filter(c => c !== BASE).map(c => rateRow(c, true)).join('')}</div>
   </div>
-  <p class="foot-note">${h(t('ratesFoot'))}</p>
   <button class="q-btn tinted block" type="button" data-action="fx-trade">${h(t('fxTradeButton'))}</button>`;
 }
 // Today's move as coloured text (up / down in the person's colours).
@@ -3398,9 +3397,11 @@ function rateRow(c, board = false) {
   const unit = info.digits === 0 && q?.price < 1 ? 100 : 1;
   const digits = q && q.price * unit < 1 ? 4 : 3;
   const sells = q ? h(num(q.price * unit * (1 + sp), digits)) : '…';
-  const name = `<span class="q-ritem-text"><span class="q-ritem-title">${h(c)}${unit > 1 ? ` <em class="unit">×${unit}</em>` : ''}</span><small>${h(L(info))}</small></span>`;
+  const name = board
+    ? `<span class="q-ritem-text"><span class="q-ritem-title">${h(c)}</span><small>${h(L(info))}${unit > 1 ? ` ×${unit}` : ''}</small></span>`
+    : `<span class="q-ritem-text"><span class="q-ritem-title">${h(c)}${unit > 1 ? ` <em class="unit">×${unit}</em>` : ''}</span><small>${h(L(info))}</small></span>`;
   if (board)
-    return `<button class="q-ritem rate-row board" type="button" data-action="fx-to" data-cur="${h(c)}">${tileHtml(curMark(c), TINT.teal, 'soft flag sm')}${name}
+    return `<button class="q-ritem rate-row board" type="button" data-action="fx-to" data-cur="${h(c)}">${name}
       <span class="num">${q ? h(num(q.price * unit * (1 - sp), digits)) : '…'}</span><span class="num">${sells}</span>${pctText(q)}</button>`;
   return `<button class="q-ritem rate-row" type="button" data-action="fx-to" data-cur="${h(c)}">${tileHtml(curMark(c), TINT.teal, 'soft flag')}${name}
     <span class="q-ritem-end"><strong class="num">${sells}</strong>${pctTag(q)}</span></button>`;
@@ -3414,17 +3415,13 @@ function tdHtml() {
   const free = Math.max(0, withdrawable(state.account, s)[BASE] || 0);
   const amount = Math.round(Number(d.amount) || 0);
   const term = TD_TERMS.find(x => x.months === d.months) || TD_TERMS.at(-1);
-  // When it ends and what it pays, as openDeposit will have it.
-  const preview = tdPreview(Math.max(0, amount), term.months, Date.now());
   const ok = amount >= TD_MIN && amount <= free;
   const tds = v.tds || [];
-  return `<div class="q-seg td-terms" role="group">${TD_TERMS.map(x => `<button type="button" data-action="td-term" data-months="${x.months}" aria-pressed="${x.months === term.months}"><span>${h(t('tdMonths', { n: x.months }))}</span><small class="num">${h(pct(tdRate(x.months), { digits: 2, sign: false }))}</small></button>`).join('')}</div>
-    <label class="big-field"><span>${h(t('amount'))}<em>NT$</em></span><input id="td-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(amount > 0 ? num(amount) : '')}" placeholder="${h(num(TD_MIN))}" /></label>
-    <div class="q-tags"><span class="q-tag num">${h(t('tdHave', { v: money(free, BASE) }))}</span>${free >= TD_MIN ? `<button class="q-tag tint" type="button" data-action="td-max">${h(t('tdAll'))}</button>` : ''}</div>
-    <label class="check-row"><input id="td-renew" type="checkbox" switch ${d.renew ? 'checked' : ''} /> <span>${h(t('tdRenew'))}</span></label>
-    ${amount > 0 ? `<p class="${amount < TD_MIN || amount > free ? 'warn' : 'ok-msg'}">${h(amount < TD_MIN ? t('err_tdMin', { min: money(TD_MIN, BASE) }) : amount > free ? t('tdTooMuch') : t('tdWillEarn', { v: money(preview.gross, BASE), date: fmtDate(preview.ends) }))}</p>` : ''}
+  return `<div class="term-grid" role="group">${TD_TERMS.map(x => `<button class="term q-press" type="button" data-action="td-term" data-months="${x.months}" aria-pressed="${x.months === term.months}"><strong class="num">${x.months}</strong><small>${h(t('monthsUnit'))}</small><span class="num">${h(pct(tdRate(x.months), { digits: 2, sign: false }))}</span></button>`).join('')}</div>
+    <label class="big-field"><span>${h(t('amount'))}<em class="num">${h(t('tdHave', { v: money(free, BASE) }))}${free >= TD_MIN ? `<button class="q-tag tint" type="button" data-action="td-max">${h(t('tdAll'))}</button>` : ''}</em></span><input id="td-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(amount > 0 ? num(amount) : '')}" placeholder="${h(num(TD_MIN))}" /></label>
+    <label class="check-row"><input id="td-renew" type="checkbox" switch ${d.renew ? 'checked' : ''} /> <span><b>${h(t('tdRenew'))}</b><small>${h(t('tdRenewSub'))}</small></span></label>
+    ${amount > 0 && !ok ? `<p class="warn">${h(amount < TD_MIN ? t('err_tdMin', { min: money(TD_MIN, BASE) }) : t('tdTooMuch'))}</p>` : ''}
     <button class="q-btn primary block" type="button" data-action="td-open" ${ok ? '' : 'disabled'}>${h(t('tdOpen'))}</button>
-    <p class="foot-note">${h(t('tdNote', { early: pct(TD_EARLY, { digits: 0, sign: false }) }))}</p>
     ${sectionHtml(
       t('tdYours'),
       tds.length
@@ -3442,10 +3439,9 @@ function lendHtml() {
   const now = Date.now();
   const lendRows = v.positions.filter(p => !p.short && lendable(p.market, p.kind));
   const lent = v.lent || [];
-  return `${lendRows.length ? `<div class="q-rowcard">${lendRows.map(p => lendRowHtml(p, now)).join('')}</div>` : `${plainEmpty(t('lendNone'))}`}
+  return `${lendRows.length ? `<div class="q-rowcard">${lendRows.map(p => lendRowHtml(p, now)).join('')}</div>` : emptyHtml({ icon: 'lock', tint: TINT.orange, title: t('lendNoneTitle'), body: t('lendNone') })}
     ${lendAsks() && lendRows.some(p => lendableQty(state.account, p.symbol, now) > 0) ? lendFormHtml() : ''}
-    ${sectionHtml(t('lendOut'), lent.length ? `<div class="q-rowcard">${lent.map(l => lentRowHtml(l, now)).join('')}</div>` : '', { side: v.lendIncome > 0 ? `<strong class="sec-value num up-ink">+${h(money(v.lendIncome, BASE))}</strong>` : '' })}
-    <p class="foot-note">${h(lendAsks() ? t('lendTermNote', { months: stockSavings.LEND_TERM_MONTHS, n: stockSavings.LEND_RENEWALS, cut: pct(LEND_CUT, { digits: 0, sign: false }), days: LEND_RECALL }) : t('lendNote', { cut: pct(LEND_CUT, { digits: 0, sign: false }), days: LEND_RECALL, term: LEND_TERM_DAYS }))}</p>`;
+    ${sectionHtml(t('lendOut'), lent.length ? `<div class="q-rowcard">${lent.map(l => lentRowHtml(l, now)).join('')}</div>` : '')}`;
 }
 // 借券出借 as the kit has it (read through the module: an older kit lends at
 // the going rate only, for 180 days): the lender's own yearly ask, 0.01% to
@@ -3554,7 +3550,7 @@ async function doLend(symbol, qty) {
   const term = lendAsks()
     ? [['📅', t('lendAskTerm', { rate: lendPct(tried.event.rate), date: fmtDate(lendEndsAt(tried.event)) }), t(renew ? 'lendAskRenew' : 'lendAskNoRenew', { n: stockSavings.LEND_RENEWALS, months: stockSavings.LEND_TERM_MONTHS })]]
     : [];
-  if (!(await askKit({ lang: locale, icon: '🤝', title: t('lendAsk', { qty: fmtQty(qty), name: nameOf(symbol) }), points: [['💰', t('lendAskEarn', { v: money(yearNet, BASE) }), t('lendAskCut', { cut: pct(LEND_CUT, { digits: 0, sign: false }) })], ...term, ['🔒', t('lendAskLock'), t('lendAskRecall', { days: LEND_RECALL })]], ok: t('lendGo'), cancel: t('orderAskCancel') }))) return;
+  if (!(await askKit({ lang: locale, icon: '🤝', title: t('lendAsk', { qty: fmtQty(qty), name: nameOf(symbol) }), points: [['💰', t('lendAskEarn', { v: money(yearNet, BASE) }), t('lendAskCut', { cut: pct(LEND_CUT, { digits: 0, sign: false }) })], ...term, ['🔒', t('lendAskLock'), t('lendAskRecall', { days: LEND_RECALL })], ['🧾', t('lendAskTax'), t('lendAskNhi')]], ok: t('lendGo'), cancel: t('orderAskCancel') }))) return;
   const r = lendShares(state.account, req, Date.now());
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
@@ -3586,13 +3582,12 @@ function loansHtml() {
   const loan = s.loans[l.currency];
   const avail = available(state.account, s);
   const amount = Number(l.amount);
-  const limit = v.debtTWD + v.capacity;
-  const used = limit > 0 ? Math.min(1, v.debtTWD / limit) : 0;
   // Loans come from 融資 buys (the ticket); here they're repaid.
   const canRepay = loan?.balance > 0 && amount > 0;
+  // Nothing borrowed: one line on where loans come from, no form.
+  if (!(v.debtTWD > 0) && !v.loans.length) return emptyHtml({ icon: 'bank', tint: TINT.indigo, title: t('noLoans'), body: t('loansIntroCredit') });
   return `<div class="q-stats">
-      ${stat(t('borrowed'), money(v.debtTWD, BASE), t('loanUsed', { pct: pct(used, { digits: 0, sign: false }) }))}
-      ${stat(t('maintenance'), v.debtTWD > 0 ? pct(v.ratio, { digits: 0, sign: false }) : '—', v.debtTWD > 0 ? t(`margin_${v.margin}`) : t('noLoans'), v.margin === 'ok' ? '' : 'down')}
+      ${stat(t('ratioShort'), pct(v.ratio, { digits: 0, sign: false }), t(`margin_${v.margin}`), v.margin === 'ok' ? '' : 'down')}
       ${stat(t('collateral'), money(v.collateral, BASE))}
       ${stat(t('interestAccrued'), money(v.interestTWD || 0, BASE, { digits: (v.interestTWD || 0) < 10 ? 2 : 0 }))}
     </div>
@@ -3604,8 +3599,7 @@ function loansHtml() {
         <div class="fx-side-row repay-row">${currencySelect('loan-cur', l.currency)}<input id="loan-amount" class="fx-input num" inputmode="decimal" autocomplete="off" value="${h(l.amount)}" placeholder="0" aria-label="${h(t('amount'))}" /></div>
         <div class="q-tags"><span class="q-tag num">${h(loan?.balance > 0 ? t('owed', { amount: money(loan.balance, l.currency) }) : t('noLoanCur', { cur: l.currency }))}</span></div>
         <div class="button-row"><button class="q-btn primary grow" type="button" data-action="repay" ${canRepay ? '' : 'disabled'}>${h(t('repay'))}</button>${loan?.balance > 0 ? `<button class="q-btn small" type="button" data-action="repay-all" ${(avail.cash[l.currency] || 0) > 0 ? '' : 'disabled'}>${h(t('repayAll'))}</button>` : ''}</div>
-      </div>
-      <p class="foot-note">${h(t('loansIntroCredit'))}</p>`
+      </div>`
     )}
     ${sectionHtml(
       t('yourLoans'),
@@ -3627,17 +3621,20 @@ function creditCardHtml(v) {
     const need = key => check.needs.find(n => n.key === key);
     const dayOk = dayTradeSellFirst(state.account, now);
     const dayRoom = dayOk ? dayTradeLeft(state.account, v.netWorth, now) : null;
-    const row = (key, text) => `<div class="q-ritem">${tileHtml(need(key) ? svgIcon('alert') : ico('check'), need(key) ? TINT.orange : TINT.green, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title wrap">${h(text)}</span></span></div>`;
-    return `<p class="foot-note lead">${h(t('creditWhy'))}</p>
-      <div class="q-chips credit-tiers">${CREDIT_TIERS.map(x => `<button class="q-chip" type="button" data-action="credit-tier" data-limit="${x}" aria-pressed="${x === pick}" aria-label="${h(compactMoney(x, BASE))}">${h(compact(x))}</button>`).join('')}</div>
-      <div class="q-rowcard credit-checks">
-        ${row('age', need('age') ? t('creditAgeNo', { date: fmtDate(need('age').from) }) : t('creditAgeOk'))}
-        ${row('trades', t('creditTrades', { n: year.trades, want: CREDIT_MIN_TRADES }))}
-        ${row('turnover', t('creditTurnover', { have: compactMoney(year.turnoverTWD, BASE), want: compactMoney(pick * CREDIT_TURNOVER, BASE) }))}
-        ${pick > CREDIT_TIERS[0] ? row('means', t('creditMeans', { want: compactMoney(pick * CREDIT_PROOF, BASE) })) : ''}
-      </div>
+    const row = (key, title, value = '') => `<div class="q-ritem">${tileHtml(need(key) ? svgIcon('alert') : ico('check'), need(key) ? TINT.orange : TINT.green, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span></span>${value ? `<span class="q-tag ${need(key) ? 'orange' : 'green'} num">${h(value)}</span>` : ''}</div>`;
+    const ageNeed = need('age');
+    return `${sectionHtml(t('creditPick'), `<div class="tier-grid" role="group">${CREDIT_TIERS.map(x => `<button class="tier q-press" type="button" data-action="credit-tier" data-limit="${x}" aria-pressed="${x === pick}" aria-label="${h(compactMoney(x, BASE))}"><strong class="num">${h(compact(x))}</strong></button>`).join('')}</div>`)}
+      ${sectionHtml(
+        t('creditNeeds'),
+        `<div class="q-rowcard credit-checks">
+        ${row('age', t('creditAgeOk'), ageNeed ? t('fromDate', { date: shortDate(ageNeed.from) }) : '')}
+        ${row('trades', t('creditTradesT'), `${year.trades} / ${CREDIT_MIN_TRADES}`)}
+        ${row('turnover', t('creditTurnoverT'), `${compact(year.turnoverTWD)} / ${compact(pick * CREDIT_TURNOVER)}`)}
+        ${pick > CREDIT_TIERS[0] ? row('means', t('creditMeansT'), compactMoney(pick * CREDIT_PROOF, BASE)) : ''}
+      </div>`
+      )}
       <button class="q-btn primary block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>
-      <p class="foot-note">${h(dayOk ? t('dayTradeOk') : t('dayTradeNo'))}${dayRoom ? ` ${h(t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) }))}` : ''}</p>`;
+      <div class="q-rowcard"><div class="q-ritem">${tileHtml(dayOk ? ico('check') : ico('clock'), dayOk ? TINT.green : TINT.gray, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('dayTradeTitle'))}</span><small class="num">${h(dayOk ? (dayRoom ? t('dayTradeLeftShort', { left: money(dayRoom.left, BASE) }) : '') : t('dayTradeNeed'))}</small></span>${dayOk ? `<span class="q-tag green">${h(t('dayTradeYes'))}</span>` : ''}</div></div>`;
   }
   const used = creditUsed(v);
   const better = bestTier(state.account, v.netWorth, now);
@@ -3651,8 +3648,7 @@ function creditCardHtml(v) {
         ? `<div class="q-rowcard">${list.map(x => `<div class="q-ritem">${symbolBadge(x.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(x.symbol))}</span><small>${h(x.side === 'loan' ? t('termLoan') : t('termShort'))} · ${h(t('termDue', { date: fmtDate(x.due) }))}</small></span>${x.canExtend ? `<button class="q-btn small" type="button" data-action="extend" data-symbol="${h(x.symbol)}">${h(t('extend'))}</button>` : `<span class="q-tag">${h(t('extendFrom', { date: fmtDate(x.due - 30 * 86_400_000) }))}</span>`}</div>`).join('')}</div>`
         : '',
       { side: `<span class="q-tag tint">${h(t('creditLimitIs', { v: compactMoney(credit.limit, BASE) }))}</span>` }
-    )}
-    <p class="foot-note">${h(t('creditRules'))}</p>`;
+    )}`;
 }
 function doOpenCredit(limit) {
   const r = openCredit(state.account, limit, valuation().netWorth, Date.now());
@@ -4334,7 +4330,7 @@ const TOOLS = {
 function openTool(kind) {
   if (!TOOLS[kind] || !state.account) return;
   state.tool = kind;
-  const dialog = kitSheet('tool', { cls: 'q-full tool-sheet', onClose: () => (state.tool = null) });
+  const dialog = kitSheet('tool', { cls: 'tool-sheet', detent: '', onClose: () => (state.tool = null) });
   dialog.scrollTop = 0;
   renderTool();
   if (kind === 'lend') loadLendCloses(state.account);
@@ -4350,22 +4346,61 @@ function renderTool() {
   setHead($('tool'), h(title));
   morph(box, `${toolHero(state.tool)}<div class="tool-page">${body}</div>`);
 }
-// Each tool sheet's hero: the one number it is about, in the kit's sheetHero (nothing, on an older kit).
+// Each tool sheet's hero: the one number it is about and its facts as short tags,
+// in the kit's sheetHero (nothing, on an older kit).
 function toolHero(kind) {
   const v = valuation();
-  if (!v) return '';
-  const credit = creditAccount(state.account, Date.now());
-  const best = Math.max(...TD_TERMS.map(x => tdRate(x.months)));
-  const hero = {
-    alloc: [t('netWorth'), money(v.netWorth, BASE), `${t('positions')} ${v.positions.length}`, TINT.indigo],
-    loans: [t('borrowed'), money(v.debtTWD, BASE), v.debtTWD > 0 ? `${t('maintenance')} ${pct(v.ratio, { digits: 0, sign: false })}` : t('noLoans'), TINT.indigo],
-    td: [t('tdTitle'), pct(best, { digits: 2, sign: false }), t('tdBestRate', { rate: pct(best, { digits: 2, sign: false }) }), TINT.green],
-    credit: [t('creditTitle'), credit.open ? money(credit.limit, BASE) : t('creditClosed'), credit.open ? t('creditLimitIs', { v: compactMoney(credit.limit, BASE) }) : '', TINT.purple],
-    income: [t('incomeTitle'), money(incomeSummary(state.account).last12, BASE), t('income12'), TINT.orange]
+  if (!v || !kitUI.sheetHero) return '';
+  const now = Date.now();
+  const rate = x => pct(x, { digits: 2, sign: false });
+  const make = {
+    alloc: () => ({ eyebrow: t('netWorth'), big: money(v.netWorth, BASE), tags: [t('heroHoldN', { n: v.positions.length })], tint: TINT.indigo }),
+    loans: () => ({
+      eyebrow: t('borrowed'),
+      big: money(v.debtTWD, BASE),
+      tags: v.debtTWD > 0 ? [`${t('ratioShort')} ${pct(v.ratio, { digits: 0, sign: false })}`, t('loanUsed', { pct: pct(v.debtTWD / Math.max(1, v.debtTWD + v.capacity), { digits: 0, sign: false }) })] : [t('noLoans')],
+      tint: TINT.indigo
+    }),
+    td: () => {
+      const term = TD_TERMS.find(x => x.months === state.td.months) || TD_TERMS.at(-1);
+      const amount = Math.round(Number(state.td.amount) || 0);
+      const preview = tdPreview(Math.max(0, amount), term.months, now);
+      const free = Math.max(0, withdrawable(state.account, snap())[BASE] || 0);
+      return {
+        eyebrow: t('tdHeroOf', { n: term.months }),
+        big: rate(tdRate(term.months)),
+        sub: t('tdYearRate'),
+        tags: [t('tdEndsTag', { date: fmtDate(preview.ends) }), ...(amount >= TD_MIN && amount <= free ? [t('tdEarnTag', { v: money(preview.gross, BASE) })] : [])],
+        tint: TINT.green
+      };
+    },
+    credit: () => {
+      const credit = creditAccount(state.account, now);
+      return credit.open
+        ? { eyebrow: t('creditLimitWord'), big: money(credit.limit, BASE), tags: [t('creditTermTag'), t('creditShortTag')], tint: TINT.purple }
+        : { eyebrow: t('creditTitle'), big: t('creditClosed'), tags: [t('creditTwTag'), t('creditCryptoTag')], tint: TINT.purple };
+    },
+    income: () => ({ eyebrow: t('income12'), big: money(incomeSummary(state.account).last12, BASE), tint: TINT.orange }),
+    lend: () => ({
+      eyebrow: t('lendEarned'),
+      big: money(v.lendIncome || 0, BASE),
+      tags: [t('lendCutTag', { cut: pct(LEND_CUT, { digits: 0, sign: false }) }), t('lendRecallTag', { days: LEND_RECALL })],
+      tint: TINT.orange
+    }),
+    rates: () => {
+      const q = state.quotes.get(fxSymbol('USD'));
+      const sells = q ? num(q.price * (1 + fxSpread('USD', BASE, state.fxOpen)), 3) : '…';
+      return { eyebrow: t('ratesHeroUsd'), big: sells, tags: [t('ratesInNtd'), ...(q && Number.isFinite(q.pct) ? [`${t('todayShort')} ${pct(q.pct, { digits: 2 })}`] : [])], tint: TINT.teal };
+    },
+    plans: () => {
+      const plans = activePlans(state.account);
+      return { eyebrow: t('plansTitle'), big: money(plans.reduce((a, p) => a + Number(p.amount || 0), 0), BASE), sub: t('plansMonthly', { n: plans.length }), tint: TINT.teal };
+    },
+    alerts: () => ({ eyebrow: t('alertsTitle'), big: String(Object.values(state.account.alerts || {}).filter(a => a.on).length), sub: t('alertsOnSub'), tint: TINT.red })
   }[kind];
-  if (!hero || !kitUI.sheetHero) return '';
+  if (!make) return '';
   try {
-    return kitUI.sheetHero({ eyebrow: hero[0], big: hero[1], sub: hero[2], tint: hero[3] }).outerHTML;
+    return kitUI.sheetHero(make()).outerHTML;
   } catch {
     return '';
   }

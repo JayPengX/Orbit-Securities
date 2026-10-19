@@ -544,13 +544,8 @@ a.act-row { color: inherit; }
 .rate-row.board > .num { text-align: right; }
 .rate-row.board .q-ritem-title { font-size: 15px; }
 .rate-row.board .q-ritem-text small { white-space: nowrap; -webkit-line-clamp: 1; }
-.td-terms > button { display: grid; justify-items: center; gap: 1px; min-height: 44px; padding: 4px 2px; }
-.td-terms small { font-size: 11px; opacity: 0.8; }
 .loan-bar { height: 10px; overflow: hidden; border-radius: 5px; background: var(--q-fill-3); }
 .loan-bar i { display: block; height: 100%; border-radius: 5px; background: var(--accent); }
-.credit-tiers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; overflow: visible; }
-.credit-tiers .q-chip { justify-content: center; min-width: 0; padding-inline: 0; }
-.credit-checks .q-ritem-title { font-size: 15px; }
 .credit-use { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; font: var(--q-t-subhead); }
 .credit-use .loan-bar { grid-column: 1 / -1; }
 
@@ -622,8 +617,6 @@ a.act-row { color: inherit; }
 #home-body .q-section-head h2 { flex: 0 0 auto; white-space: nowrap; }
 #home-body .q-section-head .q-tag { margin-left: auto; }
 .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
-.credit-tiers { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
-.tool-sheet .q-sheet-hero { margin: 4px 0 8px; }
 .tool-sheet .tool-page .q-btn.primary:not(.small) { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 1; min-height: 50px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14); }
 
 :is(.q-chips, .chip-row, .tool-page, .ticket) .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
@@ -642,3 +635,42 @@ a.act-row { color: inherit; }
   .field-row { flex-wrap: wrap; }
   .field-row .field:not(.grow) { flex: 1 1 100%; }
 }
+
+/* ==== One pattern for every tool sheet: sized to its content, a hero with the
+   number and its facts as tags, big tap targets, one strong button ==== */
+.tool-sheet .q-sheet-hero { margin: 4px 0 14px; }
+/* A disabled main button reads as off (grey), not as a dim accent. */
+.q-btn.primary:disabled { opacity: 1; background: var(--q-fill-3); color: var(--q-label-2); box-shadow: none; }
+/* Picker tiles (定存 terms, 信用 limits): equal columns, the picked one filled. */
+.term-grid, .tier-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.term-grid .term, .tier-grid .tier { display: grid; justify-items: center; align-content: center; gap: 1px; min-width: 0; min-height: 64px; padding: 8px 2px; border: 0; border-radius: 14px; background: var(--q-surface); color: var(--q-label); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tier-grid .tier { min-height: 52px; }
+.term-grid .term strong { font: 700 22px/1 var(--q-font-rounded); }
+.tier-grid .tier strong { font: 700 15px/1 var(--q-font-rounded); white-space: nowrap; }
+.term-grid .term small { color: var(--q-label-2); font: 500 11px/14px var(--q-font); }
+.term-grid .term span { color: var(--q-label-2); font: 600 12px/16px var(--q-font); }
+:is(.term-grid .term, .tier-grid .tier)[aria-pressed='true'] { background: var(--accent); color: #fff; }
+:is(.term-grid .term, .tier-grid .tier)[aria-pressed='true'] :is(small, span) { color: rgba(255, 255, 255, 0.85); }
+.big-field em { white-space: nowrap; }
+.big-field em { display: flex; align-items: center; gap: 6px; }
+.big-field em .q-tag { border: 0; font: 600 12px/18px var(--q-font); cursor: pointer; }
+.check-row b { display: block; font-weight: 600; color: var(--q-label); }
+.check-row small { display: block; color: var(--q-label-2); font: var(--q-t-footnote); }
+.credit-checks .q-tag { flex: none; white-space: nowrap; }
+/* The rates board without tiles: code over name, then the three numbers. */
+.rates-head { grid-template-columns: minmax(0, 1.2fr) 1fr 1fr 0.9fr; padding-left: 16px; }
+.rate-row.board { grid-template-columns: minmax(0, 1.2fr) 1fr 1fr 0.9fr; --q-ritem-sep: 16px; }
+/* Allocation: the ring above, the legend full width under it, one row a part. */
+.donut-wrap { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.donut-wrap .stack-legend { width: 100%; }
+.donut-wrap .stack-legend li { grid-template-columns: 12px minmax(0, 1fr) auto auto; }
+.donut-wrap .legend-label, .donut-wrap .legend-value, .donut-wrap .stack-legend li > strong { grid-row: auto; grid-column: auto; }
+.donut-wrap .legend-value { text-align: right; }
+/* The narrowest phones: the board is the bank's buy and sell, today's move is in the hero. */
+@media (max-width: 359px) {
+  .rates-head, .rate-row.board { grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 14px; }
+  .rates-head span:last-child, .rate-row.board > :last-child { display: none; }
+}
+.tool-sheet .tool-page .q-btn.primary:disabled { box-shadow: none; }
+.big-field > span { white-space: nowrap; }
+.tool-page { grid-template-columns: minmax(0, 1fr); }
