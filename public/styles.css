@@ -686,3 +686,7 @@ a.act-row { color: inherit; }
 /* A range (今日區間, 52 週) breaks after its dash when the column is narrow, never inside a number. */
 .facts-grid div.range dd { white-space: normal; }
 .facts-grid div.range dd span.keep { display: inline-block; white-space: nowrap; }
+/* Stock logos fill their tile: the picture edge to edge on white, no dark frame around it (html: over the kit's .q-logo, loaded later). */
+html .q-logo:not(.text) { background: #ffffff; }
+html .q-logo img { width: 100%; height: 100%; object-fit: contain; }
+.sym-badge.logo .sym-logo { padding: 10%; }
