@@ -1150,7 +1150,7 @@ function eventRows(v) {
     if (a) rows.push(row(ico('bell'), TINT.red, t('evAlertHeld', { name: nameOf(p.symbol, p.quote), kind: t(`${a}Tag`) }), t(`${a}Help`), `data-action="open" data-symbol="${h(p.symbol)}"`));
   }
   for (const [id, sym] of [['tw', '^TWII'], ['us', '^GSPC']]) {
-    const days = holidayLine(state.quotes.get(sym));
+    const days = holidayLine(state.quotes.get(sym)).split(/[、,] ?/).slice(0, 2).join(locale === 'zh' ? '、' : ', ');
     if (days) rows.push(row(ico('calendar'), TINT.gray, t('evHoliday', { m: t(`openMkt_${id}`) }), days, 'data-action="goto" data-tab="markets"'));
   }
   return rows.slice(0, 5);
@@ -1161,8 +1161,8 @@ function fillRow(e) {
   const buy = e.side === 'buy';
   return `<button class="q-ritem quote stock-row" type="button" data-action="open" data-symbol="${h(e.symbol)}">
     ${symbolBadge(e.symbol, state.quotes.get(e.symbol))}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(e.symbol, state.quotes.get(e.symbol)))}</span><small class="num">${h(t(buy ? 'buy' : 'sell'))} ${h(fmtQty(e.qty))} ${h(unitOf(e.symbol))} · ${h(shortDate(e.t))}</small></span>
-    <span class="q-ritem-end"><strong class="num">${h(money(e.total, e.currency || BASE))}</strong><small class="num">@ ${h(fmtPrice(e.price, e.currency || BASE))}</small></span>
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(e.symbol, state.quotes.get(e.symbol)))}</span><small class="num">${h(t(buy ? 'buy' : 'sell'))} ${h(fmtQty(e.qty))} ${h(unitOf(e.symbol))}</small></span>
+    <span class="q-ritem-end"><strong class="num">${h(money(e.total, e.currency || BASE))}</strong><small class="num">${h(shortDate(e.t))}</small></span>
   </button>`;
 }
 
@@ -1654,6 +1654,19 @@ function closeDetail() {
   if ($('detail').open) $('detail').close();
 }
 
+// The kit's sheetHero with this app's own picture in it (a symbol's logo has its own fallbacks) and live price.
+function sheetHeroHtml({ badge, eyebrow, big, sub, tint, tagsHtml = '', bigAttr = '' }) {
+  if (!kitUI.sheetHero) return '';
+  try {
+    let html = kitUI.sheetHero({ eyebrow, big, sub, tint }).outerHTML;
+    html = html.replace(/^(<div[^>]*>)/, `$1<div class="q-sh-logos sh-badge">${badge}</div>`);
+    if (bigAttr) html = html.replace('class="q-sh-big"', `class="q-sh-big num" ${bigAttr}`);
+    if (tagsHtml) html = html.replace(/<\/div>$/, `<div class="q-sh-row">${tagsHtml}</div></div>`);
+    return html;
+  } catch {
+    return '';
+  }
+}
 function renderDetail() {
   const d = state.detail;
   if (!d) return;
@@ -1670,23 +1683,35 @@ function renderDetail() {
         delayOf(q.market) ? `<span class="q-tag orange" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
       ].join('')
     : '';
+  const upDown = q ? (q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)') : '';
+  const hero = q
+    ? sheetHeroHtml({
+        badge: symbolBadge(d.symbol, q || info),
+        eyebrow: nameOf(d.symbol, q),
+        big: fmtPrice(q.price, q.currency),
+        sub: `${q.currency}${METALS[d.symbol] ? ` / ${unitOf(d.symbol)}` : ''} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${fmtPrice(Math.abs(q.change), q.currency)} (${pct(q.pct)})`,
+        tint: upDown,
+        tagsHtml: `${marketStatus(q)}${tags}`,
+        bigAttr: `data-q-live="big:${h(d.symbol)}"`
+      })
+    : '';
   morph(
     $('detail-body'),
     `
-    <header class="sheet-head">
-      ${symbolBadge(d.symbol, q || info)}
-      <div class="sheet-title"><h2>${h(nameOf(d.symbol, q))}</h2><p>${flagOf(d.symbol, q)} ${h(sub)}</p></div>
+    <header class="q-sheet-head detail-head">
       <button class="icon-button star${starred ? ' on' : ''}" type="button" data-action="star" aria-label="${h(t('watchToggle'))}">${ico('star')}</button>
+      <h2>${h(bareSymbol(d.symbol))}<small>${flagOf(d.symbol, q)} ${h(sub)}</small></h2>
       <button class="icon-button" type="button" data-action="close" aria-label="${h(t('close'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </header>
     ${
-      q
+      hero ||
+      (q
         ? `<div class="quote-head">
       <div class="qh-price"><strong class="big-price num${limitClass(q)}" data-q-live="big:${h(d.symbol)}">${fmtPrice(q.price, q.currency)}</strong><span class="cur">${h(q.currency)}${METALS[d.symbol] ? ` / ${h(unitOf(d.symbol))}` : ''}</span></div>
       <div class="qh-change">${changeHtml(q, { big: true })}</div>
       <div class="q-tags qh-tags">${marketStatus(q)}${tags}</div>
     </div>`
-        : `<p class="empty">${h(t('loadingQuote'))}</p>`
+        : `<p class="empty">${h(t('loadingQuote'))}</p>`)
     }
     <section class="chart-area">
       <div class="range-bar" role="group">${['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max']
@@ -1708,7 +1733,7 @@ function renderDetail() {
     ${q ? toolsHtml(d.symbol, q) : ''}
     ${q ? aboutHtml(d.symbol, q) : ''}
     ${ownTradesHtml(d.symbol)}
-    ${tradable ? `<div class="trade-bar"><button class="q-btn trade buy" type="button" data-action="trade" data-side="buy">${h(t('buy'))}</button><button class="q-btn trade sell" type="button" data-action="trade" data-side="sell">${h(t('sell'))}</button></div>` : ''}
+    ${tradable ? `<div class="trade-bar${kitUI.sheetFoot ? ' q-sheet-foot q-sf' : ''}"><button class="q-btn trade buy" type="button" data-action="trade" data-side="buy">${h(t('buy'))}</button><button class="q-btn trade sell" type="button" data-action="trade" data-side="sell">${h(t('sell'))}</button></div>` : ''}
   `
   );
   renderChart();
@@ -2506,7 +2531,15 @@ function renderTicket() {
     box,
     `${head}
     <div class="ticket">
-      <div class="ticket-quote"><strong class="num${limitClass(q)}">${fmtPrice(q.price, q.currency)}</strong><span class="cur">${h(q.currency)}</span>${changeHtml(q)}</div>
+      ${
+        sheetHeroHtml({
+          badge: symbolBadge(d.symbol, q),
+          eyebrow: `${t(d.side === 'buy' ? 'buy' : 'sell')} ${nameOf(d.symbol, q)}`,
+          big: fmtPrice(q.price, q.currency),
+          sub: `${q.currency} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${fmtPrice(Math.abs(q.change), q.currency)} (${pct(q.pct)})`,
+          tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)'
+        }) || `<div class="ticket-quote"><strong class="num${limitClass(q)}">${fmtPrice(q.price, q.currency)}</strong><span class="cur">${h(q.currency)}</span>${changeHtml(q)}</div>`
+      }
       <div class="q-seg side-toggle" role="group">
         <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t('buy'))}</button>
         <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(t('sell'))}</button>
@@ -2516,11 +2549,15 @@ function renderTicket() {
       ${extOk ? seg([['', t('session_regular')], ['1', t(`session_${usSession}`)]], 'ext', 'ext', v => Boolean(v) === Boolean(d.ext)) : ''}
       ${marginRate > 0 ? seg([['', t('cashBuy')], ['1', t('creditBuy', { n: Math.round(marginRate * 10) })]], 'credit', 'credit', v => Boolean(v) === credit) : ''}
       <div class="ticket-fields">
-        <label class="big-field"><span>${h(t('quantity'))}<em>${h(unit)}</em></span><input id="t-qty" class="num" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>
+        ${
+          kitUI.stakeInput
+            ? `<div class="q-stake ticket-stake" style="--n:${presets.filter(([, v]) => v > 0).length || 1}"><label class="q-stake-amt"><small>${h(t('quantity'))} · ${h(unit)}</small><input id="t-qty" class="num" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>${presets.filter(([, v]) => v > 0).length ? `<div class="q-stake-presets">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}" aria-pressed="${Number(d.qty) === v}">${h(label)}</button>`).join('')}</div>` : ''}</div>`
+            : `<label class="big-field"><span>${h(t('quantity'))}<em>${h(unit)}</em></span><input id="t-qty" class="num" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>`
+        }
         ${d.type === 'limit' ? `<label class="big-field"><span>${h(t('limitPrice'))}<em>${h(q.currency)}</em></span><input id="t-limit" class="num" inputmode="decimal" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
         ${d.type === 'stop' ? `<label class="big-field"><span>${h(t('stopPrice'))}<em>${h(q.currency)}</em></span><input id="t-stop" class="num" inputmode="decimal" autocomplete="off" value="${h(d.stop)}" /></label>` : ''}
       </div>
-      <div class="chip-row presets">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button class="q-chip" type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}">${h(label)}</button>`).join('')}</div>
+      ${kitUI.stakeInput ? '' : `<div class="chip-row presets">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button class="q-chip" type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}">${h(label)}</button>`).join('')}</div>`}
       <div class="q-tags ticket-tags">
         <span class="q-tag">${h(d.side === 'buy' ? t('cashAvail', { amount: money(cash, q.currency) }) : t('sharesAvail', { qty: fmtQty(shares), unit }))}</span>
         ${d.type !== 'market' && band ? `<span class="q-tag">${h(t('limitBand', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }))}</span>` : ''}
@@ -2545,10 +2582,12 @@ function renderTicket() {
       ${d.type !== 'limit' && est && !afterLines.length ? `<p class="foot-note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
-      <div class="place-bar">${
+      <div class="place-bar${kitUI.sheetFoot ? ' q-sheet-foot q-sf' : ''}">${
+        kitUI.sheetFoot && est ? `<div class="q-sf-sum"><small>${h(d.side === 'buy' ? t('totalCost') : t('totalProceeds'))}</small><b class="num">${h(money(est.total, q.currency))}</b></div>` : ''
+      }${
         topUp?.enough && est && !problems.length
           ? `<button class="q-btn primary place ${d.side}" type="button" data-action="place-fx" data-from="${h(topUp.from)}" data-need="${topUp.need}" ${pricesLive() ? '' : 'disabled'}>${h(t('autoFx'))}</button>`
-          : `<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? t('placeBuy') : t('placeSell'))}${est ? ` · ${h(money(est.total, q.currency))}` : ''}</button>`
+          : `<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? t('placeBuy') : t('placeSell'))}${est && !kitUI.sheetFoot ? ` · ${h(money(est.total, q.currency))}` : ''}</button>`
       }</div>
     </div>`
   );
@@ -4242,7 +4281,27 @@ function renderTool() {
   const box = $('tool-body');
   if (!box || !state.tool || !$('tool').open || !state.account || !snap()) return;
   const [title, body] = TOOLS[state.tool]();
-  morph(box, `<header class="q-sheet-head"><span></span><h2>${h(title)}</h2><button class="q-close" type="button" data-action="tool-close" aria-label="${h(t('close'))}">✕</button></header><div class="tool-page">${body}</div>`);
+  morph(box, `<header class="q-sheet-head"><span></span><h2>${h(title)}</h2><button class="q-close" type="button" data-action="tool-close" aria-label="${h(t('close'))}">✕</button></header>${toolHero(state.tool)}<div class="tool-page">${body}</div>`);
+}
+// Each tool sheet's hero: the one number it is about, in the kit's sheetHero (nothing, on an older kit).
+function toolHero(kind) {
+  const v = valuation();
+  if (!v) return '';
+  const credit = creditAccount(state.account, Date.now());
+  const best = Math.max(...TD_TERMS.map(x => tdRate(x.months)));
+  const hero = {
+    alloc: [t('netWorth'), money(v.netWorth, BASE), `${t('positions')} ${v.positions.length}`, TINT.indigo],
+    loans: [t('borrowed'), money(v.debtTWD, BASE), v.debtTWD > 0 ? `${t('maintenance')} ${pct(v.ratio, { digits: 0, sign: false })}` : t('noLoans'), TINT.indigo],
+    td: [t('tdTitle'), pct(best, { digits: 2, sign: false }), t('tdBestRate', { rate: pct(best, { digits: 2, sign: false }) }), TINT.green],
+    credit: [t('creditTitle'), credit.open ? money(credit.limit, BASE) : t('creditClosed'), credit.open ? t('creditLimitIs', { v: compactMoney(credit.limit, BASE) }) : '', TINT.purple],
+    income: [t('incomeTitle'), money(incomeSummary(state.account).last12, BASE), t('income12'), TINT.orange]
+  }[kind];
+  if (!hero || !kitUI.sheetHero) return '';
+  try {
+    return kitUI.sheetHero({ eyebrow: hero[0], big: hero[1], sub: hero[2], tint: hero[3] }).outerHTML;
+  } catch {
+    return '';
+  }
 }
 // Every sheet closed (a tab or the exchange opening from one).
 function closeSheets() {
