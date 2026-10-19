@@ -114,6 +114,14 @@ const markListed = q => {
   return q;
 };
 
+// A confirm in the kit's new look (a colour tile with a kit icon, numbered points); an older kit keeps the emoji it knew.
+const ASK_ICON = { '🎟': ['ticket', 'indigo'], '📅': ['calendar', 'teal'], '🏦': ['bank', 'indigo'], '⚠️': ['bell', 'red'], '🤝': ['coin', 'orange'], '↩️': ['history', 'blue'], '📈': ['chart', 'green'], '📉': ['chart', 'red'], '💱': ['exchange', 'orange'] };
+function askKit(opts) {
+  const named = ASK_ICON[opts.icon];
+  if (!kitUI.confirm || !named || !kitUI.icons?.[named[0]]) return ask(opts);
+  return kitUI.confirm({ ...opts, icon: named[0], tint: TINT[named[1]], points: (opts.points || []).map(([, head, line], i) => [String(i + 1), head, line]) });
+}
+
 // ---- Settings and storage ------------------------------------------------------
 
 function loadSettings() {
@@ -217,8 +225,7 @@ const marketLabel = id => L(MARKETS[id] || MARKETS.INTL);
 const flagOf = (symbol, q) => {
   const info = q || state.quotes.get(symbol);
   if (info?.kind === 'index' || info?.kind === 'future' || info?.kind === 'fx') {
-    const cat = catalogInfo(symbol)?.category;
-    return cat === 'metal' ? '🛢️' : info.kind === 'fx' ? '💱' : '📈';
+    return '';
   }
   if (BONDS[symbol]) return BONDS[symbol].flag;
   return (MARKETS[info?.market] || MARKETS.INTL).flag;
@@ -1381,7 +1388,7 @@ async function applyIpo(key) {
   const hold = ipoHold(s);
   const cash = withdrawable(state.account, snap())[BASE] || 0;
   if (cash < hold) return toast(t('ipoNoCash', { v: money(hold, BASE) }), 'bad');
-  const ok = await ask({
+  const ok = await askKit({
     lang: locale,
     icon: '🎟',
     title: t('ipoAsk', { name: s.name, code: s.code }),
@@ -2064,7 +2071,7 @@ async function addPlan() {
   if (!state.account || Date.now() - planAddedAt < 2000) return;
   // A purchase every month: asked first.
   const editing = Boolean(state.planEdit) && state.account.plans?.[state.planEdit]?.symbol === d.symbol;
-  if (!(await ask({ lang: locale, icon: '📅', title: t(editing ? 'planEditAsk' : 'planAsk', { name: nameOf(d.symbol, q), amount: money(Number(state.plan.amount) || 0, BASE) }), body: t('planAskBody', { day: state.plan.day }), ok: t(editing ? 'planSave' : 'planAskOk'), cancel: t('orderAskCancel') }))) return;
+  if (!(await askKit({ lang: locale, icon: '📅', title: t(editing ? 'planEditAsk' : 'planAsk', { name: nameOf(d.symbol, q), amount: money(Number(state.plan.amount) || 0, BASE) }), body: t('planAskBody', { day: state.plan.day }), ok: t(editing ? 'planSave' : 'planAskOk'), cancel: t('orderAskCancel') }))) return;
   planAddedAt = Date.now();
   // The keyboard away, so the sheet redraws with the plan in place.
   document.activeElement?.blur?.();
@@ -2084,7 +2091,7 @@ async function savePlanRow(id) {
   const amount = Number(state.plan.amount) || 0;
   const min = planMin(state.quotes.get(plan.symbol) || plan);
   if (amount < min) return toast(t('planNote', { min: money(min, BASE) }), 'bad');
-  if (!(await ask({ lang: locale, icon: '📅', title: t('planEditAsk', { name: nameOf(plan.symbol), amount: money(amount, BASE) }), body: t('planAskBody', { day: state.plan.day }), ok: t('planSave'), cancel: t('orderAskCancel') }))) return;
+  if (!(await askKit({ lang: locale, icon: '📅', title: t('planEditAsk', { name: nameOf(plan.symbol), amount: money(amount, BASE) }), body: t('planAskBody', { day: state.plan.day }), ok: t('planSave'), cancel: t('orderAskCancel') }))) return;
   planAddedAt = Date.now();
   document.activeElement?.blur?.();
   const q = state.quotes.get(plan.symbol) || {};
@@ -2671,7 +2678,7 @@ function confirmOrder() {
   if (!q || !(qty > 0)) return Promise.resolve(false);
   const total = est ? money(est.total, q.currency) : '';
   const split = lotSplit(q.market, q.kind, qty);
-  return ask({
+  return askKit({
     lang: locale,
     icon: d.side === 'buy' ? '📈' : '📉',
     title: t(d.side === 'buy' ? 'orderAskBuy' : 'orderAskSell', { name: nameOf(d.symbol, q) }),
@@ -3449,7 +3456,7 @@ async function doOpenDeposit() {
   const term = TD_TERMS.find(x => x.months === d.months);
   if (!term) return;
   const { rate, gross, ends } = tdPreview(amount, term.months, Date.now());
-  if (!(await ask({ lang: locale, icon: '🏦', title: t('tdAsk', { v: money(amount, BASE), n: term.months }), points: [['📈', t('tdAskRate', { rate: pct(rate, { digits: 3, sign: false }) }), t('tdAskEarn', { v: money(gross, BASE) })], ['🔒', t('tdAskLock', { date: fmtDate(ends) }), t('tdAskEarly', { early: pct(TD_EARLY, { digits: 0, sign: false }) })]], ok: t('tdOpen'), cancel: t('orderAskCancel') }))) return;
+  if (!(await askKit({ lang: locale, icon: '🏦', title: t('tdAsk', { v: money(amount, BASE), n: term.months }), points: [['📈', t('tdAskRate', { rate: pct(rate, { digits: 3, sign: false }) }), t('tdAskEarn', { v: money(gross, BASE) })], ['🔒', t('tdAskLock', { date: fmtDate(ends) }), t('tdAskEarly', { early: pct(TD_EARLY, { digits: 0, sign: false }) })]], ok: t('tdOpen'), cancel: t('orderAskCancel') }))) return;
   const r = openDeposit(state.account, { amount, months: term.months, renew: d.renew }, Date.now());
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
@@ -3464,7 +3471,7 @@ async function doBreakDeposit(id) {
   if (!td) return;
   const full = tdFull(td);
   const got = tdInterest(td, now).gross;
-  if (!(await ask({ lang: locale, icon: '⚠️', title: t('tdBreakAsk'), points: [['💸', t('tdBreakGet', { v: money(got, BASE) }), t('tdBreakLose', { v: money(Math.max(0, full - got), BASE) })]], ok: t('tdBreak'), cancel: t('orderAskCancel'), danger: true }))) return;
+  if (!(await askKit({ lang: locale, icon: '⚠️', title: t('tdBreakAsk'), points: [['💸', t('tdBreakGet', { v: money(got, BASE) }), t('tdBreakLose', { v: money(Math.max(0, full - got), BASE) })]], ok: t('tdBreak'), cancel: t('orderAskCancel'), danger: true }))) return;
   const r = breakDeposit(state.account, id, now);
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
@@ -3487,7 +3494,7 @@ async function doLend(symbol, qty) {
   const term = lendAsks()
     ? [['📅', t('lendAskTerm', { rate: lendPct(tried.event.rate), date: fmtDate(lendEndsAt(tried.event)) }), t(renew ? 'lendAskRenew' : 'lendAskNoRenew', { n: stockSavings.LEND_RENEWALS, months: stockSavings.LEND_TERM_MONTHS })]]
     : [];
-  if (!(await ask({ lang: locale, icon: '🤝', title: t('lendAsk', { qty: fmtQty(qty), name: nameOf(symbol) }), points: [['💰', t('lendAskEarn', { v: money(yearNet, BASE) }), t('lendAskCut', { cut: pct(LEND_CUT, { digits: 0, sign: false }) })], ...term, ['🔒', t('lendAskLock'), t('lendAskRecall', { days: LEND_RECALL })]], ok: t('lendGo'), cancel: t('orderAskCancel') }))) return;
+  if (!(await askKit({ lang: locale, icon: '🤝', title: t('lendAsk', { qty: fmtQty(qty), name: nameOf(symbol) }), points: [['💰', t('lendAskEarn', { v: money(yearNet, BASE) }), t('lendAskCut', { cut: pct(LEND_CUT, { digits: 0, sign: false }) })], ...term, ['🔒', t('lendAskLock'), t('lendAskRecall', { days: LEND_RECALL })]], ok: t('lendGo'), cancel: t('orderAskCancel') }))) return;
   const r = lendShares(state.account, req, Date.now());
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
@@ -3496,7 +3503,7 @@ async function doLend(symbol, qty) {
 }
 
 async function doRecall(id) {
-  if (!(await ask({ lang: locale, icon: '↩️', title: t('lendRecallAsk'), body: t('lendRecallBody', { days: LEND_RECALL }), ok: t('lendRecall'), cancel: t('orderAskCancel') }))) return;
+  if (!(await askKit({ lang: locale, icon: '↩️', title: t('lendRecallAsk'), body: t('lendRecallBody', { days: LEND_RECALL }), ok: t('lendRecall'), cancel: t('orderAskCancel') }))) return;
   // The fee day by day at each day's close (read now if it isn't yet).
   const l = replay(state.account, Date.now()).lent?.[id];
   if (l && lendAsks()) {
@@ -3607,7 +3614,7 @@ async function doExchange() {
   const f = state.fx;
   const amount = fxPayAmount();
   const quote = amount > 0 ? quoteExchange(f.from, f.to, amount, state.rates, state.fxOpen) : null;
-  if (quote && !(await ask({ lang: locale, icon: '💱', title: t('fxAsk', { from: money(amount, f.from), to: money(quote.received, f.to) }), body: t('fxAskBody'), ok: t('fxAskOk'), cancel: t('orderAskCancel') }))) return;
+  if (quote && !(await askKit({ lang: locale, icon: '💱', title: t('fxAsk', { from: money(amount, f.from), to: money(quote.received, f.to) }), body: t('fxAskBody'), ok: t('fxAskOk'), cancel: t('orderAskCancel') }))) return;
   const r = exchange(state.account, { from: f.from, to: f.to, amount: fxPayAmount() }, { rates: state.rates, fxOpen: state.fxOpen, now: Date.now() });
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
@@ -3620,7 +3627,7 @@ async function doExchange() {
 // 補繳: cash paid against the loans, as much as the call needs (or what there is).
 async function payCall(amount) {
   if (!state.account || !(amount >= 1) || !pricesLive()) return;
-  if (!(await ask({ lang: locale, icon: '🏦', title: t('callPayAsk', { v: money(amount, BASE) }), body: t('callPayAskBody'), ok: t('callPayOk'), cancel: t('orderAskCancel') }))) return;
+  if (!(await askKit({ lang: locale, icon: '🏦', title: t('callPayAsk', { v: money(amount, BASE) }), body: t('callPayAskBody'), ok: t('callPayOk'), cancel: t('orderAskCancel') }))) return;
   const r = payDown(state.account, amount, { rates: state.rates, fxOpen: state.fxOpen, now: Date.now() });
   if (!(r.paid >= 1)) return toast(t('callNoCash'), 'bad');
   commit(r.account);
@@ -4281,7 +4288,7 @@ function renderTool() {
   const box = $('tool-body');
   if (!box || !state.tool || !$('tool').open || !state.account || !snap()) return;
   const [title, body] = TOOLS[state.tool]();
-  morph(box, `<header class="q-sheet-head"><span></span><h2>${h(title)}</h2><button class="q-close" type="button" data-action="tool-close" aria-label="${h(t('close'))}">✕</button></header>${toolHero(state.tool)}<div class="tool-page">${body}</div>`);
+  morph(box, `<header class="q-sheet-head"><span></span><h2>${h(title)}</h2><button class="q-close" type="button" data-action="tool-close" aria-label="${h(t('close'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>${toolHero(state.tool)}<div class="tool-page">${body}</div>`);
 }
 // Each tool sheet's hero: the one number it is about, in the kit's sheetHero (nothing, on an older kit).
 function toolHero(kind) {
@@ -4748,7 +4755,7 @@ document.addEventListener('click', async event => {
       break;
     case 'plan-off': {
       const id = el.dataset.id;
-      ask({ lang: locale, icon: '📅', title: t('planStopTitle'), body: t('planStopConfirm'), ok: t('planStop'), danger: true }).then(yes => {
+      askKit({ lang: locale, icon: '📅', title: t('planStopTitle'), body: t('planStopConfirm'), ok: t('planStop'), danger: true }).then(yes => {
         if (!yes || !state.account) return;
         commit(setPlan(state.account, { id, on: false }).account);
         render();

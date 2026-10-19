@@ -522,7 +522,7 @@ a.act-row { color: inherit; }
 .donut { position: relative; flex: none; margin: 0 auto; }
 .donut svg { display: block; width: 100%; height: 100%; }
 .donut-center { position: absolute; inset: 0; display: grid; place-content: center; line-height: 1.2; text-align: center; }
-.donut-center strong { font: 700 17px/22px var(--q-font-rounded); }
+.donut-center strong { font: var(--q-t-subhead); font-weight: 700; font-family: var(--q-font-rounded); }
 .donut-center small { color: var(--q-label-2); font-size: 11px; }
 @media (max-width: 430px) { .donut-wrap .donut { width: 120px !important; height: 120px !important; } }
 .stack-bar { display: flex; gap: 2px; height: 14px; overflow: hidden; border-radius: 4px; }
@@ -648,3 +648,6 @@ a.act-row { color: inherit; }
 .credit-tiers { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
 .tool-sheet .q-sheet-hero { margin: 4px 0 8px; }
 .tool-sheet .tool-page .q-btn.primary:not(.small) { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 1; min-height: 50px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14); }
+
+:is(.q-chips, .chip-row, .tool-page, .ticket) .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.q-stats .q-stat strong { font: var(--q-t-headline); font-weight: 700; overflow: visible; text-overflow: clip; white-space: nowrap; }
