@@ -1262,9 +1262,9 @@ function renderHome() {
   const moversBody = up.length || down.length
     ? `${groups.length > 1 ? `<div class="q-seg mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : ''}
       <div class="q-rowcard">${[...up, ...down].map(q => stockRow(q.symbol)).join('')}</div>`
-    : '';
+    : emptyHtml({ icon: 'chart', tint: TINT.orange, title: t('moversNone'), body: t('moversNoneSub') });
   const fills = (state.account?.events || []).filter(e => e.type === 'fill').sort((a, b) => b.t - a.t).slice(0, 5);
-  const recent = fills.length ? sectionHtml(t('homeRecent'), `<div class="q-rowcard">${fills.map(fillRow).join('')}</div>`, { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="history"' }) : '';
+  const recent = sectionHtml(t('homeRecent'), fills.length ? `<div class="q-rowcard">${fills.map(fillRow).join('')}</div>` : emptyHtml({ icon: 'history', tint: TINT.blue, title: t('recentNone'), body: t('recentNoneSub') }), fills.length ? { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="history"' } : {});
   const events = v ? eventRows(v) : [];
   const eventsHtml = v
     ? sectionHtml(t('homeEvents'), events.length ? `<div class="q-rowcard">${events.join('')}</div>` : emptyHtml({ icon: 'calendar', tint: TINT.gray, title: t('evNone'), body: t('evNoneSub') }))
@@ -1277,7 +1277,7 @@ function renderHome() {
     ${watchlist}
     ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip() })}
     ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"' })}
-    ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : '', { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
+    ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.indigo, title: t('forYouNone'), body: t('forYouNoneSub'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
     ${ipoHtml()}
     ${recent}
     ${eventsHtml}`
@@ -1349,7 +1349,8 @@ const ipoApplied = () => (state.account?.events || []).filter(e => e.type === 'i
 const ipoOutcome = a => state.account.events.find(e => (e.type === 'ipowin' || e.type === 'ipoback') && e.code === a.code && e.draw === a.draw) || null;
 function ipoHtml() {
   const list = ipoState.list;
-  if (!list || !state.account) return '';
+  if (!state.account) return '';
+  if (!list) return sectionHtml(t('ipoTitle'), emptyHtml({ icon: 'calendar', tint: TINT.purple, title: t('ipoNone'), body: t('ipoNoneSub') }));
   const now = Date.now();
   const applied = new Set(ipoApplied().map(a => `${a.code}:${a.draw}`));
   const open = list.filter(s => ipoOpen(s, now) && !applied.has(ipoKey(s))).sort((a, b) => a.to - b.to);
@@ -1358,7 +1359,7 @@ function ipoHtml() {
     .map(a => ({ a, out: ipoOutcome(a) }))
     .filter(({ a, out }) => !out || now - out.t < 14 * 86_400_000 || out.t > now)
     .sort((x, y) => y.a.draw - x.a.draw);
-  if (!open.length && !mine.length) return '';
+  if (!open.length && !mine.length) return sectionHtml(t('ipoTitle'), emptyHtml({ icon: 'calendar', tint: TINT.purple, title: t('ipoNone'), body: t('ipoNoneSub') }));
   // A listed company's offer: what a win is worth at today's price (the gap on the shares).
   const gainOf = s => {
     const q = state.quotes.get(s.symbol);
@@ -1714,7 +1715,7 @@ function renderDetail() {
   const info = catalogInfo(d.symbol);
   const starred = watched(state.account).includes(d.symbol);
   const kind = q?.kind || info?.kind;
-  const sub = [bareSymbol(d.symbol), q?.exchange, kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
+  const sub = [bareSymbol(d.symbol), q?.market ? marketLabel(q.market) : q?.exchange, kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
   const tradable = q && isTradable(q.kind);
   const tags = q
     ? [
