@@ -2799,7 +2799,7 @@ function walletRow(c, reserved = 0, settling = 0, settleAt = 0) {
   const info = currencyInfo(c.currency);
   if (reserved > 1e-9 && c.amount) c = { ...c, amount: c.amount - reserved, twd: c.twd * (1 - reserved / c.amount) };
   const twd = c.currency === BASE;
-  const small = twd ? `${pct(CASH_RATE, { digits: 2, sign: false })} · ${t('cashMonthly')} ${money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE)}` : L(info);
+  const small = twd ? `${t('cashMonthly')} ${money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE)}` : L(info);
   const tags = [
     reserved > 1e-9 ? `<span class="q-tag orange">${h(t('reserved', { amount: money(reserved, c.currency) }))}</span>` : '',
     settling > 1e-9 ? `<span class="q-tag blue">${h(t('settling', { amount: money(settling, c.currency) }))}${settleAt ? ` · ${h(t('settleBy', { date: shortDate(settleAt) }))}` : ''}</span>` : ''
