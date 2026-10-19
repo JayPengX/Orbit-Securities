@@ -77,8 +77,6 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .q-section-head .q-tag { flex: none; }
 .q-section-head h2 { flex: 1 1 auto; min-width: 0; }
 .q-section-head .sort-btn { font-size: 15px; }
-.q-page-head .q-over { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 22px; }
-.q-page-head .q-over .q-tag { min-height: 24px; }
 /* A plain card for drawings and forms (the kit's surface, its radius). */
 .card-box { display: grid; gap: 12px; padding: 14px 16px; border-radius: 18px; background: var(--q-surface); }
 .q-rowcard + .q-rowcard { margin-top: 12px; }
