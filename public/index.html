@@ -61,10 +61,7 @@
   <div class="q-appbar-inner">
     <div class="q-brand">
       <img class="q-brand-logo" src="./favicon.svg" alt="" width="34" height="34" />
-      <div class="q-brand-text">
-        <h1 id="title">Quadra Securities</h1>
-        <p id="status" class="q-status" aria-live="polite"></p>
-      </div>
+      <div class="q-brand-text"><h1 id="title">Quadra Securities</h1></div>
     </div>
     <nav id="tabs" class="q-tabbar" role="tablist"></nav>
     <div id="top-actions" class="q-actions"></div>
@@ -74,23 +71,17 @@
 <main class="page">
   <p id="notice" class="notice" role="note" hidden></p>
 
-  <div id="panel-markets" class="tab-panel" role="tabpanel" aria-labelledby="tab-markets">
-    <div id="home-account"></div>
-    <label class="q-search search-box">
+  <div id="panel-home" class="tab-panel" role="tabpanel" aria-labelledby="tab-home">
+    <div id="home-body"></div>
+  </div>
+
+  <div id="panel-markets" class="tab-panel" role="tabpanel" aria-labelledby="tab-markets" hidden>
+    <header class="q-page-head"><h1 data-t="tab_markets"></h1></header>
+    <label class="q-search">
       <input id="search" type="search" autocomplete="off" enterkeyhint="search" />
-      <button class="q-search-clear" type="button" aria-label="清除">✕</button>
+      <button class="q-search-clear" type="button" data-action="search-clear" aria-label="清除">✕</button>
     </label>
-    <section class="q-section home-rail" aria-labelledby="overview-title">
-      <div class="q-section-head"><h2 id="overview-title" data-t="overviewTitle"></h2></div>
-      <div id="overview" class="q-rail small tiles"></div>
-    </section>
-    <div id="home-rows"></div>
-    <nav id="categories" class="chips" aria-label="categories"></nav>
-    <section aria-labelledby="list-title">
-      <div class="q-section-head"><h2 id="list-title"></h2></div>
-      <p id="list-note" class="lede"></p>
-      <div id="quote-list" class="card list-card"></div>
-    </section>
+    <div id="markets-body"></div>
   </div>
 
   <div id="panel-portfolio" class="tab-panel" role="tabpanel" aria-labelledby="tab-portfolio" hidden>
@@ -104,11 +95,11 @@
   <div id="panel-history" class="tab-panel" role="tabpanel" aria-labelledby="tab-history" hidden>
     <div id="history-body"></div>
   </div>
-
-  <footer><p id="footer" class="muted"></p></footer>
 </main>
 
 <dialog id="detail" class="sheet q-sheet q-full"><div id="detail-body"></div></dialog>
+<dialog id="trade" class="sheet q-sheet q-full trade-sheet"><div id="trade-body"></div></dialog>
+<dialog id="tool" class="sheet q-sheet q-full tool-sheet"><div id="tool-body"></div></dialog>
 <div id="toasts" class="toasts" aria-live="polite"></div>
 <script type="module" src="./app.js" onerror="window.__stockFail()"></script>
 </body>

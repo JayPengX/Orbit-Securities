@@ -29,7 +29,7 @@ test('every key the page asks for exists', () => {
     rating_: ['strong_buy', 'buy', 'hold', 'underperform', 'sell'],
     af_: ['all', 'trades', 'fx', 'income', 'loans', 'cash'],
     margin_: ['ok', 'call', 'liquidate'],
-    tab_: ['markets', 'portfolio', 'fx', 'history', 'guide'],
+    tab_: ['home', 'markets', 'portfolio', 'fx', 'history'],
     err_: ['funds', 'shares', 'qty', 'qtyStep', 'limit', 'stop', 'noQuote', 'notTradable', 'noRate', 'side', 'fx', 'tooSmall', 'amount', 'capacity', 'margin', 'noLoan', 'shortMargin', 'noValuation', 'planAmount', 'planDay', 'alertPrice', 'tick', 'priceLimit', 'unsettled', 'dayTradeLimit', 'split', 'cashOnly', 'limitOnly', 'northboundBoard', 'extLimit', 'planMarket', 'planMin'],
     session_: ['regular', 'pre', 'post'],
     cnBoard_: ['star', 'chinext']
