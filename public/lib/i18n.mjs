@@ -76,7 +76,7 @@ export const STRINGS = {
     kind_fx: '外匯',
     kind_cash: '現金',
     moversTitle: '今日漲跌', listAll: '顯示全部 {n} 檔',
-    odTitle: '帳戶透支 {v}', odSub: '透支每月計息 1%。', odNothing: '沒有可賣的持股：每月薪水會先補上透支。', coverSell: '賣 {qty}', coverAll: '全部', coverGo: '一鍵賣出補足', coverGoPart: '賣出這些（還不夠補足）', coverDone: '已送出 {n} 筆賣單', odStrip: '透支 {v}：賣出持股補足', odPending: '已送出賣單：成交後補足透支。',
+    odTitle: '帳戶透支 {v}', odSub: '透支每月計息 1%。', odNothing: '沒有可賣的持股：每週薪水會先補上透支。', coverSell: '賣 {qty}', coverAll: '全部', coverGo: '一鍵賣出補足', coverGoPart: '賣出這些（還不夠補足）', coverDone: '已送出 {n} 筆賣單', odStrip: '透支 {v}：賣出持股補足', odPending: '已送出賣單：成交後補足透支。',
     buyingPower: '購買力',
     feeWelcome: '新手禮：第一筆交易免手續費', feePlus: 'Plus 會員手續費 {v}', fxPlus: 'Plus 會員點差減半：{v}',
     kind_govbond: '公債',
@@ -579,6 +579,7 @@ export const STRINGS = {
 
     fxTradeButton: '交易貨幣對（外匯市場）',
     payday: '每月入金',
+    weeklyPay: '每週薪水',
     incomeLending: '借券費',
     heroHoldN: '持股 {n} 檔', tdHeroOf: '{n} 個月定存', tdYearRate: '年利率', tdEndsTag: '到期 {date}', tdEarnTag: '利息約 {v}', monthsUnit: '個月', tdRenewSub: '本金續存，利息入帳',
     creditLimitWord: '信用額度', creditTermTag: '期限 6 個月，可展延', creditShortTag: '融券保證金 9 成', creditTwTag: '融資融券限台股', creditCryptoTag: '加密放空也需要', creditPick: '額度', creditNeeds: '開戶條件',
@@ -840,7 +841,7 @@ export const STRINGS = {
     kind_fx: 'FX',
     kind_cash: 'Cash',
     moversTitle: 'Today’s movers', listAll: 'Show all {n}',
-    odTitle: 'Overdrawn by {v}', odSub: 'Overdrafts cost 1% a month.', odNothing: 'Nothing to sell: the monthly pay covers the overdraft first.', coverSell: 'Sell {qty}', coverAll: 'all', coverGo: 'Sell to cover', coverGoPart: 'Sell these (not quite enough)', coverDone: '{n} sell order(s) placed', odStrip: 'Overdrawn {v}: sell to cover', odPending: 'Sell orders placed: the overdraft is covered once they fill.',
+    odTitle: 'Overdrawn by {v}', odSub: 'Overdrafts cost 1% a month.', odNothing: 'Nothing to sell: the weekly pay covers the overdraft first.', coverSell: 'Sell {qty}', coverAll: 'all', coverGo: 'Sell to cover', coverGoPart: 'Sell these (not quite enough)', coverDone: '{n} sell order(s) placed', odStrip: 'Overdrawn {v}: sell to cover', odPending: 'Sell orders placed: the overdraft is covered once they fill.',
     buyingPower: 'Buying power',
     feeWelcome: 'Welcome: no commission on your first trade', feePlus: 'Commission with Plus: {v}', fxPlus: 'Half the spread with Plus: {v}',
     kind_govbond: 'Government bond',
@@ -1343,6 +1344,7 @@ export const STRINGS = {
 
     fxTradeButton: 'Trade currency pairs (forex)',
     payday: 'Monthly payday',
+    weeklyPay: 'Weekly pay',
     incomeLending: 'Lending fees',
     heroHoldN: '{n} holdings', tdHeroOf: '{n}-month deposit', tdYearRate: 'a year', tdEndsTag: 'Ends {date}', tdEarnTag: 'About {v} interest', monthsUnit: 'mo', tdRenewSub: 'Principal rolls over, interest paid out',
     creditLimitWord: 'Credit limit', creditTermTag: '6 months, extendable', creditShortTag: 'Shorts: 90% deposit', creditTwTag: 'Taiwan stocks only', creditCryptoTag: 'Crypto shorts need it', creditPick: 'Limit', creditNeeds: 'To open',

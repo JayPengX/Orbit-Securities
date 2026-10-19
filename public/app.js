@@ -26,7 +26,7 @@ import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
-  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
+  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, nextPayday as quadraPayday, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
   keepOffline, onlineOnly, proxyJson
 } from '#kit/quadra.mjs';
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
@@ -2899,7 +2899,7 @@ function cashHtml(v) {
   const heldFor = c => Math.max(0, c.amount - (avail.cash[c.currency] ?? c.amount));
   const heldTWD = v.cash.reduce((sum, c) => sum + (c.amount ? (heldFor(c) / c.amount) * c.twd : 0), 0);
   const rows = v.cash.map(c => walletRow(c, heldFor(c), unsettledNow[c.currency] || 0, settleAt[c.currency])).join('');
-  const pay = `<div class="q-ritem">${tileHtml(ico('calendar'), TINT.green)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('payday'))}</span><small>${h(fmtDate(nextPayday(Date.now())))}</small></span><span class="q-ritem-value num">+${h(money(paydayFor(state.wallet), BASE))}</span></div>`;
+  const pay = `<div class="q-ritem">${tileHtml(ico('calendar'), TINT.green)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('weeklyPay'))}</span><small>${h(fmtDate(quadraPayday(Date.now())))}</small></span><span class="q-ritem-value num">+${h(money(paydayFor(state.wallet), BASE))}</span></div>`;
   return sectionHtml(t('cash'), `<div class="q-rowcard wallets">${rows}${v.loans.map(loanWalletRow).join('')}${pay}</div>`, {
     side: `<strong class="sec-value num">${h(money(v.cashTWD - heldTWD, BASE))}</strong>`
   });
