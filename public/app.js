@@ -1941,7 +1941,7 @@ function factsHtml(q) {
   // width, and one too long for even that each of its parts (` · `) a line
   // of its own, never wrapped (a currency, "TWD · Taiwan dollar", one line).
   return `<dl class="facts-grid">${rows
-    .map(([k, v]) => (String(v).length > 22 ? `<div class="wide"><dt>${h(k)}</dt><dd>${(String(v).length > 34 ? String(v).split(' · ') : [String(v)]).map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`))
+    .map(([k, v]) => (String(v).length > 22 ? `<div class="wide"><dt>${h(k)}</dt><dd>${(String(v).length > 34 ? String(v).split(' · ') : [String(v)]).map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : String(v).includes(' – ') ? `<div class="range"><dt>${h(k)}</dt><dd>${String(v).split(' – ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} –` : x)}</span>`).join(' ')}</dd></div>` : `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`))
     .join('')}</dl>`;
 }
 

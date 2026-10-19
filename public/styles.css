@@ -683,3 +683,11 @@ a.act-row { color: inherit; }
 .tool-sheet .tool-page .q-btn.primary:disabled { box-shadow: none; }
 .big-field > span { white-space: nowrap; }
 .tool-page { grid-template-columns: minmax(0, 1fr); }
+/* 買進/賣出 and the ticket's button float over the sheet: no band, no line behind them. */
+.q-sheet-foot.q-sf:is(.trade-bar, .place-bar) { border-top: 0; background: transparent; box-shadow: none; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); pointer-events: none; }
+.q-sheet-foot.q-sf:is(.trade-bar, .place-bar) > * { pointer-events: auto; }
+.q-sheet-foot.q-sf:is(.trade-bar, .place-bar) .q-btn { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); }
+.q-sheet-foot.q-sf.place-bar .q-sf-sum { padding: 6px 12px; border-radius: 14px; background: var(--q-sheet); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+/* A range (今日區間, 52 週) breaks after its dash when the column is narrow, never inside a number. */
+.facts-grid div.range dd { white-space: normal; }
+.facts-grid div.range dd span.keep { display: inline-block; white-space: nowrap; }
