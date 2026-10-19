@@ -498,7 +498,8 @@ export const STRINGS = {
     alertsTitle: '到價通知',
 
     planTitle: '定期定額',
-    toastMore: '還有 {n} 則，點一下看全部',
+    toastMore: '共 {n} 則通知',
+    toastGo: '查看',
     noticeReached: '{name} 到 {price} 了',
     noticeReachedBody: '委託單到價，打開 App 就會{side}',
     noticePlanTitle: '今天定期定額：{name}',
@@ -1266,7 +1267,8 @@ export const STRINGS = {
     alertGap: '{pct} from now',
     alertsTitle: 'Price alerts',
 
-    toastMore: 'and {n} more, tap to see them',
+    toastMore: '{n} notifications',
+    toastGo: 'View',
     noticeReached: '{name} at {price}',
     noticeReachedBody: 'Your order’s price is reached: open the app to {side}',
     noticePlanTitle: 'Monthly plan today: {name}',

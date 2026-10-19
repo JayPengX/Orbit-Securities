@@ -1,7 +1,7 @@
 /* Quadra Securities: the kit's look (quadra.css: tokens, q- components, the
    premium layer) with this app's own colour and pieces. In order: tokens,
    base, shared pieces, then each screen (首頁, 市場, the stock's sheet, the
-   ticket, 資產, 資金, 紀錄, the tool sheets), then toasts. */
+   ticket, 資產, 資金, 紀錄, the tool sheets). */
 
 /* ==== Tokens ==== */
 :root {
@@ -554,16 +554,9 @@ a.act-row { color: inherit; }
 .credit-use { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; font: var(--q-t-subhead); }
 .credit-use .loan-bar { grid-column: 1 / -1; }
 
-/* ==== The account sheet's settings, toasts ==== */
+/* ==== The account sheet's settings ==== */
+.toast-list { display: grid; gap: 8px; margin: 0; padding: 8px 20px 24px 38px; font: 500 15px/21px var(--q-font); }
 .settings-rows .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 6px 16px; }
-.toasts { position: fixed; bottom: calc(12px + var(--q-nav)); left: 50%; z-index: 100; display: grid; justify-items: center; gap: 8px; width: min(420px, calc(100vw - 32px)); transform: translateX(-50%); pointer-events: none; }
-.toast { max-width: 100%; padding: 12px 18px; border-radius: 22px; background: var(--q-glass-strong); -webkit-backdrop-filter: blur(30px) saturate(2); backdrop-filter: blur(30px) saturate(2); box-shadow: var(--q-glass-rim), var(--q-glass-drop); color: var(--q-label); font: 600 15px/20px var(--q-font); transition: opacity 0.3s, transform 0.4s var(--q-ease); animation: q-toast-pop var(--q-dur-bouncy) var(--q-spring-bouncy); }
-@keyframes q-toast-pop { from { opacity: 0; transform: translateY(24px) scale(0.9); } }
-.toast:has(.toast-more), .toast:has(ul), .toast.go { pointer-events: auto; cursor: pointer; }
-.toast.bad { color: var(--q-red); }
-.toast-more { display: block; margin-top: 2px; color: var(--q-label-2); font-size: 13px; font-weight: 500; }
-.toast ul { display: grid; gap: 4px; margin: 6px 0 0; padding-left: 18px; font-weight: 500; }
-.toast.out { opacity: 0; transform: translateY(12px) scale(0.96); }
 
 /* Preview fixes: sub-lines wrap instead of cutting; tags never break inside. */
 .q-ritem-text small, .q-ritem-text small.num { white-space: normal; overflow-wrap: anywhere; }
@@ -644,3 +637,10 @@ a.act-row { color: inherit; }
 .setting-row.stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .setting-row.stack .q-seg { width: 100%; }
 .setting-row.stack .q-seg button { flex: 1; white-space: nowrap; }
+
+/* A three-way order-type row on the narrowest phones: 停損 / 觸價 stays whole. */
+@media (max-width: 359px) {
+  .ticket .q-seg button { padding-inline: 4px; font-size: 13px; }
+  .field-row { flex-wrap: wrap; }
+  .field-row .field:not(.grow) { flex: 1 1 100%; }
+}

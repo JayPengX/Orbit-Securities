@@ -116,10 +116,14 @@ const markListed = q => {
 
 // A confirm in the kit's new look (a colour tile with a kit icon, numbered points); an older kit keeps the emoji it knew.
 const ASK_ICON = { '🎟': ['ticket', 'indigo'], '📅': ['calendar', 'teal'], '🏦': ['bank', 'indigo'], '⚠️': ['bell', 'red'], '🤝': ['coin', 'orange'], '↩️': ['history', 'blue'], '📈': ['chart', 'green'], '📉': ['chart', 'red'], '💱': ['exchange', 'orange'] };
+const POINT_ICON = { '💰': ['wallet', 'orange'], '🎲': ['ticket', 'indigo'], '📈': ['chart', 'green'], '🔒': ['lock', 'gray'], '💸': ['coin', 'red'], '📅': ['calendar', 'teal'] };
 function askKit(opts) {
   const named = ASK_ICON[opts.icon];
   if (!kitUI.confirm || !named || !kitUI.icons?.[named[0]]) return ask(opts);
-  return kitUI.confirm({ ...opts, icon: named[0], tint: TINT[named[1]], points: (opts.points || []).map(([, head, line], i) => [String(i + 1), head, line]) });
+  // Points with a kit icon of their own (the kit from the securities parts on: { icon, text } points); older: numbered.
+  const iconed = kitUI.stockRowHtml && (opts.points || []).every(([mark]) => POINT_ICON[mark] && kitUI.icons[POINT_ICON[mark][0]]);
+  const points = (opts.points || []).map(([mark, head, line], i) => (iconed ? { icon: POINT_ICON[mark][0], tint: TINT[POINT_ICON[mark][1]], text: line ? `${head} · ${line}` : head } : [String(i + 1), head, line]));
+  return kitUI.confirm({ ...opts, icon: named[0], tint: TINT[named[1]], points });
 }
 
 // ---- Settings and storage ------------------------------------------------------
@@ -775,49 +779,36 @@ function setBusy(busy) {
 
 // ---- Toasts -------------------------------------------------------------------------
 
-// Toasts that come together (catching up on fills, plans, interest after a
-// while away) show as one: the first two, then how many more (tap for all).
+// The kit's toast. Toasts that come together (catching up on fills, plans,
+// interest after a while away) show as one: the first, with a button for how
+// many more (it lists them). `hash`: the tab a button on a single one opens.
 let toastBatch = null;
-// `hash`: the tab a tap on it opens.
 function toast(text, kind = '', hash = '') {
   if (toastBatch) return void toastBatch.push([text, kind, hash]);
   toastBatch = [[text, kind, hash]];
   setTimeout(() => {
     const list = toastBatch;
     toastBatch = null;
-    if (list.length <= 2) return list.forEach(([x, k, go]) => showToast(x, k, [], go));
-    showToast(list[0][0], list[0][1], list.slice(1));
+    if (list.length === 1) return showToast(list[0][0], list[0][1], list[0][2]);
+    const rest = list.slice(1);
+    showToast(list[0][0], list[0][1], '', {
+      label: `+${rest.length}`,
+      onTap: () => {
+        const body = document.createElement('ul');
+        body.className = 'toast-list';
+        for (const [x] of list) body.append(Object.assign(document.createElement('li'), { textContent: x }));
+        kitUI.sheet({ title: t('toastMore', { n: list.length }), body });
+      }
+    });
   }, 500);
 }
-function showToast(text, kind = '', more = [], hash = '') {
-  const box = $('toasts');
-  const el = document.createElement('div');
-  el.className = `toast ${kind}${hash && !more.length ? ' go' : ''}`;
-  el.textContent = text;
-  if (hash && !more.length)
-    el.addEventListener('click', () => {
-      el.remove();
-      if (TABS.includes(hash) && state.tab !== hash) showTab(hash);
-    });
-  let open = false;
-  if (more.length) {
-    const tail = document.createElement('small');
-    tail.className = 'toast-more';
-    tail.textContent = t('toastMore', { n: more.length });
-    el.append(tail);
-    el.addEventListener('click', () => {
-      if (open) return el.remove();
-      open = true;
-      tail.remove();
-      const ul = document.createElement('ul');
-      for (const [x] of more) ul.append(Object.assign(document.createElement('li'), { textContent: x }));
-      el.append(ul);
-    });
-  }
-  box.append(el);
-  const wait = more.length ? 7000 : 4200;
-  setTimeout(() => !open && el.classList.add('out'), wait);
-  setTimeout(() => !open && el.remove(), wait + 500);
+function showToast(text, kind = '', hash = '', action = null) {
+  const go = hash && TABS.includes(hash) && state.tab !== hash ? { label: t('toastGo'), onTap: () => showTab(hash) } : null;
+  const act = action || go;
+  if (kitUI.toast) return void kitUI.toast(text, { tone: kind, ms: act ? 6000 : 4200, ...(act ? { action: act } : {}) });
+  const el = Object.assign(document.createElement('div'), { className: `q-toast ${kind}`, textContent: text });
+  document.body.append(el);
+  setTimeout(() => el.remove(), 4200);
 }
 
 // ---- Shared bits of markup --------------------------------------------------------
@@ -963,6 +954,12 @@ function logoChoices(symbol, kind) {
     !twSymbol(symbol) && (kind === 'stock' || kind === 'etf') && { urls: [`https://financialmodelingprep.com/image-stock/${encodeURIComponent(symbol)}.png`], fit: 'logo', guess: true }
   ].filter(Boolean);
 }
+// Every picture a symbol may have, in the order to try them (the kit's logoTile takes the list and
+// falls to the name's letter); a currency pair keeps its two icons for its own badge.
+function logoUrls(symbol, kind) {
+  const ok = logoChoices(symbol, kind).filter(c => c.urls.every(u => !logoBad.has(u) && !logoMiss.has(u)));
+  return ok[0]?.urls.length > 1 ? ok[0].urls : ok.flatMap(c => c.urls);
+}
 // Pictures seen to load (kept on the device: drawn at once next time, with
 // no fade) and ones that failed twice (this visit; a guessed FMP picture
 // that isn't there, for good).
@@ -1000,6 +997,15 @@ function symbolBadge(symbol, q) {
     .map(u => (logoOk.has(u) ? `<img class="sym-logo" src="${h(u)}" alt="" referrerpolicy="no-referrer">` : `<img class="sym-logo fresh" src="${h(u)}" alt="" referrerpolicy="no-referrer"${choice.guess ? ' data-guess' : ''}>`))
     .join('');
   return `<span class="sym-badge has-logo ${choice.fit}${choice.urls.length > 1 ? ' pair' : ''}" data-symbol="${h(symbol)}" data-kind="${h(kind)}">${imgs}</span>`;
+}
+// A symbol's picture for a sheet's hero: the kit's logo tile with the whole list of pictures
+// (and the name's letter at the end); this app's round badge where the kit has no such tile.
+function heroLogo(symbol, q) {
+  const kind = q?.kind || catalogInfo(symbol)?.kind || 'stock';
+  const urls = logoUrls(symbol, kind);
+  const name = nameOf(symbol, q);
+  if (!kitUI.logoTileHtml || !urls.length || /^[A-Z]{6}=X$/.test(symbol)) return symbolBadge(symbol, q);
+  return kitUI.logoTileHtml(urls, { size: 56, alt: '', fallbackText: name || bareSymbol(symbol) });
 }
 document.addEventListener(
   'load',
@@ -1142,7 +1148,7 @@ function stockRow(symbol, { sub = '' } = {}) {
   const kind = q?.kind || info?.kind || 'stock';
   const held = snap()?.positions[symbol];
   const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
-  const logo = logoChoices(symbol, kind).find(c => c.urls.every(u => !logoBad.has(u) && !logoMiss.has(u)))?.urls ?? [];
+  const logo = logoUrls(symbol, kind);
   const line = [held ? t('heldTag') : '', due ? due[2] : bareSymbol(symbol), sub].filter(Boolean).join(' · ');
   return (
     kitUI.stockRowHtml?.({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? fmtPrice(q.price, q.currency) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, data: { action: 'open', symbol } }) ?? quoteRow(symbol, { note: sub })
@@ -1695,14 +1701,18 @@ function closeDetail() {
   if ($('detail')?.open) $('detail').close();
 }
 
-// The kit's sheetHero with this app's own picture in it (a symbol's logo has its own fallbacks) and live price.
+// The kit's sheetHero with this app's own picture in it (`logo`: a symbol's picture) and its status row (`status`: the market and quote tags), plus the live price.
 function sheetHeroHtml({ badge, eyebrow, big, sub, tint, tagsHtml = '', bigAttr = '' }) {
   if (!kitUI.sheetHero) return '';
   try {
-    let html = kitUI.sheetHero({ eyebrow, big, sub, tint }).outerHTML;
-    html = html.replace(/^(<div[^>]*>)/, `$1<div class="q-sh-logos sh-badge">${badge}</div>`);
+    let html = kitUI.sheetHeroHtml?.({ eyebrow, big, sub, tint, logoHtml: badge, statusHtml: tagsHtml }) ?? '';
+    // (A kit from before the hero's logo and status slots: the markup put in by hand.)
+    if (!html.includes('q-sh-logos') || (tagsHtml && !html.includes('q-sh-status'))) {
+      html = kitUI.sheetHero({ eyebrow, big, sub, tint }).outerHTML;
+      html = html.replace(/^(<div[^>]*>)/, `$1<div class="q-sh-logos">${badge}</div>`);
+      if (tagsHtml) html = html.replace(/<\/div>$/, `<div class="q-sh-row q-sh-status">${tagsHtml}</div></div>`);
+    }
     if (bigAttr) html = html.replace('class="q-sh-big"', `class="q-sh-big num" ${bigAttr}`);
-    if (tagsHtml) html = html.replace(/<\/div>$/, `<div class="q-sh-row">${tagsHtml}</div></div>`);
     return html;
   } catch {
     return '';
@@ -1727,7 +1737,7 @@ function renderDetail() {
   const upDown = q ? (q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)') : '';
   const hero = q
     ? sheetHeroHtml({
-        badge: symbolBadge(d.symbol, q || info),
+        badge: heroLogo(d.symbol, q || info),
         eyebrow: nameOf(d.symbol, q),
         big: fmtPrice(q.price, q.currency),
         sub: `${q.currency}${METALS[d.symbol] ? ` / ${unitOf(d.symbol)}` : ''} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${fmtPrice(Math.abs(q.change), q.currency)} (${pct(q.pct)})`,
@@ -2571,7 +2581,7 @@ function renderTicket() {
     <div class="ticket">
       ${
         sheetHeroHtml({
-          badge: symbolBadge(d.symbol, q),
+          badge: heroLogo(d.symbol, q),
           eyebrow: bareSymbol(d.symbol),
           big: fmtPrice(q.price, q.currency),
           sub: `${q.currency} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${fmtPrice(Math.abs(q.change), q.currency)} (${pct(q.pct)})`,
