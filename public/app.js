@@ -1121,6 +1121,8 @@ const kitHtml = (make, fallback) => {
     return fallback();
   }
 };
+// A bare empty state: the kit's, one line.
+const plainEmpty = text => kitUI.emptyHtml?.({ title: text }) ?? `<p class="empty">${h(text)}</p>`;
 // The kit's empty state, with an icon, and a button of the app's own under it.
 const emptyHtml = ({ icon, tint = TINT.gray, title, body = '', go = '', attrs = '' }) => {
   const btn = go ? `<button class="q-btn primary small" type="button" ${attrs}>${h(go)}</button>` : '';
@@ -1131,19 +1133,20 @@ const emptyHtml = ({ icon, tint = TINT.gray, title, body = '', go = '', attrs = 
   return `<div class="q-rowcard empty-card">${node.replace(/<\/div>$/, `${btn}</div>`)}</div>`;
 };
 // The day's move as Apple Stocks draws it: a solid pill, white on red or green.
-const movePill = q => `<span class="q-tag solid move-pill ${q && Number.isFinite(q.pct) ? dirClass(q.pct) : 'flat'}">${q && Number.isFinite(q.pct) ? h(pct(q.pct)) : '—'}</span>`;
-// A watchlist row, Apple Stocks style: its picture, name and code on the left, the day's line, the price over the pill on the right.
+// The day's move as the kit's solid pill (percent in, ours is a fraction); an older kit keeps the plain tag.
+const movePill = q => kitUI.movePillHtml?.(q && Number.isFinite(q.pct) ? q.pct * 100 : null) ?? pctTag(q);
+// A watchlist row, Apple Stocks style, the kit's stockRow: logo, name and code, spark, the price over the pill.
 function stockRow(symbol, { sub = '' } = {}) {
   const q = state.quotes.get(symbol);
   const info = catalogInfo(symbol);
+  const kind = q?.kind || info?.kind || 'stock';
   const held = snap()?.positions[symbol];
   const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
-  return `<button class="q-ritem quote stock-row" type="button" data-action="open" data-symbol="${h(symbol)}">
-    ${symbolBadge(symbol, q || info)}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(due ? due[1] : nameOf(symbol, q))}</span><small>${held ? `<b class="held">${h(t('heldTag'))}</b>` : ''}${flagOf(symbol, q)} ${h([due ? due[2] : bareSymbol(symbol), sub].filter(Boolean).join(' · '))}</small></span>
-    <span class="sr-spark">${q?.line?.length > 1 ? sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 72, height: 28 }) : ''}</span>
-    <span class="q-ritem-end"><strong class="num${limitClass(q)}" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong>${movePill(q)}</span>
-  </button>`;
+  const logo = logoChoices(symbol, kind).find(c => c.urls.every(u => !logoBad.has(u) && !logoMiss.has(u)))?.urls ?? [];
+  const line = [held ? t('heldTag') : '', due ? due[2] : bareSymbol(symbol), sub].filter(Boolean).join(' · ');
+  return (
+    kitUI.stockRowHtml?.({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? fmtPrice(q.price, q.currency) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, data: { action: 'open', symbol } }) ?? quoteRow(symbol, { note: sub })
+  );
 }
 // What's coming that matters to this account: orders waiting, an ex-date today, a held stock on TWSE's lists, the next market holidays.
 function eventRows(v) {
@@ -1492,7 +1495,7 @@ function renderMarkets() {
     box,
     `${chips}${sectionHtml(
       L(cat),
-      `<div class="q-rowcard quotes">${symbols.slice(0, cap).map(s => quoteRow(s)).join('') || `<p class="empty">${h(t('nothingHere'))}</p>`}${more > 0 ? `<button class="list-more" type="button" data-action="list-all">${h(t('listAll', { n: symbols.length }))}</button>` : ''}</div>${watchOnly}`,
+      `<div class="q-rowcard quotes">${symbols.slice(0, cap).map(s => quoteRow(s)).join('') || `${plainEmpty(t('nothingHere'))}`}${more > 0 ? `<button class="list-more" type="button" data-action="list-all">${h(t('listAll', { n: symbols.length }))}</button>` : ''}</div>${watchOnly}`,
       { cls: 'list-section' }
     )}`
   );
@@ -1554,7 +1557,7 @@ function renderSearch() {
   const empty = state.search.loading && state.search.query === q ? t('searching') : t('noResults');
   morph(
     $('markets-body'),
-    `<section class="q-section list-section">${rows.length ? `<div class="q-rowcard quotes">${rows.join('')}</div>` : `<p class="empty">${h(empty)}</p>`}${/[^\x20-\x7e]/.test(q) || state.search.loading ? '' : `<p class="foot-note">${h(t('searchNote'))}</p>`}</section>`
+    `<section class="q-section list-section">${rows.length ? `<div class="q-rowcard quotes">${rows.join('')}</div>` : `${plainEmpty(empty)}`}${/[^\x20-\x7e]/.test(q) || state.search.loading ? '' : `<p class="foot-note">${h(t('searchNote'))}</p>`}</section>`
   );
 }
 // ---- Detail sheet: chart, facts, trade ticket ------------------------------------------
@@ -1576,8 +1579,21 @@ async function openDetail(symbol) {
     msg: null,
     held: Boolean(held)
   };
-  const dialog = $('detail');
-  if (!dialog.open) dialog.showModal();
+  const star = document.createElement('button');
+  star.className = 'icon-button star';
+  star.type = 'button';
+  star.dataset.action = 'star';
+  star.setAttribute('aria-label', t('watchToggle'));
+  star.innerHTML = ico('star');
+  const dialog = kitSheet('detail', {
+    cls: 'q-full detail-sheet',
+    lead: star,
+    onClose: () => {
+      state.detail = null;
+      closeTrade();
+    }
+  });
+  dialog.querySelector('.q-sheet-head')?.classList.add('detail-head');
   dialog.scrollTop = 0;
   renderDetail();
   // The chart and the company's numbers start at once, beside the quote;
@@ -1658,9 +1674,24 @@ async function loadChart(retry = 0) {
   renderChart();
 }
 
+// A sheet of the kit's, kept under the id the app addresses it by (#detail, #trade, #tool); its head is the kit's, filled by setHead.
+function kitSheet(id, { cls = '', detent = 'large', lead = null, onClose = () => {} } = {}) {
+  const old = document.getElementById(id);
+  if (old?.open) return old;
+  old?.remove();
+  const body = document.createElement('div');
+  body.id = `${id}-body`;
+  const s = kitUI.sheet({ title: '', body: [body], cls, detent, lead, closeLabel: t('close'), onClose });
+  s.el.id = id;
+  return s.el;
+}
+function setHead(dialog, titleHtml) {
+  const h2 = dialog?.querySelector('.q-sheet-head h2');
+  if (h2 && h2.dataset.k !== titleHtml) ((h2.innerHTML = titleHtml), (h2.dataset.k = titleHtml));
+}
 function closeDetail() {
   state.detail = null;
-  if ($('detail').open) $('detail').close();
+  if ($('detail')?.open) $('detail').close();
 }
 
 // The kit's sheetHero with this app's own picture in it (a symbol's logo has its own fallbacks) and live price.
@@ -1704,14 +1735,11 @@ function renderDetail() {
         bigAttr: `data-q-live="big:${h(d.symbol)}"`
       })
     : '';
+  setHead($('detail'), `${h(bareSymbol(d.symbol))}<small>${flagOf(d.symbol, q)} ${h(sub)}</small>`);
+  $('detail')?.querySelector('.q-sheet-head .star')?.classList.toggle('on', starred);
   morph(
     $('detail-body'),
     `
-    <header class="q-sheet-head detail-head">
-      <button class="icon-button star${starred ? ' on' : ''}" type="button" data-action="star" aria-label="${h(t('watchToggle'))}">${ico('star')}</button>
-      <h2>${h(bareSymbol(d.symbol))}<small>${flagOf(d.symbol, q)} ${h(sub)}</small></h2>
-      <button class="icon-button" type="button" data-action="close" aria-label="${h(t('close'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </header>
     ${
       hero ||
       (q
@@ -1720,7 +1748,7 @@ function renderDetail() {
       <div class="qh-change">${changeHtml(q, { big: true })}</div>
       <div class="q-tags qh-tags">${marketStatus(q)}${tags}</div>
     </div>`
-        : `<p class="empty">${h(t('loadingQuote'))}</p>`)
+        : `${plainEmpty(t('loadingQuote'))}`)
     }
     <section class="chart-area">
       <div class="range-bar" role="group">${['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max']
@@ -1746,7 +1774,7 @@ function renderDetail() {
   `
   );
   renderChart();
-  if (tradable && $('trade').open) renderTicket();
+  if (tradable && $('trade')?.open) renderTicket();
 }
 const dayLineOf = d => {
   const line = d.range === '1d' ? state.quotes.get(d.symbol)?.line : null;
@@ -1763,13 +1791,13 @@ function renderChart() {
   const said = $('detail-chart-head');
   if (said && !(d.chart?.points || dayLine)) said.textContent = '';
   if (d.chartError && !dayLine) {
-    box.innerHTML = `<p class="empty">${h(t('chartError'))}</p>`;
+    box.innerHTML = `${plainEmpty(t('chartError'))}`;
     return;
   }
   let points = d.chart?.points;
   if (!points && dayLine) points = dayLine;
   if (!points || points.length < 2) {
-    box.innerHTML = `<p class="empty">${h(d.chart ? t('chartEmpty') : t('loadingChart'))}</p>`;
+    box.innerHTML = `${plainEmpty(d.chart ? t('chartEmpty') : t('loadingChart'))}`;
     return;
   }
   const cur = q?.currency || d.chart?.quote?.currency;
@@ -2409,23 +2437,23 @@ function openTrade(side) {
   d.side = side;
   d.qty = '';
   d.msg = null;
-  const dialog = $('trade');
-  if (!dialog.open) dialog.showModal();
+  const dialog = kitSheet('trade', { cls: 'trade-sheet', detent: '' });
   dialog.scrollTop = 0;
   renderTicket();
 }
 function closeTrade() {
   const dialog = $('trade');
-  if (!dialog.open) return;
+  if (!dialog?.open) return;
   (globalThis.quadraCloseSheet || (x => x.close()))(dialog);
 }
 
 function renderTicket() {
   const box = $('trade-body');
   const d = state.detail;
-  if (!box || !d || !$('trade').open) return;
+  if (!box || !d || !$('trade')?.open) return;
   const q0 = state.quotes.get(d.symbol);
-  const head = `<header class="q-sheet-head ticket-head"><span></span><h2>${h(t(d.side === 'buy' ? 'buy' : 'sell'))} ${h(nameOf(d.symbol, q0))}</h2><button class="icon-button" type="button" data-action="trade-close" aria-label="${h(t('close'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>`;
+  const head = '';
+  setHead($('trade'), `${h(t(d.side === 'buy' ? 'buy' : 'sell'))} ${h(nameOf(d.symbol, q0))}`);
   if (!state.account || !q0) {
     morph(box, `${head}<div class="empty"><div class="spinner"></div></div>`);
     return;
@@ -2543,7 +2571,7 @@ function renderTicket() {
       ${
         sheetHeroHtml({
           badge: symbolBadge(d.symbol, q),
-          eyebrow: `${t(d.side === 'buy' ? 'buy' : 'sell')} ${nameOf(d.symbol, q)}`,
+          eyebrow: bareSymbol(d.symbol),
           big: fmtPrice(q.price, q.currency),
           sub: `${q.currency} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${fmtPrice(Math.abs(q.change), q.currency)} (${pct(q.pct)})`,
           tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)'
@@ -2816,7 +2844,7 @@ function renderPortfolio() {
         more: v.positions.length > 1 ? t(`posSort_${sort}`) : '',
         moreAction: 'data-action="pos-sort" class="sort-btn"'
       })
-    : sectionHtml(t('positions'), `<div class="q-rowcard"><div class="q-ritem empty-row">${tileHtml(ico('chart'), TINT.gray)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('noPositions'))}</span></span><button class="q-btn small tinted" type="button" data-action="goto" data-tab="markets">${h(t('goTrade'))}</button></div></div>`);
+    : sectionHtml(t('positions'), emptyHtml({ icon: 'chart', tint: TINT.gray, title: t('noPositions'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }));
   morph(
     box,
     `${hero}
@@ -2918,7 +2946,7 @@ function plansHtml() {
       const next = nextPlanRun(p);
       const last = state.account.orders.filter(o => o.plan === p.id).at(-1);
       // 修改 opens the plan's amount and day right in its row.
-      if (state.planEdit === p.id && !$('detail').open) {
+      if (state.planEdit === p.id && !$('detail')?.open) {
         return `<div class="q-ritem plan-edit-row">${symbolBadge(p.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(p.symbol))}</span>
           <span class="field-row">
             <label class="field grow"><span>${h(t('planAmount'))} (NT$)</span><input id="plan-row-amount" class="q-field num" inputmode="numeric" autocomplete="off" value="${h(state.plan.amount)}" /></label>
@@ -2933,13 +2961,13 @@ function plansHtml() {
         <span class="row-actions"><button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(p.id)}" data-row="1">${h(t('planEdit'))}</button><button class="q-btn small danger tinted" type="button" data-action="plan-off" data-id="${h(p.id)}">${h(t('planStop'))}</button></span></div>`;
     })
     .join('');
-  return rows || endedRows ? `<div class="q-rowcard">${endedRows}${rows}</div>` : `<p class="empty">${h(t('nothingYet'))}</p>`;
+  return rows || endedRows ? `<div class="q-rowcard">${endedRows}${rows}</div>` : `${plainEmpty(t('nothingYet'))}`;
 }
 
 const alertsShown = () => Object.values(state.account?.alerts || {}).filter(a => a.on || (a.hit && Date.now() - a.hit.t < 7 * 86_400_000)).sort((a, b) => b.t - a.t);
 function alertsHtml() {
   const list = alertsShown();
-  if (!list.length) return `<p class="empty">${h(t('nothingYet'))}</p>`;
+  if (!list.length) return `${plainEmpty(t('nothingYet'))}`;
   return `<div class="q-rowcard">${list
     .map(a => {
       const q = state.quotes.get(a.symbol);
@@ -3088,7 +3116,7 @@ function allocationHtml(v) {
   const parts = groups.map(([label, value], i) => ({ label, value, color: SERIES[i] }));
   const total = parts.reduce((sum, p) => sum + Math.max(0, p.value), 0);
   return `<div class="q-seg" role="group">${['kind', 'currency', 'market'].map(k => `<button type="button" data-action="alloc" data-alloc="${k}" aria-pressed="${state.alloc === k}">${h(t(`alloc_${k}`))}</button>`).join('')}</div>
-    <div class="card-box alloc-box">${donut(parts, { format: x => money(x, BASE), center: compactMoney(total, BASE), sub: t('allocTotal') }) || `<p class="empty">${h(t('nothingYet'))}</p>`}</div>`;
+    <div class="card-box alloc-box">${donut(parts, { format: x => money(x, BASE), center: compactMoney(total, BASE), sub: t('allocTotal') }) || `${plainEmpty(t('nothingYet'))}`}</div>`;
 }
 // Net worth at the end of every day since the account opened, rebuilt from
 // the log and each day's closing prices and rates (so the chart needs no
@@ -3384,7 +3412,7 @@ function lendHtml() {
   const now = Date.now();
   const lendRows = v.positions.filter(p => !p.short && lendable(p.market, p.kind));
   const lent = v.lent || [];
-  return `${lendRows.length ? `<div class="q-rowcard">${lendRows.map(p => lendRowHtml(p, now)).join('')}</div>` : `<p class="empty">${h(t('lendNone'))}</p>`}
+  return `${lendRows.length ? `<div class="q-rowcard">${lendRows.map(p => lendRowHtml(p, now)).join('')}</div>` : `${plainEmpty(t('lendNone'))}`}
     ${lendAsks() && lendRows.some(p => lendableQty(state.account, p.symbol, now) > 0) ? lendFormHtml() : ''}
     ${sectionHtml(t('lendOut'), lent.length ? `<div class="q-rowcard">${lent.map(l => lentRowHtml(l, now)).join('')}</div>` : '', { side: v.lendIncome > 0 ? `<strong class="sec-value num up-ink">+${h(money(v.lendIncome, BASE))}</strong>` : '' })}
     <p class="foot-note">${h(lendAsks() ? t('lendTermNote', { months: stockSavings.LEND_TERM_MONTHS, n: stockSavings.LEND_RENEWALS, cut: pct(LEND_CUT, { digits: 0, sign: false }), days: LEND_RECALL }) : t('lendNote', { cut: pct(LEND_CUT, { digits: 0, sign: false }), days: LEND_RECALL, term: LEND_TERM_DAYS }))}</p>`;
@@ -3859,8 +3887,8 @@ function renderHistory() {
     morph(
       box,
       `${head}
-      ${sectionHtml(t('openOrders'), open.length ? `<div class="q-rowcard">${open.map(orderRow).join('')}</div>` : `<p class="empty">${h(t('noOpenOrders'))}</p>`)}
-      ${sectionHtml(t('pastOrders'), done.length ? `<div class="q-rowcard">${done.map(orderRow).join('')}</div>` : `<p class="empty">${h(t('nothingYet'))}</p>`)}`
+      ${sectionHtml(t('openOrders'), open.length ? `<div class="q-rowcard">${open.map(orderRow).join('')}</div>` : `${plainEmpty(t('noOpenOrders'))}`)}
+      ${sectionHtml(t('pastOrders'), done.length ? `<div class="q-rowcard">${done.map(orderRow).join('')}</div>` : `${plainEmpty(t('nothingYet'))}`)}`
     );
     return;
   }
@@ -3898,7 +3926,7 @@ function renderHistory() {
     `${head}
     <div class="q-chips bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" data-app="" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
     ${appChips}
-    ${days.length ? days.map(([day, g]) => `<p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.rows.map(activityRow).join('')}${[...g.apps].map(([a, list]) => appDayRow(a, list)).join('')}</div>`).join('') : `<p class="empty">${h(t('nothingYet'))}</p>`}
+    ${days.length ? days.map(([day, g]) => `<p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.rows.map(activityRow).join('')}${[...g.apps].map(([a, list]) => appDayRow(a, list)).join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
     ${own.length > shown.length ? `<button class="q-btn small tinted more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`
   );
 }
@@ -3963,7 +3991,7 @@ function statsHtml() {
         .map(([m, x]) => `<div class="pl-col" title="${h(m)} ${h(money(x, BASE, { sign: true }))}"><span class="pl-up">${x > 0 ? `<i class="up-bg" style="height:${(x / maxAbs) * 100}%"></i>` : ''}</span><span class="pl-down">${x < 0 ? `<i class="down-bg" style="height:${(-x / maxAbs) * 100}%"></i>` : ''}</span><small>${h(String(Number(m.slice(5))))}</small></div>`)
         .join('')}</div>
       <div class="q-tags"><span class="q-tag ${dirClass(bars.at(-1)[1])} num">${h(t('statsThisMonth'))} ${h(money(bars.at(-1)[1], BASE, { sign: true }))}</span><span class="q-tag ${dirClass(yearSum)} num">${h(t('statsYear'))} ${h(money(yearSum, BASE, { sign: true }))}</span></div></div>`
-    : `<p class="empty">${h(t('noClosed'))}</p>`;
+    : `${plainEmpty(t('noClosed'))}`;
   // What trading has cost, all told.
   const paid = v.paid;
   const costs = [
@@ -4010,7 +4038,7 @@ function statsHtml() {
         ? `<div class="card-box trade-record"><div class="win-ring" style="--p:${((wins.length / closed.length) * 100).toFixed(1)}"><strong class="num">${wins.length}<small>/${closed.length}</small></strong><small>${h(t('winsRing'))}</small></div>
             <dl class="record-lines"><div><dt>${h(t('winsLosses'))}</dt><dd class="num">${h(t('winsOf', { w: wins.length, l: losses.length }))}</dd></div><div><dt>${h(t('avgReturn'))}</dt><dd class="num ${dirClass(avgPct)}">${h(pct(avgPct))}</dd></div><div><dt>${h(t('avgHeld'))}</dt><dd class="num">${h(t('days', { n: num(closed.reduce((sum, c) => sum + c.held, 0) / closed.length / 86_400_000) }))}</dd></div></dl></div>
           <div class="q-rowcard">${tradeRow(t('bestTrade'), best)}${worst && worst !== best ? tradeRow(t(worst.realized < 0 ? 'worstTrade' : 'leastGain'), worst) : ''}</div>`
-        : `<p class="empty">${h(t('noClosed'))}</p>`,
+        : `${plainEmpty(t('noClosed'))}`,
       { side: `<span class="q-tag">${h(t('tradeCount', { n: closed.length }))}</span>` }
     )}
     ${sectionHtml(t('statsMovers'), movers.length ? `<div class="q-rowcard">${movers.map(([sym, x]) => `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(sym)}">${symbolBadge(sym)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(sym))}</span><small>${h(bareSymbol(sym))}</small></span><span class="q-ritem-value num ${dirClass(x)}">${h(money(x, BASE, { sign: true }))}</span></button>`).join('')}</div>` : '')}
@@ -4258,7 +4286,7 @@ function render() {
   else if (state.tab === 'fx') renderFx();
   else if (state.tab === 'history') renderHistory();
   renderTool();
-  if (state.detail && $('detail').open) refreshDetailLive();
+  if (state.detail && $('detail')?.open) refreshDetailLive();
 }
 
 // The tools a row opens, each a sheet of its own: its title and its body.
@@ -4276,21 +4304,21 @@ const TOOLS = {
 function openTool(kind) {
   if (!TOOLS[kind] || !state.account) return;
   state.tool = kind;
-  const dialog = $('tool');
-  if (!dialog.open) dialog.showModal();
+  const dialog = kitSheet('tool', { cls: 'q-full tool-sheet', onClose: () => (state.tool = null) });
   dialog.scrollTop = 0;
   renderTool();
   if (kind === 'lend') loadLendCloses(state.account);
 }
 function closeTool() {
   const dialog = $('tool');
-  if (dialog.open) (globalThis.quadraCloseSheet || (x => x.close()))(dialog);
+  if (dialog?.open) (globalThis.quadraCloseSheet || (x => x.close()))(dialog);
 }
 function renderTool() {
   const box = $('tool-body');
-  if (!box || !state.tool || !$('tool').open || !state.account || !snap()) return;
+  if (!box || !state.tool || !$('tool')?.open || !state.account || !snap()) return;
   const [title, body] = TOOLS[state.tool]();
-  morph(box, `<header class="q-sheet-head"><span></span><h2>${h(title)}</h2><button class="q-close" type="button" data-action="tool-close" aria-label="${h(t('close'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>${toolHero(state.tool)}<div class="tool-page">${body}</div>`);
+  setHead($('tool'), h(title));
+  morph(box, `${toolHero(state.tool)}<div class="tool-page">${body}</div>`);
 }
 // Each tool sheet's hero: the one number it is about, in the kit's sheetHero (nothing, on an older kit).
 function toolHero(kind) {
@@ -4322,7 +4350,7 @@ function closeSheets() {
 // 修改 on a plan: the sheet scrolls to the plan's form, its amount ready to type.
 // The form only exists once the quote is in, so it waits for it a little.
 function scrollToPlanForm(symbol, tries = 20) {
-  if (state.detail?.symbol !== symbol || !$('detail').open) return;
+  if (state.detail?.symbol !== symbol || !$('detail')?.open) return;
   const card = $('detail').querySelector('[data-fold="tool:plan"]');
   const input = card?.querySelector('#plan-amount');
   if (!input) return void (tries > 0 && setTimeout(() => scrollToPlanForm(symbol, tries - 1), 250));
@@ -4336,9 +4364,9 @@ function scrollToPlanForm(symbol, tries = 20) {
 
 // The whole sheet again, where it was scrolled to.
 function redrawDetail() {
-  const scroll = $('detail').scrollTop;
+  const scroll = $('detail')?.scrollTop ?? 0;
   renderDetail();
-  $('detail').scrollTop = scroll;
+  if ($('detail')) $('detail').scrollTop = scroll;
 }
 
 // Prices changed under an open sheet: update its numbers without touching
@@ -4352,7 +4380,7 @@ function refreshDetailLive() {
   if (Date.now() - pressedAt < 800) return void setTimeout(refreshDetailLive, 800 - (Date.now() - pressedAt) + 20);
   if (!state.detail) return;
   const active = document.activeElement;
-  if (active && ($('detail').contains(active) || $('trade').contains(active)) && active.matches('input, select')) {
+  if (active && ($('detail')?.contains(active) || $('trade')?.contains(active)) && active.matches('input, select')) {
     renderTicket();
     return;
   }
@@ -4368,10 +4396,21 @@ function showTab(tab) {
 }
 
 function renderStatic() {
+  kitUI.wireLogos?.(document);
   $('title').textContent = t('appName');
   document.title = t('appName');
   for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.dataset.t);
   $('search').placeholder = t('searchPlaceholder');
+  // Every tab but the first opens on the kit's large title (Home has none).
+  for (const id of TABS.slice(1)) {
+    const panel = $(`panel-${id}`);
+    const own = panel.querySelector(':scope > .q-nav-title');
+    if (own) own.setTitle?.(t(`tab_${id}`));
+    else {
+      const title = kitUI.navTitle?.(t(`tab_${id}`));
+      if (title) panel.prepend(title);
+    }
+  }
 }
 // ---- Events ---------------------------------------------------------------------------------
 
@@ -4752,7 +4791,7 @@ document.addEventListener('click', async event => {
       break;
     case 'plan-edit-cancel':
       state.planEdit = null;
-      if ($('detail').open) redrawDetail();
+      if ($('detail')?.open) redrawDetail();
       else renderTool();
       break;
     case 'plan-off': {
@@ -4935,12 +4974,6 @@ document.addEventListener('change', event => {
 });
 
 // The ticket sits over the stock's sheet: it closes with it.
-$('detail').addEventListener('close', () => {
-  state.detail = null;
-  closeTrade();
-});
-$('tool').addEventListener('close', () => (state.tool = null));
-for (const [id, close] of [['detail', closeDetail], ['trade', closeTrade], ['tool', closeTool]]) $(id).addEventListener('click', event => event.target === $(id) && close());
 
 {
   const fromHash = location.hash.slice(1);
