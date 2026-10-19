@@ -651,3 +651,10 @@ a.act-row { color: inherit; }
 
 :is(.q-chips, .chip-row, .tool-page, .ticket) .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .q-stats .q-stat strong { font: var(--q-t-headline); font-weight: 700; overflow: visible; text-overflow: clip; white-space: nowrap; }
+/* Market tag before a symbol, and a currency's letters on its tile (no flag emoji). */
+.mkt-tag { display: inline-block; margin-right: 4px; padding: 0 5px; border-radius: 5px; background: var(--q-fill-3); color: var(--q-label-2); font: 600 11px/16px var(--q-font); vertical-align: 1px; }
+.q-tile .cur-mark { font: 700 14px/1 var(--q-font-rounded); letter-spacing: 0.02em; }
+/* A setting whose control is wide (漲跌顏色): label above, control full width below. */
+.setting-row.stack { flex-direction: column; align-items: stretch; gap: 8px; }
+.setting-row.stack .q-seg { width: 100%; }
+.setting-row.stack .q-seg button { flex: 1; white-space: nowrap; }
