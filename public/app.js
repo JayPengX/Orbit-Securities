@@ -1151,7 +1151,7 @@ function stockRow(symbol, { sub = '' } = {}) {
   const logo = logoUrls(symbol, kind);
   const line = [held ? t('heldTag') : '', due ? due[2] : bareSymbol(symbol), sub].filter(Boolean).join(' · ');
   return (
-    kitUI.stockRowHtml?.({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? fmtPrice(q.price, q.currency) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, data: { action: 'open', symbol } }) ?? quoteRow(symbol, { note: sub })
+    kitUI.stockRowHtml?.({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? fmtPrice(q.price, q.currency) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, open: symbol, data: { action: 'open', symbol } }) ?? quoteRow(symbol, { note: sub })
   );
 }
 // What's coming that matters to this account: orders waiting, an ex-date today, a held stock on TWSE's lists, the next market holidays.
@@ -1600,7 +1600,6 @@ async function openDetail(symbol) {
       closeTrade();
     }
   });
-  dialog.querySelector('.q-sheet-head')?.classList.add('detail-head');
   dialog.scrollTop = 0;
   renderDetail();
   // The chart and the company's numbers start at once, beside the quote;
@@ -1692,9 +1691,21 @@ function kitSheet(id, { cls = '', detent = 'large', lead = null, onClose = () =>
   s.el.id = id;
   return s.el;
 }
-function setHead(dialog, titleHtml) {
-  const h2 = dialog?.querySelector('.q-sheet-head h2');
-  if (h2 && h2.dataset.k !== titleHtml) ((h2.innerHTML = titleHtml), (h2.dataset.k = titleHtml));
+// A sheet's head: its title, and under it the kit's subtitle line (a kit from before it: the line inside the title).
+const KIT_SUBTITLE = Boolean(kitUI.sheetHtml?.({ subtitle: 'x' }).includes('q-sheet-sub'));
+function setHead(dialog, titleHtml, subtitle = '') {
+  const head = dialog?.querySelector('.q-sheet-head');
+  const h2 = head?.querySelector('h2');
+  if (!h2) return;
+  const key = `${titleHtml}|${subtitle}`;
+  if (h2.dataset.k === key) return;
+  h2.dataset.k = key;
+  if (!subtitle) return void (h2.innerHTML = titleHtml);
+  if (!KIT_SUBTITLE) return void (h2.innerHTML = `${titleHtml}<small style="display:block;color:var(--q-label-2);font:var(--q-t-caption)">${h(subtitle)}</small>`);
+  h2.innerHTML = titleHtml;
+  let sub = head.querySelector(':scope > .q-sheet-sub');
+  if (!sub) h2.after((sub = Object.assign(document.createElement('small'), { className: 'q-sheet-sub' })));
+  sub.textContent = subtitle;
 }
 function closeDetail() {
   state.detail = null;
@@ -1725,7 +1736,7 @@ function renderDetail() {
   const info = catalogInfo(d.symbol);
   const starred = watched(state.account).includes(d.symbol);
   const kind = q?.kind || info?.kind;
-  const sub = [bareSymbol(d.symbol), q?.market ? marketLabel(q.market) : q?.exchange, kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
+  const sub = [q?.market ? marketLabel(q.market) : q?.exchange, kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
   const tradable = q && isTradable(q.kind);
   const tags = q
     ? [
@@ -1746,7 +1757,7 @@ function renderDetail() {
         bigAttr: `data-q-live="big:${h(d.symbol)}"`
       })
     : '';
-  setHead($('detail'), `${h(bareSymbol(d.symbol))}<small>${flagOf(d.symbol, q)} ${h(sub)}</small>`);
+  setHead($('detail'), h(bareSymbol(d.symbol)), sub);
   $('detail')?.querySelector('.q-sheet-head .star')?.classList.toggle('on', starred);
   morph(
     $('detail-body'),
@@ -4426,6 +4437,13 @@ function renderStatic() {
 // ---- Events ---------------------------------------------------------------------------------
 
 // Links to the other Quadra apps arrive signed in (quadra.mjs's go).
+// A stock row of the kit's (a role=button, not a <button>): Enter and Space open it as a tap does.
+document.addEventListener('keydown', event => {
+  const row = event.target.closest?.('.q-stock[data-action="open"]');
+  if (!row || event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+  event.preventDefault();
+  row.click();
+});
 document.addEventListener('click', event => {
   const link = event.target.closest('[data-go]');
   if (!link) return;

@@ -596,8 +596,6 @@ a.act-row { color: inherit; }
 #home-body .mover-groups { margin-bottom: 12px; }
 
 /* ==== Round 3: the sheets ==== */
-.detail-head h2 { display: grid; justify-items: center; gap: 1px; min-width: 0; font: var(--q-t-headline); }
-.detail-head h2 small { max-width: 100%; color: var(--q-label-2); font: var(--q-t-caption); font-weight: 500; white-space: nowrap; }
 .q-sheet-hero .q-sh-logos .sym-badge { width: 56px; height: 56px; }
 .q-sheet-hero .q-sh-big { white-space: nowrap; }
 .q-sheet-hero .mkt-status { background: rgba(255, 255, 255, 0.2); color: #fff; }
