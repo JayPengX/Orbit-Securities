@@ -1053,3 +1053,14 @@ button.q-tag.open-mkt { background: var(--q-fill-3); color: var(--q-label-2); }
 .day-head { font: 600 13px/18px var(--q-font); color: var(--q-label-2); padding: 14px 12px 4px; }
 .hero-card.q-hero-card { --q-hc-a: #0b4f4a; --q-hc-b: #0f766e; --q-hc-glow: #2a9d8f; background: radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--q-hc-glow) 55%, transparent), transparent 60%), linear-gradient(135deg, var(--q-hc-a), var(--q-hc-b)); }
 .ipo-gain-line { font-size: 13px; font-weight: 600; }
+
+.fx-hero, .hist-hero { margin-bottom: 16px; }
+.fx-hero .q-hc-big, .hist-hero .q-hc-big { font-size: 38px; line-height: 44px; white-space: nowrap; }
+.fx-hero .hc-line { display: flex; flex-wrap: wrap; gap: 6px; }
+.fx-hero .q-hc-row { margin-top: 4px; }
+.fx-hero .q-hc-btn { flex: 1 1 0; min-width: 0; }
+.hist-hero .hc-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.hc-stat { display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.14); min-width: 0; }
+.hc-stat span { font-size: 12px; opacity: 0.85; }
+.hc-stat strong { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-hero .q-hc-big.up, .hist-hero .q-hc-big { color: #fff; }

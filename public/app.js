@@ -2998,7 +2998,28 @@ function renderFx() {
   ]
     .map(([k, label]) => `<button type="button" data-action="fx-view" data-view="${k}" aria-pressed="${view === k}">${h(label)}</button>`)
     .join('')}</div>`;
-  morph(box, `${headHtml(t('tab_fx'), state.account ? `<span class="q-tag ${valuation()?.margin === 'ok' ? 'green' : 'orange'}">${h(valuation()?.margin === 'ok' ? t('marginOk') : '!')}</span>` : '')}${tabs}${view === 'rates' ? ratesHtml() : view === 'loans' ? loansHtml() : view === 'grow' ? growHtml() : exchangeHtml()}`);
+  morph(box, `${headHtml(t('tab_fx'))}${fxHeroHtml()}${tabs}${view === 'rates' ? ratesHtml() : view === 'loans' ? loansHtml() : view === 'grow' ? growHtml() : exchangeHtml()}`);
+}
+
+// Leads the tab: the foreign cash held (in NT$), the margin ratio as a tag,
+// and the two things to do. Reads the same wallet and valuation the views do.
+function fxHeroHtml() {
+  const s = snap();
+  if (!state.account || !s) return '';
+  const v = valuation();
+  let foreign = 0;
+  for (const [c, amt] of Object.entries(withdrawable(state.account, s))) if (c !== BASE && amt > 0 && state.rates[c]) foreign += amt * state.rates[c];
+  const ok = !v || v.margin === 'ok';
+  const tag = v && v.debtTWD > 0 ? `${t('ratioShort')} ${pct(v.ratio, { digits: 0, sign: false })}` : t('noLoans');
+  return `<div class="q-hero-card fx-hero">
+    <span class="q-hc-eyebrow">${ico('wallet')}<span>${h(t('fxHeroTitle'))}</span></span>
+    <strong class="q-hc-big num">${h(money(foreign, BASE))}</strong>
+    <span class="hc-line"><span class="q-tag solid hc-chg ${ok ? 'flat' : 'down'}">${h(tag)}</span></span>
+    <div class="q-hc-row">
+      <button class="q-hc-btn q-press" type="button" data-action="fx-view" data-view="exchange">${h(t('goFx'))}</button>
+      <button class="q-hc-btn ghost q-press" type="button" data-action="fx-view" data-view="loans">${h(t('goBorrow'))}</button>
+    </div>
+  </div>`;
 }
 
 function exchangeHtml() {
@@ -3665,11 +3686,33 @@ function renderHistory() {
       ? `<div class="chips filter-chips app-chips">${['', ...apps].map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="apps" data-app="${h(k)}" aria-pressed="${app === k}">${h(k ? APPS[k]?.short || k : t('af_all'))}</button>`).join('')}</div>`
       : '';
   box.innerHTML = `${tabs}
+    ${historyHeroHtml(all)}
     ${monthSummaryHtml(all)}
     <div class="chips filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" data-app="" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
     ${appChips}
     ${days.length ? `<div class="card list-card act-list">${days.map(([day, g]) => `<h3 class="day-head">${h(dayLabel(day))}</h3>${g.rows.map(activityRow).join('')}${[...g.apps].map(([a, list]) => appDayRow(a, list)).join('')}`).join('')}</div>` : `<p class="empty">${h(t('nothingYet'))}</p>`}
     ${own.length > shown.length ? `<button class="q-btn small more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`;
+}
+
+// Leads the activity view: this calendar month's realised P&L, with the
+// filled orders and what they cost as small stats.
+function historyHeroHtml(events) {
+  const month = taipeiDay(Date.now()).slice(0, 7);
+  const snapshot = snap();
+  const pl = (snapshot?.closed || []).filter(c => taipeiDay(c.t).slice(0, 7) === month).reduce((sum, c) => sum + c.realized, 0);
+  let fills = 0;
+  let fees = 0;
+  for (const e of events) {
+    if (e.type !== 'fill' || e.t > Date.now() || taipeiDay(e.t).slice(0, 7) !== month) continue;
+    fills += 1;
+    fees += ((e.commission || 0) + (e.tax || 0) + (e.fee || 0)) * (e.twd || 1);
+  }
+  const cell = (label, value) => `<div class="hc-stat"><span>${h(label)}</span><strong class="num">${h(value)}</strong></div>`;
+  return `<div class="q-hero-card hist-hero">
+    <span class="q-hc-eyebrow">${ico('chart')}<span>${h(t('histHeroTitle'))}</span></span>
+    <strong class="q-hc-big num">${h(money(pl, BASE, { sign: true }))}</strong>
+    <div class="hc-stats">${cell(t('filledOrders'), t('tradeCount', { n: fills }))}${cell(t('sumCosts'), money(fees, BASE))}</div>
+  </div>`;
 }
 
 // The last 30 days at a glance: bought, sold, income and what trading cost, in NT$.
