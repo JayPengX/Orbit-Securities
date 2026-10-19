@@ -1052,7 +1052,7 @@ function quoteRow(symbol, { note = '' } = {}) {
   const held = snap()?.positions[symbol];
   // A bond's maturity (its name's last bracket) goes under it, in its symbol's place: the name fits one line.
   const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
-  const sub = [due ? due[2] : bareSymbol(symbol), q ? marketLabel(q.market) : '', note].filter(Boolean).join(' · ');
+  const sub = [due ? due[2] : bareSymbol(symbol), note].filter(Boolean).join(' · ');
   return `<button class="q-ritem quote" type="button" data-action="open" data-symbol="${h(symbol)}">
     ${symbolBadge(symbol, q || info)}
     <span class="q-ritem-text"><span class="q-ritem-title">${h(due ? due[1] : nameOf(symbol, q))}</span><small>${held ? `<b class="held">${h(t('heldTag'))}</b>` : ''}${flagOf(symbol, q)} ${h(sub)}</small></span>
