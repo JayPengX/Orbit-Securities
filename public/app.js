@@ -830,8 +830,18 @@ function statusDot(q) {
 // A colour tile with a glyph (the kit's icons, or this app's own below).
 const tileHtml = (glyph, color, cls = '') => `<span class="q-tile${cls ? ` ${cls}` : ''}" style="--t:${color}" aria-hidden="true">${glyph}</span>`;
 // A section: its title, an optional link or tag on the right, its body.
-const sectionHtml = (title, body, { more = '', moreAction = '', side = '', cls = '' } = {}) =>
-  body ? `<section class="q-section${cls ? ` ${cls}` : ''}"><div class="q-section-head"><h2>${h(title)}</h2>${side}${more ? `<button type="button" ${moreAction}>${h(more)}</button>` : ''}</div>${body}</section>` : '';
+const sectionHtml = (title, body, { more = '', moreAction = '', side = '', cls = '', count = '' } = {}) => {
+  if (!body) return '';
+  const own = moreAction.match(/class="([^"]*)"/)?.[1] || '';
+  const act = moreAction.replace(/class="[^"]*"/, '').trim();
+  const head = kitHtml(
+    () => kitUI.sectionHead?.(title, { more, count, onMore: null }),
+    () => `<div class="q-section-head"><h2>${h(title)}</h2>${count !== '' ? `<span class="q-sh-count num">${h(count)}</span>` : ''}${more ? `<button type="button" class="q-sh-more">${h(more)}</button>` : ''}</div>`
+  )
+    .replace('class="q-sh-more"', `${act} class="q-sh-more${own ? ` ${own}` : ''}"`)
+    .replace('</h2>', `</h2>${side}`);
+  return `<section class="q-section${cls ? ` ${cls}` : ''}">${head}${body}</section>`;
+};
 const ico = name => kitUI.icons?.[name] ?? '';
 const TINT = { teal: 'var(--q-accent)', indigo: 'var(--q-indigo)', orange: 'var(--q-orange)', red: 'var(--q-red)', green: 'var(--q-green)', blue: 'var(--q-blue)', purple: 'var(--q-purple)', pink: 'var(--q-pink)', gray: 'var(--q-gray)', brown: 'var(--q-brown)', cyan: 'var(--q-cyan)', mint: 'var(--q-mint)' };
 // When a closed market opens next: Yahoo's session moved past weekends and
@@ -1092,11 +1102,84 @@ function homeOpenChip() {
   return open.length ? `<button class="q-tag green" type="button" data-action="movers-go" data-v="${h(open[0] === 'jp' || open[0] === 'hk' ? 'world' : open[0])}"><i class="open-dot" aria-hidden="true"></i>${h(open.map(id => t(`openMkt_${id}`)).join('・'))} ${h(t('openNow'))}</button>` : '';
 }
 
+// ---- Kit pieces for the home (each `kitUI.x?.()`, with a fallback for an older kit cached on a phone) ----
+// An element of the kit as HTML, its taps by data-action (this app's one click handler).
+const kitHtml = (make, fallback) => {
+  try {
+    const node = make?.();
+    return node ? node.outerHTML : fallback();
+  } catch {
+    return fallback();
+  }
+};
+// The kit's empty state, with an icon, and a button of the app's own under it.
+const emptyHtml = ({ icon, tint = TINT.gray, title, body = '', go = '', attrs = '' }) => {
+  const btn = go ? `<button class="q-btn primary small" type="button" ${attrs}>${h(go)}</button>` : '';
+  const node = kitHtml(
+    () => kitUI.empty?.({ icon, tint, title, body }),
+    () => `<div class="q-empty">${tileHtml(ico(icon), tint)}<strong>${h(title)}</strong>${body ? `<p>${h(body)}</p>` : ''}</div>`
+  );
+  return `<div class="q-rowcard empty-card">${node.replace(/<\/div>$/, `${btn}</div>`)}</div>`;
+};
+// The day's move as Apple Stocks draws it: a solid pill, white on red or green.
+const movePill = q => `<span class="q-tag solid move-pill ${q && Number.isFinite(q.pct) ? dirClass(q.pct) : 'flat'}">${q && Number.isFinite(q.pct) ? h(pct(q.pct)) : '—'}</span>`;
+// A watchlist row, Apple Stocks style: its picture, name and code on the left, the day's line, the price over the pill on the right.
+function stockRow(symbol, { sub = '' } = {}) {
+  const q = state.quotes.get(symbol);
+  const info = catalogInfo(symbol);
+  const held = snap()?.positions[symbol];
+  const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
+  return `<button class="q-ritem quote stock-row" type="button" data-action="open" data-symbol="${h(symbol)}">
+    ${symbolBadge(symbol, q || info)}
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(due ? due[1] : nameOf(symbol, q))}</span><small>${held ? `<b class="held">${h(t('heldTag'))}</b>` : ''}${flagOf(symbol, q)} ${h([due ? due[2] : bareSymbol(symbol), sub].filter(Boolean).join(' · '))}</small></span>
+    <span class="sr-spark">${q?.line?.length > 1 ? sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 72, height: 28 }) : ''}</span>
+    <span class="q-ritem-end"><strong class="num${limitClass(q)}" data-q-live="row:${h(symbol)}">${q ? fmtPrice(q.price, q.currency) : '…'}</strong>${movePill(q)}</span>
+  </button>`;
+}
+// What's coming that matters to this account: orders waiting, an ex-date today, a held stock on TWSE's lists, the next market holidays.
+function eventRows(v) {
+  const rows = [];
+  const row = (glyph, color, title, small, attrs, end = '') =>
+    `<button class="q-ritem chevron" type="button" ${attrs}>${tileHtml(glyph, color)}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span><small>${h(small)}</small></span>${end}</button>`;
+  const open = state.account.orders.filter(o => o.status === 'open').length;
+  if (open) rows.push(row(ico('list'), TINT.blue, t('evOrders', { n: open }), t('evOrdersSub'), 'data-action="hview-go" data-view="orders"'));
+  const ex = exDayTags(state.account.events);
+  for (const p of v.positions) {
+    if (ex.get(p.symbol)) rows.push(row(ico('coin'), TINT.orange, t('evExDay', { name: nameOf(p.symbol, p.quote) }), exTagHtml(p.symbol).replace(/<[^>]+>/g, ''), `data-action="open" data-symbol="${h(p.symbol)}"`));
+    const a = alertOf(p.symbol, alertState);
+    if (a) rows.push(row(ico('bell'), TINT.red, t('evAlertHeld', { name: nameOf(p.symbol, p.quote), kind: t(`${a}Tag`) }), t(`${a}Help`), `data-action="open" data-symbol="${h(p.symbol)}"`));
+  }
+  for (const [id, sym] of [['tw', '^TWII'], ['us', '^GSPC']]) {
+    const days = holidayLine(state.quotes.get(sym));
+    if (days) rows.push(row(ico('calendar'), TINT.gray, t('evHoliday', { m: t(`openMkt_${id}`) }), days, 'data-action="goto" data-tab="markets"'));
+  }
+  return rows.slice(0, 5);
+}
+
+// A trade, short: the picture, the side and size, the money and the day.
+function fillRow(e) {
+  const buy = e.side === 'buy';
+  return `<button class="q-ritem quote stock-row" type="button" data-action="open" data-symbol="${h(e.symbol)}">
+    ${symbolBadge(e.symbol, state.quotes.get(e.symbol))}
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(e.symbol, state.quotes.get(e.symbol)))}</span><small class="num">${h(t(buy ? 'buy' : 'sell'))} ${h(fmtQty(e.qty))} ${h(unitOf(e.symbol))} · ${h(shortDate(e.t))}</small></span>
+    <span class="q-ritem-end"><strong class="num">${h(money(e.total, e.currency || BASE))}</strong><small class="num">@ ${h(fmtPrice(e.price, e.currency || BASE))}</small></span>
+  </button>`;
+}
+
 function renderHome() {
   const box = $('home-body');
   const v = state.account ? valuation() : null;
   const held = Object.keys(snap()?.positions || {});
   const recs = forYou({ quotes: state.quotes, held, watched: watched(state.account), wallet: state.wallet, aff: affinityMap(), n: 10 });
+  if (v) loadNetWorthHistory();
+  // The hero's line: the account's worth over its days (the chart's own history, or its snapshots).
+  const heroSpark = (() => {
+    if (!v) return '';
+    const rebuilt = state.nwHistory?.history?.length ? state.nwHistory.history : Object.values(state.account.snapshots || {}).sort((a, b) => a.t - b.t).map(x => [x.t, x.nw]);
+    const pts = rebuilt.slice(-40);
+    if (pts.length < 2) return '';
+    return `<span class="hero-spark">${sparkline([...pts, [Date.now(), v.netWorth]], null, { width: 300, height: 44 })}</span>`;
+  })();
   const hero = v
     ? (() => {
         const base = v.netWorth - v.dayChange;
@@ -1104,11 +1187,53 @@ function renderHome() {
           <span class="q-hc-eyebrow">${ico('wallet')}<span>${h(t('netWorth'))}</span>${plusAt() ? '<b class="hc-plus">PLUS</b>' : ''}</span>
           <strong class="q-hc-big num" data-q-live="networth">${h(money(v.netWorth, BASE))}</strong>
           <span class="hc-tags"><span class="q-tag hc-tag">${h(arrow(v.dayChange))}${h(dayWord(v))} ${h(money(v.dayChange, BASE, { sign: true }))}${base ? ` · ${h(pct(v.dayChange / base))}` : ''}</span></span>
+          ${heroSpark}
           <span class="q-hc-sub">${h(t('buyingPower'))} <b class="num">${h(money(buyingPower(v), BASE))}</b></span>
         </button>
         ${overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))}</button>` : ''}`;
       })()
     : `<div class="q-hero-card home-hero"><span class="q-hc-eyebrow">${ico('wallet')}<span>${h(t('netWorth'))}</span></span><strong class="q-hc-big">—</strong></div>`;
+  const actions = [
+    { icon: 'chart', tint: TINT.blue, label: t('qaBuy'), attrs: 'data-action="goto" data-tab="markets"' },
+    { icon: 'exchange', tint: TINT.orange, label: t('qaFx'), attrs: 'data-action="goto" data-tab="fx"' },
+    { icon: 'lock', tint: TINT.green, label: t('qaSave'), attrs: 'data-action="tool" data-tool="td"' },
+    { icon: 'grid', tint: TINT.purple, label: t('qaAlloc'), attrs: 'data-action="tool" data-tool="alloc"' }
+  ];
+  const quick = kitHtml(
+    () => {
+      const node = kitUI.actionGrid?.(actions.map(a => ({ icon: a.icon, tint: a.tint, label: a.label, onTap: null })));
+      node?.querySelectorAll('.q-action').forEach((b, i) => actions[i].attrs.split(/\s(?=data-)/).forEach(a => b.setAttribute(a.split('=')[0], a.split('=')[1].replace(/"/g, ''))));
+      return node;
+    },
+    () => `<div class="q-actions-grid">${actions.map(a => `<button class="q-action" type="button" ${a.attrs}>${tileHtml(ico(a.icon), a.tint)}<span>${h(a.label)}</span></button>`).join('')}</div>`
+  );
+  // 我的持股: a rail, each holding's picture, name, price and today's move.
+  const positions = v ? [...v.positions].sort((a, b) => Math.abs(b.valueTWD) - Math.abs(a.valueTWD)).slice(0, 12) : [];
+  const holdCard = p => {
+    const q = p.quote;
+    return `<button class="q-rail-card hold-card q-press" type="button" data-action="open" data-symbol="${h(p.symbol)}">
+      <span class="hold-top">${symbolBadge(p.symbol, q)}${movePill(q)}</span>
+      <span class="rec-name">${h(nameOf(p.symbol, q))}</span>
+      <small class="num">${h(fmtQty(Math.abs(p.qty)))} ${h(unitOf(p.symbol))}</small>
+      <strong class="num hold-val">${h(money(p.valueTWD, BASE))}</strong>
+      ${q?.line?.length > 1 ? `<span class="card-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 128, height: 28 })}</span>` : ''}
+    </button>`;
+  };
+  const holdings = v
+    ? sectionHtml(t('homeHoldings'), positions.length ? `<div class="q-rail small hold-rail">${positions.map(holdCard).join('')}</div>` : emptyHtml({ icon: 'chart', tint: TINT.blue, title: t('emptyHoldTitle'), body: t('emptyHoldBody'), go: t('emptyHoldGo'), attrs: 'data-action="goto" data-tab="markets"' }), {
+        count: positions.length || '',
+        more: positions.length ? t('seeAll') : '',
+        moreAction: 'data-action="goto" data-tab="portfolio"'
+      })
+    : '';
+  const watch = state.account ? watched(state.account) : [];
+  const watchlist = state.account
+    ? sectionHtml(t('homeWatch'), watch.length ? `<div class="q-rowcard">${watch.slice(0, 6).map(s => stockRow(s)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.orange, title: t('emptyWatchTitle'), body: t('emptyWatchBody'), go: t('emptyWatchGo'), attrs: 'data-action="goto" data-tab="markets"' }), {
+        count: watch.length || '',
+        more: watch.length > 6 ? t('seeAll') : '',
+        moreAction: 'data-action="open-watch"'
+      })
+    : '';
   const index = OVERVIEW.map(sym => {
     const q = state.quotes.get(sym);
     return `<button class="q-rail-card idx-card q-press" type="button" data-action="open" data-symbol="${h(sym)}">
@@ -1117,12 +1242,33 @@ function renderHome() {
       ${pctTag(q)}${q ? `<span class="card-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 128, height: 28 })}</span>` : ''}
     </button>`;
   }).join('');
+  // 今日漲跌幅: the market that's trading now, its biggest risers and fallers.
+  const groups = MOVER_GROUPS.filter(g => movers(state.quotes, { up: true, n: 99, group: g }).length + movers(state.quotes, { up: false, n: 99, group: g }).length >= 3);
+  const group = groups.includes(state.moverGroup) ? state.moverGroup : groups.includes(moverGroupNow()) ? moverGroupNow() : groups[0];
+  const up = group ? movers(state.quotes, { up: true, n: 4, group }) : [];
+  const down = group ? movers(state.quotes, { up: false, n: 4, group }) : [];
+  const moversBody = up.length || down.length
+    ? `${groups.length > 1 ? `<div class="q-seg mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : ''}
+      <div class="q-rowcard">${[...up, ...down].map(q => stockRow(q.symbol)).join('')}</div>`
+    : '';
+  const fills = (state.account?.events || []).filter(e => e.type === 'fill').sort((a, b) => b.t - a.t).slice(0, 5);
+  const recent = fills.length ? sectionHtml(t('homeRecent'), `<div class="q-rowcard">${fills.map(fillRow).join('')}</div>`, { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="history"' }) : '';
+  const events = v ? eventRows(v) : [];
+  const eventsHtml = v
+    ? sectionHtml(t('homeEvents'), events.length ? `<div class="q-rowcard">${events.join('')}</div>` : emptyHtml({ icon: 'calendar', tint: TINT.gray, title: t('evNone'), body: t('evNoneSub') }))
+    : '';
   morph(
     box,
     `${hero}
+    ${quick}
+    ${holdings}
+    ${watchlist}
     ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip() })}
+    ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"' })}
     ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : '', { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
-    ${ipoHtml()}`
+    ${ipoHtml()}
+    ${recent}
+    ${eventsHtml}`
   );
 }
 
@@ -1135,10 +1281,11 @@ function recCard(symbol, why) {
   // Where it trades, in one word (港股, not the category's 港股・陸股, which wrapped).
   const where = q && info && !/etf/.test(info.category) ? marketLabel(q.market) : info ? L(CATEGORIES.find(c => c.id === info.category)) : '';
   return `<button class="q-rail-card rec-card q-press" type="button" data-action="open" data-symbol="${h(symbol)}">
-    <span class="rec-top">${symbolBadge(symbol, q || info)}${whyText ? `<span class="rec-why">${h(whyText)}</span>` : ''}</span>
+    <span class="rec-top">${symbolBadge(symbol, q || info)}${pctTag(q)}</span>
     <span class="rec-name">${h(nameOf(symbol, q))}</span>
     <small>${flagOf(symbol, q)} ${h(bareSymbol(symbol))}${where ? ` · ${h(where)}` : ''}</small>
-    <span class="rec-foot"><strong class="num">${q ? fmtPrice(q.price, q.currency, { short: true }) : '…'}</strong>${pctTag(q)}</span>
+    ${whyText ? `<span class="rec-why">${h(whyText)}</span>` : ''}
+    <strong class="num rec-price">${q ? fmtPrice(q.price, q.currency, { short: true }) : '…'}</strong>
   </button>`;
 }
 // ---- 新股申購 (lib/ipo.mjs) ----
@@ -1211,7 +1358,7 @@ function ipoHtml() {
       ${tileHtml(ico('ticket'), TINT.indigo)}
       <span class="q-ritem-text"><span class="q-ritem-title">${h(s.name)} <em class="code num">${h(s.code)}</em></span>
         <small class="num">${h(t('ipoPrice', { p: money(s.price, BASE), v: money(ipoHold(s), BASE) }))}</small>
-        <span class="q-tags"><span class="q-tag indigo">${h(t(s.ipo ? (/櫃/.test(s.kind) ? 'ipoNewOtc' : 'ipoNew') : 'ipoMore'))}</span><span class="q-tag">${h(t('ipoDrawOn', { date: shortDate(s.draw) }))}</span>${gain != null ? `<span class="q-tag ${gain >= 0 ? 'up' : 'down'}">${h(t('ipoGain'))} ${h(money(gain, BASE, { sign: true }))}</span>` : ''}</span></span>
+        <span class="q-tags"><span class="q-tag indigo">${h(t(s.ipo ? (/櫃/.test(s.kind) ? 'ipoNewOtc' : 'ipoNew') : 'ipoMore'))}</span><span class="q-tag">${h(t('ipoDrawOn', { date: shortDate(s.draw) }))}</span></span>${gain != null ? `<small class="num ${gain >= 0 ? 'up-ink' : 'down-ink'}">${h(t('ipoGain'))} ${h(money(gain, BASE, { sign: true }))}</small>` : ''}</span>
       <button class="q-btn small primary" type="button" data-action="ipo-apply" data-key="${h(ipoKey(s))}">${h(t('ipoApply'))}</button>
     </div>`;
   };
@@ -2929,6 +3076,7 @@ async function loadNetWorthHistory() {
   );
   state.nwHistory = { key, history };
   if (state.tab === 'portfolio') renderNetWorthChart(valuation(), snap());
+  else if (state.tab === 'home') renderHome();
 }
 
 // The hero's chart, in white on the app's colour: 損益 or 總資產 since the account opened.
@@ -4178,6 +4326,12 @@ document.addEventListener('click', async event => {
       renderMarkets();
       break;
     // The home's 「交易中」 tag: that market's movers on 市場.
+    case 'open-watch':
+      state.category = 'watch';
+      state.query = '';
+      $('search').value = '';
+      showTab('markets');
+      break;
     case 'movers-go':
       state.moverGroup = el.dataset.v;
       state.category = null;

@@ -579,3 +579,39 @@ a.act-row { color: inherit; }
 .ipo-item .q-ritem-text small.num { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ipo-item .q-tags { height: 22px; overflow: hidden; } /* one row: a tag that does not fit is dropped whole */
 .wallet .q-ritem-text > small.num { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* ==== Round 3: 首頁 as Apple Stocks (shelves of real data) ==== */
+.home-hero { gap: 6px; }
+.hero-spark { display: block; margin: 6px -2px 2px; }
+.hero-spark svg { display: block; width: 100%; height: 44px; }
+.hero-spark svg path { fill: none; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0.9; }
+.hero-spark svg .spark-base { display: none; }
+#home-body .q-actions-grid { margin-top: 16px; }
+#home-body .q-section { margin-top: 28px; }
+#home-body .q-section-head { padding-bottom: 12px; }
+/* A holding: its picture at 48, name, size, worth, the day's line. */
+.hold-rail { --q-rail-w: 168px; }
+.hold-card { display: grid; gap: 4px; align-content: start; border: 0; font: inherit; text-align: left; }
+.hold-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.hold-card .sym-badge, .rec-card .sym-badge { width: 48px; height: 48px; }
+.hold-card > small { color: var(--q-label-2); font: var(--q-t-footnote); }
+.hold-val { margin-top: 2px; font: 700 18px/22px var(--q-font-rounded); white-space: nowrap; }
+.hold-card .card-spark { margin-top: 6px; }
+/* Apple Stocks' pill: solid, white on red or green. */
+.move-pill { flex: none; min-width: 66px; justify-content: center; min-height: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.q-tag.solid.move-pill.flat { background: var(--q-gray); color: #fff; }
+.stock-row .sr-spark { flex: none; width: 64px; }
+.stock-row .sr-spark svg { display: block; width: 100%; height: 28px; }
+.stock-row .q-ritem-end { max-width: none; align-items: flex-end; gap: 4px; }
+.stock-row .q-ritem-title { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+@media (max-width: 340px) { .stock-row .sr-spark { display: none; } }
+.rec-why { display: block; padding: 0; border-radius: 0; background: none; color: var(--accent); white-space: normal; }
+.rec-price { margin-top: 2px; font: 700 20px/24px var(--q-font-rounded); white-space: nowrap; }
+.rec-rail { --q-rail-w: 190px; }
+.empty-card { padding: 8px 16px 16px; }
+.empty-card .q-empty { padding: 12px 8px; }
+.empty-card .q-btn { display: block; margin: 12px auto 0; }
+#home-body .mover-groups { margin-bottom: 12px; }
+.stock-row .q-ritem-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.stock-row .q-ritem-end small { color: var(--q-label-2); font: var(--q-t-footnote); }
+.stock-row .q-ritem-end { max-width: 46%; }
