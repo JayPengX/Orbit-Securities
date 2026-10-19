@@ -1261,12 +1261,11 @@ function renderHome() {
     </button>`;
   }).join('');
   // 今日漲跌幅: the market that's trading now, its biggest risers and fallers.
-  const groups = MOVER_GROUPS.filter(g => movers(state.quotes, { up: true, n: 99, group: g }).length + movers(state.quotes, { up: false, n: 99, group: g }).length >= 3);
-  const group = groups.includes(state.moverGroup) ? state.moverGroup : groups.includes(moverGroupNow()) ? moverGroupNow() : groups[0];
+  const { groups, group } = moverGroups();
   const up = group ? movers(state.quotes, { up: true, n: 4, group }) : [];
   const down = group ? movers(state.quotes, { up: false, n: 4, group }) : [];
   const moversBody = up.length || down.length
-    ? `${groups.length > 1 ? `<div class="q-seg mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : ''}
+    ? `${moverSeg(groups, group)}
       <div class="q-rowcard">${[...up, ...down].map(q => stockRow(q.symbol)).join('')}</div>`
     : emptyHtml({ icon: 'chart', tint: TINT.orange, title: t('moversNone'), body: t('moversNoneSub') });
   const fills = (state.account?.events || []).filter(e => e.type === 'fill').sort((a, b) => b.t - a.t).slice(0, 5);
@@ -1509,11 +1508,20 @@ function renderMarkets() {
 }
 const LIST_SHOWN = 30;
 
+// The markets with movers to show (three or more), and the one shown: the picked one,
+// else the one trading now. Home and 市場 share it, so a pick on one holds on the other.
+function moverGroups() {
+  const groups = MOVER_GROUPS.filter(g => movers(state.quotes, { up: true, n: 99, group: g }).length + movers(state.quotes, { up: false, n: 99, group: g }).length >= 3);
+  const group = groups.includes(state.moverGroup) ? state.moverGroup : groups.includes(moverGroupNow()) ? moverGroupNow() : groups[0];
+  return { groups, group };
+}
+const moverSeg = (groups, group) =>
+  groups.length > 1 ? `<div class="q-seg mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : '';
+
 // 今日漲跌 a market at a time: the one trading now unless another was picked;
 // named for their day (a closed market's moves are its last day's: 週五 on a weekend).
 function moversHtml() {
-  const groups = MOVER_GROUPS.filter(g => movers(state.quotes, { up: true, n: 99, group: g }).length + movers(state.quotes, { up: false, n: 99, group: g }).length >= 3);
-  const group = groups.includes(state.moverGroup) ? state.moverGroup : groups.includes(moverGroupNow()) ? moverGroupNow() : groups[0];
+  const { groups, group } = moverGroups();
   const up = movers(state.quotes, { up: true, group }).slice(0, 5);
   const down = movers(state.quotes, { up: false, group }).slice(0, 5);
   if (!up.length && !down.length) return '';
@@ -1521,7 +1529,7 @@ function moversHtml() {
   const day = dayOfChange(all).today ? null : dayWord(all);
   const mt = (key, onKey) => (day ? t(onKey, { day }) : t(key));
   const row = q => `<button class="q-ritem quote" type="button" data-action="open" data-symbol="${h(q.symbol)}">${symbolBadge(q.symbol, q)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(q.symbol, q))}</span><small class="num" data-q-live="mover:${h(q.symbol)}">${fmtPrice(q.price, q.currency)}</small></span>${pctTag(q)}</button>`;
-  return `${groups.length > 1 ? `<div class="q-seg mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : ''}
+  return `${moverSeg(groups, group)}
     ${up.length ? `<p class="sub-head">${h(mt('moversUp', 'moversUpOn'))}</p><div class="q-rowcard">${up.map(row).join('')}</div>` : ''}
     ${down.length ? `<p class="sub-head">${h(mt('moversDown', 'moversDownOn'))}</p><div class="q-rowcard">${down.map(row).join('')}</div>` : ''}`;
 }
@@ -4076,8 +4084,8 @@ function statsHtml() {
 // You against simply buying one index fund with the same money on the same days.
 const BENCHES = [
   { symbol: '0050.TW', currency: 'TWD' },
-  { symbol: 'VOO', currency: 'USD' },
-  { symbol: 'BTC-USD', currency: 'USD' },
+  { symbol: 'VOO', currency: 'USD', short: 'bench_VOO' },
+  { symbol: 'BTC-USD', currency: 'USD', short: 'bench_BTC' },
   { symbol: 'XAU', currency: 'TWD' }
 ];
 async function renderBench() {
@@ -4099,7 +4107,7 @@ async function renderBench() {
         const ret = Math.round((r.value / put - 1) * 1e5) / 1e5;
         return `<li class="${r.you ? 'you' : ''}"><span class="bar-label">${h(r.label)}</span><span class="bar-track"><span class="bar ${dirClass(ret)}" style="width:${(Math.abs(ret) / maxAbs) * 100}%"></span></span><strong class="num ${dirClass(ret)}">${h(pct(ret))}</strong></li>`;
       })
-      .join('')}</ul>${state.bench ? '' : `<p class="foot-note">${h(t('benchLoading'))}</p>`}`;
+      .join('')}</ul><p class="foot-note">${h(t(state.bench ? 'benchFoot' : 'benchLoading'))}</p>`;
   };
   if (state.bench?.key === key && Date.now() - state.bench.at < 10 * 60_000) return draw();
   draw();
@@ -4119,7 +4127,7 @@ async function renderBench() {
       });
       const last = state.quotes.get(b.symbol);
       const nowPrice = last ? last.price * (b.currency === BASE ? 1 : state.rates.USD) : null;
-      rows.push({ label: `${nameOf(b.symbol)}${b.currency !== BASE ? ` (${t('inNtd')})` : ''}`, value: benchmarkValue(deposits, points, nowPrice) });
+      rows.push({ label: b.short ? t(b.short) : nameOf(b.symbol), value: benchmarkValue(deposits, points, nowPrice) });
     }
     state.bench = { key, at: Date.now(), rows };
   } catch {
@@ -4457,9 +4465,11 @@ document.addEventListener('click', async event => {
   const a = el.dataset.action;
   const d = state.detail;
   switch (a) {
+    // The 台股/美股/加密/國際 switch lives on home and 市場: redraw the tab it was tapped on.
     case 'mover-group':
       state.moverGroup = el.dataset.v;
-      renderMarkets();
+      if (state.tab === 'home') renderHome();
+      else renderMarkets();
       break;
     // The home's 「交易中」 tag: that market's movers on 市場.
     case 'open-watch':
