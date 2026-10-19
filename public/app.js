@@ -832,7 +832,6 @@ const tileHtml = (glyph, color, cls = '') => `<span class="q-tile${cls ? ` ${cls
 // A section: its title, an optional link or tag on the right, its body.
 const sectionHtml = (title, body, { more = '', moreAction = '', side = '', cls = '' } = {}) =>
   body ? `<section class="q-section${cls ? ` ${cls}` : ''}"><div class="q-section-head"><h2>${h(title)}</h2>${side}${more ? `<button type="button" ${moreAction}>${h(more)}</button>` : ''}</div>${body}</section>` : '';
-const headHtml = (title, over = '') => `<header class="q-page-head">${over ? `<p class="q-over">${over}</p>` : ''}<h1>${h(title)}</h1></header>`;
 const ico = name => kitUI.icons?.[name] ?? '';
 const TINT = { teal: 'var(--q-accent)', indigo: 'var(--q-indigo)', orange: 'var(--q-orange)', red: 'var(--q-red)', green: 'var(--q-green)', blue: 'var(--q-blue)', purple: 'var(--q-purple)', pink: 'var(--q-pink)', gray: 'var(--q-gray)', brown: 'var(--q-brown)', cyan: 'var(--q-cyan)', mint: 'var(--q-mint)' };
 // When a closed market opens next: Yahoo's session moved past weekends and
@@ -1085,22 +1084,12 @@ function dayWord(v, now = Date.now()) {
 const arrow = x => (x > 1e-9 ? '▲ ' : x < -1e-9 ? '▼ ' : '');
 
 // What's trading now (a weekday evening has the US and crypto open): each
-// market by its index's session. One tag on the home's top line.
+// market by its index's session. One tag on the overview.
 const OPEN_MARKETS = [['tw', '^TWII'], ['us', '^GSPC'], ['jp', '^N225'], ['hk', '^HSI'], ['crypto', 'BTC-USD']];
 const openMarkets = (now = Date.now()) => OPEN_MARKETS.filter(([, sym]) => state.quotes.get(sym) && isOpen(state.quotes.get(sym), now)).map(([id]) => id);
-const dayLine = () => new Date().toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-US', { month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Taipei' });
-function homeOver() {
+function homeOpenChip() {
   const open = openMarkets();
-  const status = state.fromCache
-    ? `<span class="q-tag orange">${h(state.online ? t('statusSaved') : t('statusOffline'))}</span>`
-    : state.error && state.loaded
-      ? `<span class="q-tag orange">${h(t('statusStale'))}</span>`
-      : open.length
-        ? `<button class="q-tag green" type="button" data-action="movers-go" data-v="${h(open[0] === 'jp' || open[0] === 'hk' ? 'world' : open[0])}"><i class="open-dot" aria-hidden="true"></i>${h(open.map(id => t(`openMkt_${id}`)).join('・'))} ${h(t('openNow'))}</button>`
-        : state.loaded
-          ? `<span class="q-tag">${h(t('marketClosed'))}</span>`
-          : '';
-  return `<span>${h(dayLine())}</span>${status}`;
+  return open.length ? `<button class="q-tag green" type="button" data-action="movers-go" data-v="${h(open[0] === 'jp' || open[0] === 'hk' ? 'world' : open[0])}"><i class="open-dot" aria-hidden="true"></i>${h(open.map(id => t(`openMkt_${id}`)).join('・'))} ${h(t('openNow'))}</button>` : '';
 }
 
 function renderHome() {
@@ -1130,9 +1119,8 @@ function renderHome() {
   }).join('');
   morph(
     box,
-    `${headHtml(t('appName'), homeOver())}
-    ${hero}
-    ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`)}
+    `${hero}
+    ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip() })}
     ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : '', { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
     ${ipoHtml()}`
   );
@@ -2612,7 +2600,7 @@ function overdraftHtml(v) {
 
 function renderPortfolio() {
   const box = $('portfolio-body');
-  if (!state.account) return morph(box, `${headHtml(t('tab_portfolio'))}<div class="empty"><div class="spinner"></div></div>`);
+  if (!state.account) return morph(box, `<div class="empty"><div class="spinner"></div></div>`);
   const v = valuation();
   const s = snap();
   const view = state.nwView || 'pl';
@@ -2636,8 +2624,7 @@ function renderPortfolio() {
     : sectionHtml(t('positions'), `<div class="q-rowcard"><div class="q-ritem empty-row">${tileHtml(ico('chart'), TINT.gray)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('noPositions'))}</span></span><button class="q-btn small tinted" type="button" data-action="goto" data-tab="markets">${h(t('goTrade'))}</button></div></div>`);
   morph(
     box,
-    `${headHtml(t('tab_portfolio'))}
-    ${hero}
+    `${hero}
     ${overdraftHtml(v)}
     ${marginCardHtml(v)}
     ${held}
@@ -2812,7 +2799,7 @@ function walletRow(c, reserved = 0, settling = 0, settleAt = 0) {
   const info = currencyInfo(c.currency);
   if (reserved > 1e-9 && c.amount) c = { ...c, amount: c.amount - reserved, twd: c.twd * (1 - reserved / c.amount) };
   const twd = c.currency === BASE;
-  const small = twd ? `${t('cashInterestRate')} ${pct(CASH_RATE, { digits: 2, sign: false })} · ${t('cashMonthly')} ${money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE)}` : L(info);
+  const small = twd ? `${t('cashMonthly')} ${money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE)}` : L(info);
   const tags = [
     reserved > 1e-9 ? `<span class="q-tag orange">${h(t('reserved', { amount: money(reserved, c.currency) }))}</span>` : '',
     settling > 1e-9 ? `<span class="q-tag blue">${h(t('settling', { amount: money(settling, c.currency) }))}${settleAt ? ` · ${h(t('settleBy', { date: shortDate(settleAt) }))}` : ''}</span>` : ''
@@ -3046,15 +3033,14 @@ const currencySelect = (id, selected) => `<span class="fx-cur"><span class="fx-c
 function renderFx() {
   const box = $('fx-body');
   const over = `<span class="q-tag ${state.fxOpen ? 'green' : 'orange'}">${h(state.fxOpen ? t('fxOpenTag') : t('fxClosedTag'))}</span>`;
-  if (!state.account || !snap()) return morph(box, `${headHtml(t('tab_fx'), over)}<div class="empty"><div class="spinner"></div></div>`);
+  if (!state.account || !snap()) return morph(box, `<div class="empty"><div class="spinner"></div></div>`);
   const v = valuation();
   const rates = Object.keys(CURRENCIES).filter(c => c !== BASE);
   morph(
     box,
-    `${headHtml(t('tab_fx'), over)}
-    ${exchangeHtml()}
+    `${exchangeHtml()}
     ${v.margin !== 'ok' || state.account.call ? `<button class="callout bad" type="button" data-action="tool" data-tool="loans">${h(t('maintenance'))} ${h(pct(v.ratio, { digits: 0, sign: false }))} · ${h(t(`margin_${v.margin}`))}</button>` : ''}
-    ${sectionHtml(t('fxViewRates'), `<div class="q-rowcard rates">${rates.slice(0, 6).map(c => rateRow(c)).join('')}</div>`, { more: t('seeAll'), moreAction: 'data-action="tool" data-tool="rates"' })}
+    ${sectionHtml(t('fxViewRates'), `<div class="q-rowcard rates">${rates.slice(0, 6).map(c => rateRow(c)).join('')}</div>`, { more: t('seeAll'), moreAction: 'data-action="tool" data-tool="rates"', side: over })}
     ${sectionHtml(t('moneyTools'), moneyToolsHtml(v))}`
   );
 }
@@ -3669,7 +3655,7 @@ function appDayRow(app, list) {
 function renderHistory() {
   const box = $('history-body');
   const views = ['activity', 'orders', 'stats'];
-  const head = `${headHtml(t('tab_history'))}<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${state.historyView === x}">${h(t(`hview_${x}`))}${x === 'orders' && state.account?.orders.some(o => o.status === 'open') ? ` <b class="seg-count">${state.account.orders.filter(o => o.status === 'open').length}</b>` : ''}</button>`).join('')}</div>`;
+  const head = `<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${state.historyView === x}">${h(t(`hview_${x}`))}${x === 'orders' && state.account?.orders.some(o => o.status === 'open') ? ` <b class="seg-count">${state.account.orders.filter(o => o.status === 'open').length}</b>` : ''}</button>`).join('')}</div>`;
   if (!state.account) return morph(box, `${head}<div class="empty"><div class="spinner"></div></div>`);
   if (state.historyView === 'orders') {
     const open = state.account.orders.filter(o => o.status === 'open').reverse();
