@@ -9,12 +9,12 @@ Live: https://jaypengx.github.io/Quadra-Securities/
 
 ## How it works
 
-- **Tabs:**
-  - **首頁:** total, 為你推薦, movers, what's trading now, search,
-    the world strip, about 300 curated items in lists.
+- **Tabs:** 首頁, 市場, 資產, 資金, 紀錄.
+  - **首頁:** total, 為你推薦, movers, what's trading now, the world strip.
+  - **市場:** search and the curated lists (about 300 items).
   - **資產:** net worth over time, allocation, positions, cash in every
     currency, income.
-  - **換匯・融資:** exchange, the rates board, margin loans.
+  - **資金:** exchange, the rates board, margin loans.
   - **紀錄:** activity, orders, stats (against 0050, VOO, BTC and gold).
 - **The detail sheet:** charts (line or candles, MA5/20/60), the facts,
   your position, the ticket (market, limit, stop; quick sizes; a cost
