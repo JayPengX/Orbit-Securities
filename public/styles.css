@@ -206,7 +206,6 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 /* ==== 首頁 ==== */
 .home-hero { width: 100%; }
 .q-hero-card .q-hc-big { white-space: nowrap; }
-.hc-plus { margin-left: 4px; padding: 2px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-size: 10px; letter-spacing: 0.1em; }
 .hc-note { margin-left: auto; font-weight: 500; letter-spacing: 0; opacity: 0.8; }
 .hc-tags { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; } /* whole tags; on a narrow phone the last ones move to a second row, never cut */
 .q-tag.hc-tag { min-height: 26px; padding: 0 10px; background: rgba(255, 255, 255, 0.2); color: #fff; font-size: 13px; }
@@ -428,9 +427,6 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .position-row .q-ritem-title { font-weight: 600; }
 .plan-edit-row { align-items: flex-start; }
 .plan-edit-row .q-ritem-text { gap: 10px; }
-.plus-slot { margin-top: 24px; }
-.plus-slot:empty { display: none; }
-.plus-slot .q-plus-card { margin: 0; }
 /* The margin card: the ratio, its gauge, a call's ways to meet it. */
 .gauge { position: relative; height: 10px; margin: 6px 0 2px; border-radius: 5px; background: var(--q-fill-3); }
 .gauge-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 5px; background: var(--accent); }
@@ -468,7 +464,6 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .fx-swap svg { width: 20px; height: 20px; transform: rotate(90deg); }
 .fx-hero .q-hc-btn { width: 100%; min-height: 46px; }
 .fx-hero .q-hc-btn:disabled { opacity: 0.55; }
-.fee-plus { margin-top: 10px; }
 .unit { color: var(--q-label-2); font-style: normal; font-size: 12px; font-weight: 600; }
 .repay-row { padding: 10px 14px; border-radius: 14px; background: var(--q-fill-3); }
 .repay-row .fx-cur { background: var(--q-surface); color: var(--q-label); }

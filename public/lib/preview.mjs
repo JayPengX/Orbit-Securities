@@ -1,10 +1,9 @@
 // What a screen shows before anything is done: the ticket's estimate, the
-// most a short can sell, Plus's price on the same trade, a time deposit's
-// end and interest, a loan of shares' fee. Each is worked out by the very
-// rules that then do it (the kit's stock-*), so the preview is what happens.
+// most a short can sell, a time deposit's end and interest, a loan of shares'
+// fee. Each is worked out by the very rules that then do it (the kit's stock-*), so the preview is what happens.
 import { available, defaulted, estimate, placeOrder, replay, requiredCash } from './account.mjs';
 import * as kit from './account.mjs';
-import { SHORT_INITIAL, collateralRate, dealPrice, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick, tradeCosts } from './markets.mjs';
+import { SHORT_INITIAL, collateralRate, dealPrice, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick } from './markets.mjs';
 import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
 import * as credit from './credit.mjs';
 import * as mk from './markets.mjs';
@@ -55,12 +54,6 @@ export function ticketEstimate(account, { quote, side, qty, price, first = false
     if (handling > 0) est = { ...est, fee: est.fee + handling, costs: est.costs + handling, total: est.total - handling, handling };
   }
   return { ...est, dayTrade: share > 0 };
-}
-
-// The commission the same trade pays a Quadra Plus member: the discount,
-// then the market's minimum (a broker's 2.8折 still charges NT$20 at least).
-export function plusCommission({ market, kind, side, gross, currency, qty, dayTrade = false, t = Date.now() }, discount) {
-  return tradeCosts({ market, side, kind, gross, currency, discount, oddLot: isOddLot(market, kind, qty), dayTrade, t }).commission;
 }
 
 // How many more can be sold short than are held, by the rule the order is

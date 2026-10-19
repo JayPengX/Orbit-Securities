@@ -1,7 +1,7 @@
 // Stock Study: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
-  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, usePlus, plusAt, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, LEND_TERM_DAYS, lendFee, lendable } from './lib/savings.mjs';
 import {
@@ -19,14 +19,14 @@ import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestT
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
-import { plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit, cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, usHalt, sellFraction, ticketRound, ticketStepOk } from './lib/preview.mjs';
+import { shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit, cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, usHalt, sellFraction, ticketRound, ticketStepOk } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { twPhase, afterHoursSend, atLimit, exDayTags, closeMatchOf as twseCloseMatchOf, orderWaitKind } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
-  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, nextPayday as quadraPayday, PLUS, plusMonths, plusCard, openPlus, affinityPatch, workerJson,
+  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, nextPayday as quadraPayday, affinityPatch, workerJson,
   keepOffline, onlineOnly, proxyJson
 } from '#kit/quadra.mjs';
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
@@ -1202,7 +1202,7 @@ function renderHome() {
     ? (() => {
         const base = v.netWorth - v.dayChange;
         return `<button class="q-hero-card q-press home-hero" type="button" data-action="goto" data-tab="portfolio">
-          <span class="q-hc-eyebrow">${ico('wallet')}<span>${h(t('netWorth'))}</span>${plusAt() ? '<b class="hc-plus">PLUS</b>' : ''}</span>
+          <span class="q-hc-eyebrow">${ico('wallet')}<span>${h(t('netWorth'))}</span></span>
           <strong class="q-hc-big num" data-q-live="networth">${h(money(v.netWorth, BASE))}</strong>
           <span class="hc-tags"><span class="q-tag hc-tag">${h(arrow(v.dayChange))}${h(dayWord(v))} ${h(money(v.dayChange, BASE, { sign: true }))}${base ? ` · ${h(pct(v.dayChange / base))}` : ''}</span></span>
           ${heroSpark}
@@ -2572,9 +2572,6 @@ function renderTicket() {
   const usSession = usSessionOf(q);
   const halt = haltOf(q);
   const canPlace = est && !problems.length && !(short > 0) && marginOk;
-  // A member's commission on the same trade (the market's minimum after the discount: often no less).
-  // (Each of a split's two orders at its own minimum.)
-  const plusFee = est?.commission ? lotParts(q.market, q.kind, qty).reduce((sum, n) => sum + plusCommission({ market: q.market, kind: q.kind, side: d.side, gross: (est.gross * n) / qty, currency: q.currency, qty: n, dayTrade: est.dayTrade }, PLUS.stock.commission), 0) : 0;
   const rate = state.rates[q.currency];
   const seg = (items, action, attr, on) => `<div class="q-seg" role="group">${items.map(([v, label]) => `<button type="button" data-action="${action}" data-${attr}="${h(v)}" aria-pressed="${on(v)}">${h(label)}</button>`).join('')}</div>`;
   // Rule notes: only what applies to this order now.
@@ -2639,8 +2636,7 @@ function renderTicket() {
           ${credit ? `<div><dt>${h(t('creditLent', { n: Math.round(marginRate * 10) }))}</dt><dd class="num">${h(money(lent, q.currency))}</dd></div><div><dt>${h(t('creditOwn'))}</dt><dd class="num"><strong>${h(money(est.total - lent, q.currency))}</strong></dd></div>` : ''}
           ${req && req.buffer > 0 ? `<div class="preview-held"><dt>${h(t('heldUntilFill'))}<small>${h(d.type !== 'limit' && quotaPrice(q, d) > q.price ? t('bufferNoteUp', { up: fmtPrice(quotaPrice(q, d), q.currency) }) : t('bufferNote'))}</small></dt><dd class="num"><strong>${h(money(need, q.currency))}</strong></dd></div>` : ''}
           ${d.side === 'buy' ? `<div class="preview-have ${short > 0 ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, q.currency))}</dd></div>` : ''}</dl>
-          ${welcome ? `<p class="fee-welcome">${h(t('feeWelcome'))}</p>` : ''}
-          ${est.commission && !plusAt() && plusFee < est.commission ? `<button class="q-plus-hint" type="button" data-action="plus">${h(t('feePlus', { v: money(plusFee, q.currency) }))}</button>` : ''}`
+          ${welcome ? `<p class="fee-welcome">${h(t('feeWelcome'))}</p>` : ''}`
           : ''
       }
       ${halt && Date.now() < halt.until ? `<p class="warn">${h(halt.level === 3 ? t('haltNoteDay') : t('haltNote', { level: halt.level, time: clock(halt.until) }))}</p>` : ''}
@@ -2882,11 +2878,8 @@ function renderPortfolio() {
     ${marginCardHtml(v)}
     ${held}
     ${cashHtml(v)}
-    ${moreHtml(v)}
-    ${plusAt() ? '' : '<div id="plus-slot" class="plus-slot" data-own></div>'}`
+    ${moreHtml(v)}`
   );
-  const slot = $('plus-slot');
-  if (slot && !slot.firstChild) slot.append(plusCard(q));
   renderNetWorthChart(v, s);
 }
 
@@ -3352,7 +3345,6 @@ function exchangeHtml() {
       </span>
       <button class="q-hc-btn q-press" type="button" data-action="fx-go" ${q && q.received > 0 && !tooMuch && f.from !== f.to && pricesLive() ? '' : 'disabled'}>${h(q && !tooMuch ? t('fxConfirm', { from: money(amount, f.from), to: money(q.received, f.to) }) : t('doExchange'))}</button>
     </div>
-    ${spread > 0 && !plusAt() ? `<button class="q-plus-hint fee-plus" type="button" data-action="plus">${h(t('fxPlus', { v: pct(spread * PLUS.stock.fxSpread, { digits: 2, sign: false }) }))}</button>` : ''}
     ${tooMuch ? `<p class="warn">${h(t('notEnoughCur', { cur: f.from, have: money(have, f.from) }))}</p>` : ''}
     ${waiting > 0 ? `<p class="foot-note">${h(t('unsettledNote', { amount: money(waiting, f.from), date: shortDate(settlesBy(state.account)[f.from]) }))}</p>` : ''}
     ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}`;
@@ -3890,7 +3882,7 @@ const ACTIVITY_FILTERS = {
   income: e => ['div', 'split', 'interest', 'td', 'tdend', 'lend', 'recall', 'lendpay'].includes(e.type),
   loans: e => e.type === 'borrow' || e.type === 'repay' || e.type === 'link',
   cash: e => e.type === 'deposit' && !ACTIVITY_FILTERS.apps(e),
-  // Money moved by the other Quadra apps (bets, the pay, Plus): one line per
+  // Money moved by the other Quadra apps (bets, the pay): one line per
   // app and day under 全部, each record here (one app at a time, or all).
   apps: e => e.type === 'deposit' && Boolean(e.pool) && Boolean(APPS[e.app]) && e.app !== 'stock'
 };
@@ -4143,7 +4135,7 @@ function fold(tile, title, body, open = false, id = title, side = '') {
 // Signing in is required (quadra.mjs shows the sign-in screen). The account
 // is this app's data on the pass; the pass's wallet is the one Quadra money
 // pool, which this account's NT$ cash shows: the other apps' money (Play's
-// bets and winnings, Quadra's own pay and Plus)
+// bets and winnings, Quadra's own pay)
 // arrives as pool deposits, and this account's own NT$ goes back to the
 // wallet as its figure.
 
@@ -4552,9 +4544,6 @@ document.addEventListener('click', async event => {
       renderMarkets();
       window.scrollTo(0, 0);
       if (state.category) refresh({ list: true });
-      break;
-    case 'plus':
-      openPlus(q);
       break;
     case 'cover': {
       // Sell what the plan says, at market, one order each.
@@ -5130,15 +5119,8 @@ watchUpdates({ current: document.querySelector('meta[name="build-version"]')?.co
 applySettings();
 loadQuotes();
 renderStatic();
-// Quadra Plus: the months paid for, from the wallet, into the ledger's perks.
-function syncPlus(wallet) {
-  const months = plusMonths(wallet);
-  usePlus(months.size ? { months, ...PLUS.stock } : null);
-  memo.at = 0;
-}
 q.on('wallet', wallet => {
   state.wallet = wallet;
-  syncPlus(wallet);
   // Money the other apps moved arrives in this account's NT$ cash.
   if (state.account) {
     const pooled = applyPool(state.account, wallet);
@@ -5160,7 +5142,6 @@ q.on('active', live => {
 async function boot() {
   const first = await q.start();
   state.wallet = first.wallet || q.wallet;
-  syncPlus(state.wallet);
   state.account = withWelcome(await loadAccount());
   // The pass's own copy, merged in (and the account made, the first time).
   if (first && !first.offline) await (syncChain = syncChain.then(() => mergeRemote(first)).catch(error => (state.sync.error = error.message)));
@@ -5208,7 +5189,7 @@ setTimeout(() => ($('loading').hidden = true), BOOT_LIMIT_MS);
 setInterval(() => {
   if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds).then(() => Promise.all([loadIpo(), loadAlerts()]).then(() => state.tab === 'home' && renderHome()));
 }, QUOTE_REFRESH_MS);
-// What the other apps did (bets, the pay, Plus) arrives with the wallet
+// What the other apps did (bets, the pay) arrives with the wallet
 // (quadra.mjs checks it every minute); the account itself every few.
 setInterval(() => {
   // (With no account yet too: one opened offline is made by the first sync.)

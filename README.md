@@ -87,8 +87,6 @@ Live: https://jaypengx.github.io/Quadra-Securities/
     orders, 整股 and 盤中零股, at one price and type (`placeLots`);
   - a day order that met its price just before the close fills: it
     expires only once the proxy has answered after its end (`lib/orders.mjs`).
-- **Quadra Plus** (`PLUS.stock`): commission ×0.28 (the market's minimum
-  still applies), half the FX spread, 1 point off loans.
 - **Notices** (the kit's `stock` kinds): `alert`, `fill`, `order`, `margin`,
   `income`. The Worker sends alerts and pay days while the app is closed.
 - **Offline:** covered (`onlineOnly`); never trades on old prices.
@@ -125,7 +123,7 @@ Live: https://jaypengx.github.io/Quadra-Securities/
 | `chart.mjs`, `format.mjs`, `i18n.mjs` | Charts; number formats; text |
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |
 | `foryou.mjs`, `series.mjs` | 為你推薦 (only what can be bought); a price series at a moment, moving averages |
-| `orders.mjs`, `preview.mjs` | When a day order expires; what a screen shows before it's done (the ticket's estimate, the most a short can sell, Plus's commission, a 定存's end), by the same rules that then do it |
+| `orders.mjs`, `preview.mjs` | When a day order expires; what a screen shows before it's done (the ticket's estimate, the most a short can sell, a 定存's end), by the same rules that then do it |
 | `../app.js` | Rendering and wiring |
 
 ## Run and test
@@ -144,6 +142,6 @@ A push to `main` tests, stamps versions and deploys to Pages.
 
 | This | Also check |
 | --- | --- |
-| A fee, tax, spread or rate | The kit's `help.mjs` and `truth.mjs`, `PLUS.stock`, `tools/economy.mjs` |
+| A fee, tax, spread or rate | The kit's `help.mjs` and `truth.mjs`, `tools/economy.mjs` |
 | The log or replay | Merging, the pool (`applyPool`), `snap.stock`, `stock-check.js` |
 | A Yahoo read | Shared-Proxy's Yahoo tiers, `push.js` price checks |

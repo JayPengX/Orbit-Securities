@@ -4,9 +4,8 @@ import { newAccount, replay, placeOrder, valuate, estimate, openDeposit, matureD
 import { tradeCosts, SHORT_INITIAL } from '../public/lib/markets.mjs';
 import * as markets from '../public/lib/markets.mjs';
 import { LEND_RATE, TD_TERMS, tdRate } from '../public/lib/savings.mjs';
-import { PLUS } from '#kit/plus.mjs';
 import * as kit from '../public/lib/account.mjs';
-import { ticketEstimate, isDayTradeSell, plusCommission, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from '../public/lib/preview.mjs';
+import { ticketEstimate, isDayTradeSell, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from '../public/lib/preview.mjs';
 import { oddLotNeedsLimit, boardLots, placeLots } from '../public/lib/preview.mjs';
 
 const HOUR = 3_600_000;
@@ -92,24 +91,6 @@ test('the ticket shows 融券 handling (0.08% of the part sold short) as the fil
   assert.equal(shown.handling, r.fill.handling);
   assert.equal(shown.fee, r.fill.fee);
   assert.equal(shown.total, r.fill.total);
-});
-
-test("Plus's commission on the ticket keeps the market's minimum (a NT$10,000 buy is NT$20 either way, not NT$5)", () => {
-  const trade = { market: 'TW', kind: 'stock', side: 'buy', gross: 10_000, currency: 'TWD', qty: 1000 };
-  const plain = tradeCosts({ ...trade }).commission;
-  assert.equal(plain, 20);
-  assert.equal(plusCommission(trade, PLUS.stock.commission), 20);
-  // The old hint: the commission times 0.28, below the minimum.
-  assert.equal(Math.floor(plain * PLUS.stock.commission), 5);
-  // A big one: the discount shows (NT$1,000,000: 1,425 → 399).
-  assert.equal(plusCommission({ ...trade, gross: 1_000_000 }, PLUS.stock.commission), 399);
-  // An odd lot's own minimum (NT$1).
-  assert.equal(plusCommission({ ...trade, gross: 2_000, qty: 2 }, PLUS.stock.commission), 1);
-  // US: US$3 minimum after the discount; a fund's subscription fee is discounted with no minimum.
-  // (From 2027: 國泰's 2026 US price has no minimum.)
-  const t = Date.parse('2027-02-01T10:00:00+08:00');
-  assert.equal(plusCommission({ market: 'US', kind: 'stock', side: 'buy', gross: 1_000, currency: 'USD', qty: 5, t }, PLUS.stock.commission), 3);
-  assert.equal(plusCommission({ market: 'US', kind: 'fund', side: 'buy', gross: 1_000, currency: 'USD', qty: 5 }, PLUS.stock.commission), 2.8);
 });
 
 test('how much can be sold short: 150% cover elsewhere; 融券 by its credit limit and the 90% deposit the cash covers', () => {
