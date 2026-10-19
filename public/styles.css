@@ -75,6 +75,8 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .sub-head { margin: 18px 4px 8px; color: var(--q-label-2); font: 600 13px/18px var(--q-font); }
 .q-section-head .sec-value { flex: none; font: 600 17px/1 var(--q-font-rounded); }
 .q-section-head .q-tag { flex: none; }
+/* A tag that is a button: the kit's `.q-section-head button` (a 17px link) must not size it. */
+.q-section-head button.q-tag { min-height: 22px; padding: 0 8px; border-radius: 999px; font: 600 12px/1 var(--q-font); color: var(--t); }
 .q-section-head h2 { flex: 1 1 auto; min-width: 0; }
 .q-section-head .sort-btn { font-size: 15px; }
 /* A plain card for drawings and forms (the kit's surface, its radius). */
@@ -91,7 +93,8 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .link-text { min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
 .row-actions { flex: none; display: grid; gap: 6px; }
 .q-chips.bleed { margin: 0 calc(-1 * var(--q-margin)); padding-inline: var(--q-margin); }
-.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-row { display: flex; flex-wrap: nowrap; gap: 8px; }
+.chip-row > .q-chip, .chip-row > button { flex: 1 1 0; min-width: 0; justify-content: center; padding-inline: 6px; }
 button.q-tag { border: 0; font-family: inherit; cursor: pointer; }
 .q-tag.up { --t: var(--up); }
 .q-tag.down { --t: var(--down); }
@@ -199,13 +202,15 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .q-hero-card .q-hc-big { white-space: nowrap; }
 .hc-plus { margin-left: 4px; padding: 2px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-size: 10px; letter-spacing: 0.1em; }
 .hc-note { margin-left: auto; font-weight: 500; letter-spacing: 0; opacity: 0.8; }
-.hc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.hc-tags { display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; } /* one row: the later tags shrink to an ellipsis */
+.hc-tags > .q-tag:not(:first-child) { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 26px; }
 .q-tag.hc-tag { min-height: 26px; padding: 0 10px; background: rgba(255, 255, 255, 0.2); color: #fff; font-size: 13px; }
 .q-hc-sub b { color: #fff; font-weight: 700; }
 .open-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: open-breathe 2.4s ease-in-out infinite; }
 @keyframes open-breathe { 50% { opacity: 0.4; } }
 @media (prefers-reduced-motion: reduce) { .open-dot { animation: none; } }
 /* 全球行情: a rail of index cards, each its price, move and day's line. */
+.q-rail.small.idx-rail { --q-rail-w: 156px; }
 .idx-card { border: 0; font: inherit; text-align: left; }
 .idx-card > strong { font-size: 20px; line-height: 24px; white-space: nowrap; }
 .idx-card .q-tag { justify-self: start; }
@@ -248,9 +253,10 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .qh-price { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .big-price { display: inline-block; max-width: 100%; font: 700 38px/44px var(--q-font-rounded); letter-spacing: -0.02em; white-space: nowrap; }
 .cur { color: var(--q-label-2); font: 600 15px/1 var(--q-font); }
-.qh-tags { margin-top: 4px; }
+.qh-tags { margin-top: 4px; height: 22px; overflow: hidden; } /* one row: a tag that does not fit is dropped whole */
+@media (max-width: 400px) { .mkt-status small { display: none; } }
 .mkt-status { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 0 8px; border-radius: 999px; background: var(--q-fill-3); color: var(--q-label-2); font: 600 12px/1 var(--q-font); white-space: nowrap; }
-.mkt-status small { font-weight: 500; }
+.mkt-status small { font-weight: 500; white-space: nowrap; }
 .mkt-status.open { background: color-mix(in srgb, var(--q-green) 15%, transparent); color: var(--q-green); }
 .mkt-status.halt { background: color-mix(in srgb, var(--q-orange) 15%, transparent); color: var(--q-orange); }
 /* The chart, on the sheet itself: the ranges one flat row, its kind and averages as small tools. */
@@ -449,8 +455,10 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .fx-input { padding: 0; border: 0; outline: 0; background: none; color: #fff; }
 .fx-input::placeholder { color: rgba(255, 255, 255, 0.55); }
 .fx-result { overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.92); }
-.fx-side-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font: var(--q-t-footnote); opacity: 0.92; }
-.fx-quick { display: flex; gap: 6px; }
+.fx-side-foot { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 8px; font: var(--q-t-footnote); opacity: 0.92; }
+.fx-quick { display: flex; flex: none; gap: 6px; }
+.fx-side-foot > .num { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 340px) { .fx-quick button:first-child { display: none; } .fx-quick button { padding: 0 8px; } }
 .fx-quick button { min-height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.2); color: #fff; font: 600 12px/1 var(--q-font); }
 .fx-swap { justify-self: center; z-index: 1; display: grid; place-items: center; width: 40px; height: 40px; margin: -22px 0; border: 0; border-radius: 50%; background: #fff; color: var(--q-hc-b, var(--accent)); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18); }
 .fx-swap svg { width: 20px; height: 20px; transform: rotate(90deg); }
@@ -567,3 +575,8 @@ a.act-row { color: inherit; }
 .rate-row.board .q-ritem-text small { white-space: nowrap; }
 .q-tag { white-space: nowrap; }
 @media (max-width: 340px) { h1 { font-size: 26px !important; line-height: 32px !important; } .idx-card small { font-size: 12px; } }
+
+/* IPO rows: the price line and the tags stay on one row each (a tag that does not fit is dropped whole). */
+.ipo-item .q-ritem-text small.num { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ipo-item .q-tags { height: 22px; overflow: hidden; } /* one row: a tag that does not fit is dropped whole */
+.wallet .q-ritem-text > small.num { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
