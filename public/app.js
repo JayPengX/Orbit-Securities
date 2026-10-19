@@ -3419,7 +3419,7 @@ function tdHtml() {
   const tds = v.tds || [];
   return `<div class="term-grid" role="group">${TD_TERMS.map(x => `<button class="term q-press" type="button" data-action="td-term" data-months="${x.months}" aria-pressed="${x.months === term.months}"><strong class="num">${x.months}</strong><small>${h(t('monthsUnit'))}</small><span class="num">${h(pct(tdRate(x.months), { digits: 2, sign: false }))}</span></button>`).join('')}</div>
     <label class="big-field"><span>${h(t('amount'))}<em class="num">${h(t('tdHave', { v: money(free, BASE) }))}${free >= TD_MIN ? `<button class="q-tag tint" type="button" data-action="td-max">${h(t('tdAll'))}</button>` : ''}</em></span><input id="td-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(amount > 0 ? num(amount) : '')}" placeholder="${h(num(TD_MIN))}" /></label>
-    <label class="check-row"><input id="td-renew" type="checkbox" switch ${d.renew ? 'checked' : ''} /> <span><b>${h(t('tdRenew'))}</b><small>${h(t('tdRenewSub'))}</small></span></label>
+    <label class="check-row"><input id="td-renew" type="checkbox" class="sw" ${d.renew ? 'checked' : ''} /><i class="q-switch" aria-hidden="true"></i> <span><b>${h(t('tdRenew'))}</b><small>${h(t('tdRenewSub'))}</small></span></label>
     ${amount > 0 && !ok ? `<p class="warn">${h(amount < TD_MIN ? t('err_tdMin', { min: money(TD_MIN, BASE) }) : t('tdTooMuch'))}</p>` : ''}
     <button class="q-btn primary block" type="button" data-action="td-open" ${ok ? '' : 'disabled'}>${h(t('tdOpen'))}</button>
     ${sectionHtml(
@@ -3490,7 +3490,7 @@ const lendClosesReady = (account, now) => !lendAsks() || Object.values(replay(ac
 function lendFormHtml() {
   const going = stockSavings.LEND_RATE || {};
   return `<label class="field"><span>${h(t('lendRateLabel'))} (%)</span><input id="lend-rate" class="q-field num" inputmode="decimal" autocomplete="off" value="${h(state.lend.rate)}" placeholder="${h(t('lendRateGoing'))}" /></label>
-    <label class="check-row"><input id="lend-renew" type="checkbox" switch ${state.lend.renew ? 'checked' : ''} /> <span>${h(t('lendRenew', { n: stockSavings.LEND_RENEWALS, months: stockSavings.LEND_TERM_MONTHS }))}</span></label>
+    <label class="check-row"><input id="lend-renew" type="checkbox" class="sw" ${state.lend.renew ? 'checked' : ''} /><i class="q-switch" aria-hidden="true"></i> <span>${h(t('lendRenew', { n: stockSavings.LEND_RENEWALS, months: stockSavings.LEND_TERM_MONTHS }))}</span></label>
     <p class="foot-note">${h(t('lendRateHelp', { min: rateText(stockSavings.LEND_RATE_MIN), max: rateText(stockSavings.LEND_RATE_MAX), stock: rateText(going.stock || 0), etf: rateText(going.etf || 0) }))}</p>`;
 }
 

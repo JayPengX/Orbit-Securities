@@ -133,7 +133,16 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .big-field:focus-within { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
 .check-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 16px; background: var(--q-surface); font: var(--q-t-subhead); flex-direction: row-reverse; }
 .check-row span { flex: 1; }
-.check-row input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--q-green); }
+/* The checkbox is hidden; the kit's switch (iOS size) shows it, and the whole row taps. */
+.check-row { position: relative; cursor: pointer; }
+.check-row input.sw { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.check-row .q-switch { width: 51px; height: 31px; }
+.check-row .q-switch::after { width: 27px; height: 27px; }
+.check-row input.sw:checked + .q-switch { background: var(--q-green); }
+.check-row input.sw:checked + .q-switch::after { transform: translateX(20px); }
+.check-row input.sw:focus-visible + .q-switch { outline: 2px solid var(--q-accent); outline-offset: 2px; }
+.check-row .q-switch:is(:active, [data-q-press])::after, .check-row:active .q-switch::after { width: 31px; }
+.check-row input.sw:checked + .q-switch:is(:active, [data-q-press])::after, .check-row:active input.sw:checked + .q-switch::after { transform: translateX(16px); }
 /* A symbol's picture: a round badge, grey until its picture is in. A
    picture not seen before fades in; one seen before is drawn at once. An
    icon fills the circle, a logo sits on white inside it, a currency pair
