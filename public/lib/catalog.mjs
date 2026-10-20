@@ -60,7 +60,7 @@ const TW_ETF = [
 ];
 
 const US = [
-  ['AAPL', '蘋果', 'Apple'], ['MSFT', '微軟', 'Microsoft'], ['NVDA', '輝達', 'NVIDIA'], ['GOOGL', 'Alphabet (Google)', 'Alphabet (Google)'],
+  ['AAPL', '蘋果', 'Apple'], ['MSFT', '微軟', 'Microsoft'], ['NVDA', '輝達', 'NVIDIA'], ['GOOGL', 'Google', 'Alphabet'],
   ['AMZN', '亞馬遜', 'Amazon'], ['META', 'Meta', 'Meta Platforms'], ['TSLA', '特斯拉', 'Tesla'], ['AVGO', '博通', 'Broadcom'],
   ['TSM', '台積電 ADR', 'TSMC ADR'], ['BRK-B', '波克夏', 'Berkshire Hathaway B'], ['JPM', '摩根大通', 'JPMorgan Chase'],
   ['V', 'Visa', 'Visa'], ['MA', '萬事達卡', 'Mastercard'], ['LLY', '禮來', 'Eli Lilly'], ['UNH', '聯合健康', 'UnitedHealth'],
@@ -69,7 +69,7 @@ const US = [
   ['NKE', 'Nike', 'Nike'], ['DIS', '迪士尼', 'Disney'], ['NFLX', '網飛', 'Netflix'], ['AMD', '超微', 'AMD'], ['INTC', '英特爾', 'Intel'],
   ['QCOM', '高通', 'Qualcomm'], ['MU', '美光', 'Micron'], ['ORCL', '甲骨文', 'Oracle'], ['CRM', 'Salesforce', 'Salesforce'],
   ['ADBE', 'Adobe', 'Adobe'], ['PLTR', 'Palantir', 'Palantir'], ['UBER', 'Uber', 'Uber'], ['SBUX', '星巴克', 'Starbucks'],
-  ['BA', '波音', 'Boeing'], ['COIN', 'Coinbase', 'Coinbase'], ['MSTR', 'Strategy (MicroStrategy)', 'Strategy (MicroStrategy)'],
+  ['BA', '波音', 'Boeing'], ['COIN', 'Coinbase', 'Coinbase'], ['MSTR', 'Strategy', 'Strategy'],
   ['BABA', '阿里巴巴 ADR', 'Alibaba ADR'], ['ASML', '艾司摩爾 ADR', 'ASML ADR'], ['ARM', '安謀', 'Arm Holdings'],
   ['BAC', '美國銀行', 'Bank of America'], ['WFC', '富國銀行', 'Wells Fargo'], ['GS', '高盛', 'Goldman Sachs'], ['MS', '摩根士丹利', 'Morgan Stanley'],
   ['AXP', '美國運通', 'American Express'], ['PYPL', 'PayPal', 'PayPal'], ['HD', '家得寶', 'Home Depot'], ['LOW', '勞氏', "Lowe's"],

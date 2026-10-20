@@ -158,6 +158,7 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .sym-badge.k-future { background: #57534e; }
 .sym-badge.k-fx { background: #0f766e; }
 .sym-badge.zh { font-size: 13px; letter-spacing: 0; }
+.sym-badge.mark svg { width: 22px; height: 22px; }
 .sym-badge.has-logo { border-radius: 50%; background: var(--q-fill-3); }
 .sym-badge .sym-logo { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; background: #fff; }
 .sym-badge.icon .sym-logo { object-fit: cover; }
@@ -240,7 +241,8 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .q-ritem-text .held { margin-right: 6px; padding: 0 5px; border-radius: 5px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 11px; font-weight: 700; }
 /* The lists, a tile each, three across (two at 320). */
 .cat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 340px) { .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 340px) { .cat-grid, .cat-grid.q-even3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cat-grid.q-even3 > * { grid-column: auto; } .cat-grid.q-even3 > :last-child:nth-child(odd) { grid-column: 1 / -1; } }
+/* (The kit's .q-even3: a last row of one or two shares the width, never a hole.) */
 .cat { display: grid; justify-items: start; gap: 6px; min-width: 0; padding: 12px; border: 0; border-radius: 18px; background: var(--q-surface); color: var(--q-label); text-align: left; }
 .cat-glyph { font: 700 17px/1 var(--q-font); }
 .cat-name { width: 100%; overflow: hidden; font: 600 14px/19px var(--q-font); white-space: nowrap; text-overflow: ellipsis; }

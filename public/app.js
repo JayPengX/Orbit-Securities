@@ -985,12 +985,15 @@ const saveLogos = () => {
     } catch {}
   }, 1000);
 };
+const SYM_MARK = { stock: 'bank', etf: 'grid', bond: 'bank', fund: 'wallet', crypto: 'coin', metal: 'coin', index: 'chart', future: 'chart', fx: 'exchange' };
 function symbolBadge(symbol, q) {
   const kind = q?.kind || catalogInfo(symbol)?.kind || 'stock';
   const zh = twSymbol(symbol) ? catalogInfo(symbol)?.zh || twZhName(symbol) : null;
   const zhShort = zh ? zh.replace(kind === 'etf' ? /^(元大|富邦|國泰|群益|復華|統一|凱基|大華|中信|永豐|兆豐)/ : /[-*].*$/, '').slice(0, 2) : '';
   const text = BONDS[symbol] ? symbol.split('-')[1] : /^[A-Z]{6}=X$/.test(symbol) ? symbol.slice(0, 3) : zhShort || bareSymbol(symbol).replace(/-USD$/, '').replace(/^\^/, '').slice(0, 4);
-  const plain = `<span class="sym-badge k-${h(kind)}${text === zhShort && zhShort ? ' zh' : ''}">${h(text)}</span>`;
+  // No picture: a drawing of its kind on its kind's colour, never letters (an older kit without the icons: the letters).
+  const mark = kitUI.icons?.[SYM_MARK[kind] || 'bank'];
+  const plain = mark ? `<span class="sym-badge mark k-${h(kind)}" role="img" aria-label="${h(text)}">${mark}</span>` : `<span class="sym-badge k-${h(kind)}${text === zhShort && zhShort ? ' zh' : ''}">${h(text)}</span>`;
   const choice = logoChoices(symbol, kind).find(c => c.urls.every(u => !logoBad.has(u) && !logoMiss.has(u)));
   if (!choice) return plain;
   const imgs = choice.urls
@@ -1472,7 +1475,7 @@ function renderMarkets() {
   if (state.category === 'watch' && !watch.length) state.category = null;
   const cats = [...(watch.length ? [watchCat()] : []), ...CATEGORIES];
   if (!state.category) {
-    const grid = `<div class="cat-grid">${cats
+    const grid = `<div class="cat-grid q-even3">${cats
       .map(c => `<button class="cat q-press" type="button" data-action="cat" data-id="${h(c.id)}">${catTile(c.id)}<span class="cat-name">${h(L(c))}</span><small class="num">${c.items.length}</small></button>`)
       .join('')}</div>`;
     morph(box, `${sectionHtml(t('moversTitle'), moversHtml())}${sectionHtml(t('categoriesTitle'), grid)}`);
