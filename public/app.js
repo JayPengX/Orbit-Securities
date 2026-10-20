@@ -2982,7 +2982,7 @@ function upcomingIncome(days = 120) {
 function upcomingRow(x) {
   const value = `<span class="q-ritem-end up-end">${x.est ? `<span class="q-tag">${h(t('estTag'))}</span>` : ''}<span class="q-ritem-value num up-ink">+${h(money(x.net, BASE))}</span></span>`;
   if (x.kind === 'div')
-    return `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(x.symbol)}">${symbolBadge(x.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(x.symbol))}</span><small>${h(t('upcomingDiv', { ex: shortDate(x.ex), pay: shortDate(x.t) }))}</small></span>${value}</button>`;
+    return `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(x.symbol)}">${symbolBadge(x.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(x.symbol))}</span><small>${keepParts(t('upcomingDiv', { ex: shortDate(x.ex), pay: shortDate(x.t) }))}</small></span>${value}</button>`;
   const td = x.kind === 'td';
   const [title, line] = td ? ['tdTitle', 'upcomingTd'] : ['incomeInterest', 'upcomingCash'];
   return `<div class="q-ritem">${tileHtml(ico(td ? 'lock' : 'coin'), td ? TINT.green : TINT.orange)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t(title))}</span><small>${h(t(line, { date: shortDate(x.t) }))}</small></span>${value}</div>`;
@@ -2997,13 +2997,17 @@ function incomeHtml(v) {
   const yieldPct = v.longTWD > 0 ? inc.last12 / v.longTWD : 0;
   const top = Object.entries(inc.payers).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const parts = [['incomeDiv', inc.div], ['incomeCoupon', inc.coupon], ['incomeInterest', inc.interest], ['incomeLending', inc.lending]].filter(([, x]) => x >= 0.5);
-  return `<div class="q-stats">
-      ${stat(t('income12'), money(inc.last12, BASE), yieldPct ? t('incomeYield', { pct: pct(yieldPct, { digits: 2, sign: false }) }) : '')}
-      ${stat(t('incomeYtd'), money(inc.ytd, BASE))}
+  const soonSum = soon.reduce((a, x) => a + x.net, 0);
+  // (Nothing paid yet: the hero says what's coming in, and the year's chart waits.)
+  return `${inc.last12 >= 0.5
+      ? `<div class="q-stats">
+      ${stat(t('incomeYtd'), money(inc.ytd, BASE), yieldPct ? t('incomeYield', { pct: pct(yieldPct, { digits: 2, sign: false }) }) : '')}
+      ${stat(t('upcomingTitle'), `+${money(soonSum, BASE)}`, '', soonSum ? 'up' : '')}
     </div>
     <section class="q-section"><div class="card-box">${miniBars(inc.months, { format: x => money(x, BASE) })}
-    ${inc.last12 ? `<div class="mini-bars-scale"><span>${h(monthYear(Date.parse(`${inc.months[0][0]}-15`)))}</span><span>${h(monthYear(Date.now()))}</span></div>` : ''}
-    ${parts.length ? `<div class="q-tags">${parts.map(([k, x]) => `<span class="q-tag">${h(t(k))} ${h(money(x, BASE))}</span>`).join('')}</div>` : ''}</div></section>
+    <div class="mini-bars-scale"><span>${h(monthYear(Date.parse(`${inc.months[0][0]}-15`)))}</span><span>${h(monthYear(Date.now()))}</span></div>
+    ${parts.length ? `<div class="q-tags">${parts.map(([k, x]) => `<span class="q-tag">${h(t(k))} ${h(money(x, BASE))}</span>`).join('')}</div>` : ''}</div></section>`
+      : ''}
     ${sectionHtml(t('incomeTop'), top.length ? `<div class="q-rowcard">${top.map(([sym, x]) => `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(sym)}">${symbolBadge(sym)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(sym))}</span></span><span class="q-ritem-value num up-ink">+${h(money(x, BASE))}</span></button>`).join('')}</div>` : '')}
     ${sectionHtml(
       t('upcomingTitle'),
@@ -4448,7 +4452,12 @@ function toolHero(kind) {
         ? { eyebrow: t('creditLimitWord'), big: money(credit.limit, BASE), tags: [t('creditTermTag'), t('creditShortTag')], tint: TINT.purple }
         : { eyebrow: t('creditTitle'), big: t('creditClosed'), tags: [t('creditTwTag'), t('creditCryptoTag')], tint: TINT.purple };
     },
-    income: () => ({ eyebrow: t('income12'), big: money(incomeSummary(state.account).last12, BASE), tint: TINT.orange }),
+    // The last year's income; before there's any, what's coming in.
+    income: () => {
+      const last12 = incomeSummary(state.account).last12;
+      const soon = upcomingIncome().reduce((a, x) => a + x.net, 0);
+      return last12 >= 0.5 || !soon ? { eyebrow: t('income12'), big: money(last12, BASE), tint: TINT.orange } : { eyebrow: t('upcomingTitle'), big: `+${money(soon, BASE)}`, tint: TINT.orange };
+    },
     lend: () => ({
       eyebrow: t('lendEarned'),
       big: money(v.lendIncome || 0, BASE),
