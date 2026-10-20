@@ -4167,7 +4167,7 @@ function syncNow({ pull = false } = {}) {
   return syncChain;
 }
 
-async function mergeRemote(remote, { pull = false } = {}) {
+async function mergeRemote(remote, { pull = false, applied = () => {} } = {}) {
   if (!remote) return;
   const theirs = remote.payload ? await unpack(remote.payload).catch(() => null) : null;
   // A copy on the pass that can't be read is never saved over.
@@ -4228,6 +4228,7 @@ async function mergeRemote(remote, { pull = false } = {}) {
   const snapPatch = prev?.cash === figure && prev?.opened === opened && !moved && !plMoved && !govMoved ? undefined : { stock: { cash: figure, opened, ...(Number.isFinite(holdings) ? { holdings } : {}), ...(pl ? { pl } : {}), gov, t: Date.now() } };
   const changed = !their || JSON.stringify(account) !== JSON.stringify(their);
   if (account !== state.account) commit(account, { sync: false });
+  applied();
   if (changed || snapPatch || (remote.inbox || []).length) {
     const payload = changed ? await pack(account) : undefined;
     if (payload && payload.length > 1_000_000) throw Object.assign(new Error('too big'), { code: 'TOO_BIG' });
@@ -5137,11 +5138,30 @@ q.on('active', live => {
 });
 
 async function boot() {
-  const first = await q.start();
+  const starting = q.start();
+  // This phone's own copy, drawn at once while the Pass answers (on a slow
+  // connection the sign-in took seconds, and the account waited on it).
+  // The Pass's copy is merged into it when it comes, as at every sync.
+  const local = q.pass ? withWelcome(await loadAccount()) : null;
+  if (local) {
+    state.wallet = q.wallet;
+    state.account = local;
+    state.accountReady = true;
+    render();
+  }
+  const first = await starting;
   state.wallet = first.wallet || q.wallet;
-  state.account = withWelcome(await loadAccount());
-  // The pass's own copy, merged in (and the account made, the first time).
-  if (first && !first.offline) await (syncChain = syncChain.then(() => mergeRemote(first)).catch(error => (state.sync.error = error.message)));
+  if (!local) state.account = withWelcome(await loadAccount());
+  // The pass's own copy, merged in (and the account made, the first time);
+  // waited for until it's in, not for the save after it (on a weak
+  // connection that save took minutes).
+  if (first && !first.offline)
+    await new Promise(merged => {
+      syncChain = syncChain
+        .then(() => mergeRemote(first, { applied: merged }))
+        .catch(error => (state.sync.error = error.message))
+        .finally(merged);
+    });
   // A first account only once the pass has been read and has none: opened
   // offline on a new phone, the wallet isn't known (a pass Quadra funded
   // would have been given Securities' old NT$100,000, then folded into the
