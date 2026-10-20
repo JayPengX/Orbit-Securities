@@ -57,13 +57,14 @@ test('odd lots: under 1,000 or not whole lots; only from 09:10 Taipei (09:00 fro
   // without it: still 09:10).
   assert.equal(oddLotOpen(tpe('2028-03-01', '09:00')), Boolean(SM.oddLotOpenAt));
   assert.equal(oddLotOpen(tpe('2028-03-01', '09:10')), true);
-  // Taiwan's market orders cross half a tick (no share of the price on top).
-  assert.equal(marketFill('TW', 'stock', 'buy', 1000), 1000 + 2.5);
+  // Taiwan's market orders cross a whole tick (fills stay on its ticks).
+  assert.equal(marketFill('TW', 'stock', 'buy', 1000), 1000 + 5);
 });
 
 test('dividends: the 2.11% NHI premium from NT$20,000 a payment, nothing below', () => {
-  assert.deepEqual(dividendTaxes('TW', 19_999), { withheld: 0, nhi: 0, net: 19_999 });
-  assert.deepEqual(dividendTaxes('TW', 20_000), { withheld: 0, nhi: 422, net: 19_578 });
+  // (Less the company's NT$10 匯費.)
+  assert.deepEqual(dividendTaxes('TW', 19_999), { withheld: 0, nhi: 0, fee: 10, net: 19_989 });
+  assert.deepEqual(dividendTaxes('TW', 20_000), { withheld: 0, nhi: 422, fee: 10, net: 19_568 });
   assert.equal(dividendTaxes('US', 100).withheld, 30);
   assert.equal(dividendTaxes('JP', 10_000).withheld, 1532);
 });
@@ -80,7 +81,7 @@ test('settlement keeps 23:59 in the market across a clock change (New York, Nove
 test('exchange: what you get is rounded down to its unit, a closed market doubles the spread, and amountFor always covers what is wanted', () => {
   const rates = { TWD: 1, USD: 32, JPY: 0.21 };
   const q = quoteExchange('TWD', 'JPY', 10_000, rates);
-  assert.equal(q.received, Math.floor(10_000 / 0.21 * (1 - 0.003)));
+  assert.equal(q.received, Math.floor(10_000 / 0.21 * (1 - 0.006)));
   assert.ok(Number.isInteger(q.received));
   assert.ok(quoteExchange('TWD', 'USD', 10_000, rates, false).received < quoteExchange('TWD', 'USD', 10_000, rates, true).received);
   for (const need of [0.01, 1, 99.99, 1234.56, 31_250]) {

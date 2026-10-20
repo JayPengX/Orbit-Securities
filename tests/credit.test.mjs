@@ -103,17 +103,18 @@ test('day trading sold first: 3 months open and ten trades (or a credit account)
   assert.deepEqual(closeOutPlan(a, val(a, T0 + HOUR, [['2330.TW', q]]), T0 + HOUR), []);
 });
 
-test('day trading bought first: the half tax once the account is 3 months open with 10 trades; before, the full tax', () => {
+test('day trading bought first: the half tax once the account is 3 months open with 10 trades; before, no same-day sale', () => {
   const q = quote('2330.TW', 1000);
   const roundTrip = a => {
     const bought = placeOrder(a, { side: 'buy', type: 'limit', limit: 1000, qty: 1000 }, { quote: q, rates: RATES, valuation: val(a, T0, [['2330.TW', q]]), now: T0, id: 'b' }).account;
     const later = T0 + HOUR;
     const lq = quote('2330.TW', 1000, later);
-    return placeOrder(bought, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: lq, rates: RATES, valuation: val(bought, later, [['2330.TW', lq]]), now: later, id: 's' }).fill;
+    return placeOrder(bought, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: lq, rates: RATES, valuation: val(bought, later, [['2330.TW', lq]]), now: later, id: 's' });
   };
-  assert.equal(roundTrip(trader(4, 12)).tax, HALF_TAX);
-  assert.equal(roundTrip(trader(1, 12)).tax, 3000);
-  assert.equal(roundTrip(trader(4, 3)).tax, 3000);
+  assert.equal(roundTrip(trader(4, 12)).fill.tax, HALF_TAX);
+  // Not yet a day trader: a broker refuses the sale until tomorrow.
+  assert.equal(roundTrip(trader(1, 12)).error, 'dayTradeNeeded');
+  assert.equal(roundTrip(trader(4, 3)).error, 'dayTradeNeeded');
 });
 
 test('after-hours: an order after the close matches once at 14:30, at the close', () => {

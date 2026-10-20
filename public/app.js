@@ -2776,6 +2776,8 @@ function errorText(r) {
       return t('err_capacity', { cap: money(r.capacity, BASE) });
     case 'shortMargin':
       return t('err_shortMargin', { max: fmtQty(r.max) });
+    case 'dayTradeNeeded':
+      return t('err_dayTradeNeeded', { have: fmtQty(r.have ?? 0) });
     case 'dayTradeLimit':
       return t('err_dayTradeLimit', { room: money(r.room ?? 0, BASE), limit: money(r.limit ?? 0, BASE) });
     case 'creditLimit':
@@ -3780,7 +3782,7 @@ function activityRow(e) {
       lead = symLead(e.symbol, q, t('divShort'), 'div');
       title = nameOf(e.symbol, q);
       line = `${e.coupon ? t('couponPaid') : t('dividend')} ${fmtQty(e.shares)} × ${fmtPrice(e.perShare, e.currency)}`;
-      meta = fees([e.withheld ? `${t('withheld')} ${money(e.withheld, e.currency)}` : '', e.nhi ? `${t('nhi')} ${money(e.nhi, e.currency)}` : '']);
+      meta = fees([e.withheld ? `${t('withheld')} ${money(e.withheld, e.currency)}` : '', e.nhi ? `${t('nhi')} ${money(e.nhi, e.currency)}` : '', e.fee ? `${t('remitFee')} ${money(e.fee, e.currency)}` : '']);
       if (e.t > Date.now()) tag = t('pendingTag');
       amount = `<strong class="num ${e.net < 0 ? '' : 'up-ink'}">${e.net < 0 ? '' : '+'}${h(money(e.net, e.currency))}</strong>`;
       break;
@@ -3794,7 +3796,12 @@ function activityRow(e) {
     case 'split':
       lead = actTile('split', TINT.green);
       title = nameOf(e.symbol, q);
-      line = `${t('split')} ${num(e.ratio, 4)} : 1`;
+      // A Taiwan 配股: whole shares, the fraction in cash at par, NHI on the new shares.
+      line = e.par ? `${t('stockDiv')} ${num((e.ratio - 1) * e.par, 4)} ${locale === 'zh' ? '元' : 'NT$'}` : `${t('split')} ${num(e.ratio, 4)} : 1`;
+      if (e.par) {
+        meta = fees([e.cash ? `${t('stockDivCash')} ${money(e.cash, BASE)}` : '', e.nhi ? `${t('nhi')} ${money(e.nhi, BASE)}` : '']);
+        if (e.cash || e.nhi) amount = `<strong class="num ${e.cash - e.nhi < 0 ? '' : 'up-ink'}">${e.cash - e.nhi < 0 ? '' : '+'}${h(money((e.cash || 0) - (e.nhi || 0), BASE))}</strong>`;
+      }
       break;
     case 'deposit':
       lead = e.pool ? appTile(e.app) : actTile('in', TINT.blue);

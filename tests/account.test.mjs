@@ -46,15 +46,15 @@ test('buying Taiwan stock at market: price, commission, cash and holding', () =>
   const r = placeOrder(a, { symbol: '2330.TW', side: 'buy', type: 'market', qty: 1000 }, { quote: quote('2330.TW', 2475), rates: RATES, now: T0, id: 'o1' });
   assert.equal(r.error, undefined);
   assert.equal(r.order.status, 'filled');
-  // A market order buys at the ask: half a tick (NT$2.5) above the last price.
-  assert.equal(r.fill.price, 2477.5);
+  // A market order buys at the ask: a whole tick (NT$5) above the last price (Taiwan trades on its ticks).
+  assert.equal(r.fill.price, 2480);
   assert.equal(r.fill.quote, 2475);
-  assert.equal(r.fill.gross, 2_477_500);
-  assert.equal(r.fill.commission, 3530);
+  assert.equal(r.fill.gross, 2_480_000);
+  assert.equal(r.fill.commission, 3534);
   const s = replay(r.account, T0);
-  assert.equal(s.cash.TWD, 5_000_000 - 2_481_030);
+  assert.equal(s.cash.TWD, 5_000_000 - 2_483_534);
   assert.equal(s.positions['2330.TW'].qty, 1000);
-  assert.equal(s.positions['2330.TW'].cost, 2_481_030);
+  assert.equal(s.positions['2330.TW'].cost, 2_483_534);
 });
 
 test('an order held for a fresh price waits as a 委託單, then fills at the newer quote', () => {
@@ -92,9 +92,9 @@ test('融資買進: the broker lends 60% of a Taiwan buy as it fills; selling re
   assert.equal(r.order.status, 'filled');
   const s = replay(r.account, T0);
   const total = r.fill.total;
-  // 60% of the trade's value (成交價款 NT$2,477,500, before costs) lent, the part under NT$1,000 not (TWSE §50), tied to the stock.
-  const loan = 1_486_000;
-  assert.equal(r.fill.gross, 2_477_500);
+  // 60% of the trade's value (成交價款 NT$2,480,000, before costs) lent, the part under NT$1,000 not (TWSE §50), tied to the stock.
+  const loan = 1_488_000;
+  assert.equal(r.fill.gross, 2_480_000);
   assert.equal(r.fill.financed, loan);
   assert.equal(s.loans.TWD.balance, loan);
   assert.equal(s.positions['2330.TW'].financed, loan);
@@ -198,7 +198,8 @@ test('buy abroad, sell later: realized profit in NT$ includes the currency move'
   const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 330, qty: 10 }, { quote: quote('AAPL', 330, { at: later }), rates: rates2, now: later, id: 's' });
   s = replay(r.account, later);
   assert.equal(s.positions.AAPL, undefined);
-  const proceeds = 3300 - usCommission('sell', 3300, later) - 0.07;
+  // (Less the SEC fee, US$0.07, and FINRA's TAF, a cent.)
+  const proceeds = 3300 - usCommission('sell', 3300, later) - 0.08;
   assert.ok(Math.abs(s.cash.USD - (9980 - cost + proceeds)) < 1e-6);
   assert.ok(Math.abs(s.realized - (proceeds * 33 - cost * 32)) < 1e-6);
   assert.equal(s.closed.length, 1);
@@ -220,8 +221,8 @@ test('orders placed while the market is shut wait, hold their cash and fill at t
   const open = quote('2330.TW', 2500, { at: T0 + DAY });
   const p = processOrders(r.account, new Map([['2330.TW', open]]), RATES, T0 + DAY);
   assert.equal(p.filled.length, 1);
-  // At the ask: half a tick above the opening price.
-  assert.equal(p.filled[0].price, 2502.5);
+  // At the ask: a tick above the opening price.
+  assert.equal(p.filled[0].price, 2505);
   assert.equal(p.account.orders[0].status, 'filled');
   // Cancelled orders free their cash.
   const c = cancelOrder(r.account, 'm', T0 + 5);

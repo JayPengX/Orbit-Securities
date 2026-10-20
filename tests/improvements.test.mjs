@@ -212,8 +212,9 @@ test('dividends are owed on the ex-date and paid on the market’s pay day', asy
   assert.equal(d.t, ex + 28 * DAY);
   const cash = t => replay(a, t).cash.TWD;
   assert.equal(cash(now), cash(at + 1));
-  assert.equal(cash(d.t) - cash(now), 6000);
-  assert.equal(replay(a, now).receivable, 6000);
+  // (Less the company's NT$10 匯費.)
+  assert.equal(cash(d.t) - cash(now), 5990);
+  assert.equal(replay(a, now).receivable, 5990);
   assert.equal(replay(a, d.t).receivable, 0);
   assert.equal(replay(a, ex - 1).receivable, 0);
   assert.deepEqual(pendingDividends(a, d.t), []);
@@ -295,16 +296,19 @@ test('sale proceeds settle T+2 in Taiwan: they buy again at once but can’t be 
 test('market orders cross the spread, limit orders never fill worse than their price', async () => {
   const { placeOrder } = await import('../public/lib/account.mjs');
   const { marketSlip } = await import('../public/lib/markets.mjs');
-  assert.equal(marketSlip('TW', 'stock', 2475), 2.5);
+  assert.equal(marketSlip('TW', 'stock', 2475), 5);
   assert.ok(Math.abs(marketSlip('US', 'stock', 300) - 0.03) < 1e-12);
   assert.equal(marketSlip('METAL', 'metal', 4400), 0);
   const at = Date.parse('2026-09-22T10:00:00+08:00');
   const q = { symbol: '2330.TW', name: 'TSMC', kind: 'stock', market: 'TW', currency: 'TWD', price: 2475, prev: 2475, session: { start: at - 3_600_000, end: at + 3_600_000 }, marketTime: at };
   let a = newAccount(10_000_000, at, 'p');
   const buy = placeOrder(a, { side: 'buy', qty: 1000 }, { quote: q, rates: { TWD: 1 }, now: at, id: 'b' });
-  assert.equal(buy.fill.price, 2477.5);
-  const sell = placeOrder(buy.account, { side: 'sell', qty: 1000 }, { quote: q, rates: { TWD: 1 }, now: at + 1, id: 's' });
-  assert.equal(sell.fill.price, 2472.5);
+  // A whole tick each way (NT$5 at this price); sold the next day (a new account can't day trade).
+  assert.equal(buy.fill.price, 2480);
+  const day = 86_400_000;
+  const q2 = { ...q, marketTime: at + day, session: { start: q.session.start + day, end: q.session.end + day } };
+  const sell = placeOrder(buy.account, { side: 'sell', qty: 1000 }, { quote: q2, rates: { TWD: 1 }, now: at + day, id: 's' });
+  assert.equal(sell.fill.price, 2470);
   const lim = placeOrder(a, { side: 'buy', type: 'limit', limit: 2480, qty: 1000 }, { quote: q, rates: { TWD: 1 }, now: at, id: 'l' });
   assert.equal(lim.fill.price, 2475);
 });

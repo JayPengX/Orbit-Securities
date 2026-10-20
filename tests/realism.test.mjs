@@ -110,7 +110,7 @@ test('orders: day orders end with their session, GTC lasts a month, crypto never
   assert.equal(btc.order.tif, 'gtc');
 });
 
-test('orders: board lots and China’s T+1 are the exchange’s, and a day-old account’s Taiwan round trip pays the full tax', () => {
+test('orders: board lots and China’s T+1 are the exchange’s, and a day-old account can’t sell a Taiwan buy the same day', () => {
   const now = at('2026-09-30T10:00:00', '+08:00');
   const a = newAccount(10_000_000, now - DAY, 'r');
   const jp = { symbol: '7203.T', name: 'Toyota', kind: 'stock', market: 'JP', currency: 'JPY', price: 2500, prev: 2500, tz: 'Asia/Tokyo', marketTime: now, session: { start: now - HOUR, end: now + 4 * HOUR } };
@@ -125,13 +125,16 @@ test('orders: board lots and China’s T+1 are the exchange’s, and a day-old a
   assert.equal(placeOrder(bought.account, { side: 'sell', type: 'limit', limit: 1500, qty: 100 }, { quote: cn, rates, now: tue + HOUR, id: 'c2' }).error, 'tPlus1');
   const wed = { ...cn, marketTime: tue + DAY, session: { start: tue + DAY - HOUR, end: tue + DAY + 4 * HOUR } };
   assert.ok(placeOrder(bought.account, { side: 'sell', type: 'limit', limit: 1500, qty: 100 }, { quote: wed, rates, now: tue + DAY, id: 'c3' }).fill);
-  // Taiwan: bought and sold the same day by a day-old account: the full 0.3%
-  // (the half is day trading's, 3 months open and 10 trades: credit.test.mjs).
+  // Taiwan: a day-old account can't sell the same day (day trading needs 3
+  // months open and 10 trades: credit.test.mjs); the next day it sells at
+  // the full 0.3%.
   const tw = twQuote(1000, now);
   const b = placeOrder(a, { side: 'buy', type: 'limit', limit: 1000, qty: 1000 }, { quote: tw, rates: { TWD: 1 }, now, id: 't1' });
-  const sold = placeOrder(b.account, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: tw, rates: { TWD: 1 }, now: now + HOUR, id: 't2' });
+  assert.equal(placeOrder(b.account, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: tw, rates: { TWD: 1 }, now: now + HOUR, id: 't2' }).error, 'dayTradeNeeded');
+  const next = now + DAY;
+  const sold = placeOrder(b.account, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: { ...tw, marketTime: next, session: { start: tw.session.start + DAY, end: tw.session.end + DAY } }, rates: { TWD: 1 }, now: next, id: 't2' });
   assert.equal(sold.fill.tax, 3000);
-  assert.ok(replay(sold.account, now + HOUR).cash.TWD > 0);
+  assert.ok(replay(sold.account, next).cash.TWD > 0);
 });
 
 test('margin lends what brokers lend: Taiwan 60% (OTC 50%), Reg T 50% elsewhere, nothing on crypto, funds, gold, A-shares', async () => {

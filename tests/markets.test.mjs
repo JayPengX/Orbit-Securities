@@ -73,7 +73,7 @@ test('symbols to markets and kinds', () => {
 
 test('dividend taxes: US withholding, Taiwan NHI premium over NT$20,000', () => {
   assert.equal(dividendTaxes('US', 100).withheld, 30);
-  assert.deepEqual(dividendTaxes('TW', 19_999), { withheld: 0, nhi: 0, net: 19_999 });
+  assert.deepEqual(dividendTaxes('TW', 19_999), { withheld: 0, nhi: 0, fee: 10, net: 19_989 });
   assert.equal(dividendTaxes('TW', 50_000).nhi, 1055);
   assert.equal(dividendTaxes('HK', 1000).net, 1000);
 });
