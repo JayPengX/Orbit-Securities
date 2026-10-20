@@ -377,7 +377,7 @@ html .q-stats.about-returns { grid-template-columns: repeat(var(--n, 3), minmax(
 .verdicts > .verdict { margin: 0; }
 .verdict small { overflow-wrap: anywhere; }
 /* What's coming in: the 估 tag beside its amount. */
-.q-ritem-end.up-end { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.q-ritem-value small.est { margin-right: 4px; color: var(--q-label-2); font-size: 0.8em; font-weight: 500; }
 .pos-income { margin-top: 10px; }
 .pos-income .q-tag svg { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
 /* 買進 / 賣出 at the foot of the sheet, always in reach. */

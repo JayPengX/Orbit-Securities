@@ -2980,12 +2980,15 @@ function upcomingIncome(days = 120) {
   return out.filter(x => x.net >= 0.5).sort((a, b) => a.t - b.t);
 }
 function upcomingRow(x) {
-  const value = `<span class="q-ritem-end up-end">${x.est ? `<span class="q-tag">${h(t('estTag'))}</span>` : ''}<span class="q-ritem-value num up-ink">+${h(money(x.net, BASE))}</span></span>`;
-  if (x.kind === 'div')
-    return `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(x.symbol)}">${symbolBadge(x.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(x.symbol))}</span><small>${keepParts(t('upcomingDiv', { ex: shortDate(x.ex), pay: shortDate(x.t) }))}</small></span>${value}</button>`;
+  // The figures alone on the right, lined up; an estimate says 預估 in its line.
+  const value = `<span class="q-ritem-value num up-ink">+${h(money(x.net, BASE))}</span>`;
   const td = x.kind === 'td';
-  const [title, line] = td ? ['tdTitle', 'upcomingTd'] : ['incomeInterest', 'upcomingCash'];
-  return `<div class="q-ritem">${tileHtml(ico(td ? 'lock' : 'coin'), td ? TINT.green : TINT.orange)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t(title))}</span><small>${h(t(line, { date: shortDate(x.t) }))}</small></span>${value}</div>`;
+  const date = shortDate(x.t);
+  const line = x.est ? t('upcomingEst', { date }) : x.kind === 'div' ? t('upcomingDiv', { ex: shortDate(x.ex), pay: date }) : t(td ? 'upcomingTd' : 'upcomingCash', { date });
+  if (x.kind === 'div')
+    return `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(x.symbol)}">${symbolBadge(x.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(x.symbol))}</span><small>${keepParts(line)}</small></span>${value}</button>`;
+  const title = td ? 'tdTitle' : 'incomeInterest';
+  return `<div class="q-ritem">${tileHtml(ico(td ? 'lock' : 'coin'), td ? TINT.green : TINT.orange)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t(title))}</span><small>${keepParts(line)}</small></span>${value}</div>`;
 }
 
 // Income: dividends, coupons and cash interest over the last year, month by
@@ -2998,6 +3001,7 @@ function incomeHtml(v) {
   const top = Object.entries(inc.payers).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const parts = [['incomeDiv', inc.div], ['incomeCoupon', inc.coupon], ['incomeInterest', inc.interest], ['incomeLending', inc.lending]].filter(([, x]) => x >= 0.5);
   const soonSum = soon.reduce((a, x) => a + x.net, 0);
+  const soonBody = soon.length ? `<div class="q-rowcard">${soon.map(upcomingRow).join('')}</div>${soon.some(x => x.est) ? `<p class="foot-note">${h(t('upcomingNote'))}</p>` : ''}${list.length ? `<p class="foot-note">${h(t('pendingDivNote'))}</p>` : ''}` : '';
   // (Nothing paid yet: the hero says what's coming in, and the year's chart waits.)
   return `${inc.last12 >= 0.5
       ? `<div class="q-stats">
@@ -3009,11 +3013,7 @@ function incomeHtml(v) {
     ${parts.length ? `<div class="q-tags">${parts.map(([k, x]) => `<span class="q-tag">${h(t(k))} ${h(money(x, BASE))}</span>`).join('')}</div>` : ''}</div></section>`
       : ''}
     ${sectionHtml(t('incomeTop'), top.length ? `<div class="q-rowcard">${top.map(([sym, x]) => `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(sym)}">${symbolBadge(sym)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(sym))}</span></span><span class="q-ritem-value num up-ink">+${h(money(x, BASE))}</span></button>`).join('')}</div>` : '')}
-    ${sectionHtml(
-      t('upcomingTitle'),
-      soon.length ? `<div class="q-rowcard">${soon.map(upcomingRow).join('')}</div>${soon.some(x => x.est) ? `<p class="foot-note">${h(t('upcomingNote'))}</p>` : ''}${list.length ? `<p class="foot-note">${h(t('pendingDivNote'))}</p>` : ''}` : '',
-      { side: soon.length ? `<span class="q-tag up num">${h(money(soon.reduce((a, x) => a + x.net, 0), BASE))}</span>` : '' }
-    )}`;
+    ${inc.last12 >= 0.5 ? sectionHtml(t('upcomingTitle'), soonBody, { side: soon.length ? `<span class="q-tag up num">${h(money(soonSum, BASE))}</span>` : '' }) : soonBody ? `<section class="q-section">${soonBody}</section>` : ''}`;
 }
 
 // A plan that ended by itself stays in the list for a quarter (its card in
