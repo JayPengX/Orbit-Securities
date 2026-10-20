@@ -50,24 +50,22 @@ test('a foreign plan exchanges only what the shares need; too little money is re
   let a = setPlan(newAccount(100_000, T0, 'acc'), { id: 'p', symbol: 'VOO', amount: 50_000, day: 5, name: 'VOO', kind: 'etf', market: 'US', currency: 'USD' }, T0).account;
   const [run] = planRuns(a.plans.p, T0 + 30 * DAY);
   const r = runPlan(a, a.plans.p, run, { price: 600, twd: 32 }, T0 + 30 * DAY);
-  // Whole shares, or a US one's fractions to 4 decimals (a kit with fractional, US_FRACTION).
-  if (mk.US_FRACTION) {
-    assert.ok(r.fill.qty > 2.5 && r.fill.qty < 2.61);
-    assert.equal(+(Math.round(r.fill.qty / mk.US_FRACTION) * mk.US_FRACTION).toFixed(4), r.fill.qty);
-  } else assert.equal(r.fill.qty, 2);
+  // A US one's fractions to 4 decimals (US_FRACTION).
+  assert.ok(r.fill.qty > 2.5 && r.fill.qty < 2.61);
+  assert.equal(+(Math.round(r.fill.qty / mk.US_FRACTION) * mk.US_FRACTION).toFixed(4), r.fill.qty);
   const s = replay(r.account);
   assert.ok(s.cash.USD >= 0 && s.cash.USD < 5);
-  // (Whole shares leave some of the NT$ unexchanged; fractions use nearly all of it.)
-  assert.ok(s.cash.TWD > 100_000 - 50_000 - (mk.US_FRACTION ? 1 : 0));
+  // (Fractions use nearly all of the NT$.)
+  assert.ok(s.cash.TWD > 100_000 - 50_000 - 1);
   const fx = r.account.events.find(e => e.type === 'fx');
   assert.equal(fx.t, run.t);
   const poor = setPlan(newAccount(10_000, T0, 'b'), { id: 'p', symbol: 'VOO', amount: 20_000, day: 5, kind: 'etf', market: 'US', currency: 'USD' }, T0).account;
   const skipped = runPlan(poor, poor.plans.p, run, { price: 600, twd: 32 }, T0 + 30 * DAY);
   assert.equal(skipped.order.status, 'rejected');
   assert.equal(skipped.order.reason, 'funds');
-  // Too little for a share (or, buying fractions, under the US$10 a US buy needs: planMin).
-  const tiny = setPlan(newAccount(10_000, T0, 'c'), { id: 'p', symbol: 'VOO', amount: mk.US_FRACTION ? 200 : 1000, day: 5, kind: 'etf', market: 'US', currency: 'USD' }, T0).account;
-  assert.equal(runPlan(tiny, tiny.plans.p, run, { price: 600, twd: 32 }, T0 + 30 * DAY).order.reason, mk.US_FRACTION ? 'planMin' : 'tooSmall');
+  // Under the US$10 a US buy needs (planMin).
+  const tiny = setPlan(newAccount(10_000, T0, 'c'), { id: 'p', symbol: 'VOO', amount: 200, day: 5, kind: 'etf', market: 'US', currency: 'USD' }, T0).account;
+  assert.equal(runPlan(tiny, tiny.plans.p, run, { price: 600, twd: 32 }, T0 + 30 * DAY).order.reason, 'planMin');
 });
 
 test('price alerts go off once, on a quote or in the bars since they were set', () => {

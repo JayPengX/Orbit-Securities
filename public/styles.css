@@ -383,14 +383,10 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 
 /* ==== The ticket ==== */
 .ticket { display: grid; gap: 12px; }
-.ticket-quote { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
-.ticket-quote > strong { font: 700 28px/32px var(--q-font-rounded); }
 .side-toggle > button { font-weight: 700; }
 .side-toggle > .buy[aria-pressed='true'] { color: var(--up); }
 .side-toggle > .sell[aria-pressed='true'] { color: var(--down); }
 .ticket-fields { display: grid; gap: 10px; }
-.presets { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
-.presets .q-chip { justify-content: center; min-width: 0; padding-inline: 4px; }
 .preview { display: grid; gap: 6px; padding: 12px 16px; border-radius: 18px; background: var(--q-surface); font: var(--q-t-subhead); }
 .preview div { display: flex; justify-content: space-between; gap: 12px; }
 .preview dt { color: var(--q-label-2); }

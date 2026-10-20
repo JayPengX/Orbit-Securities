@@ -6,7 +6,6 @@ import {
 } from '../public/lib/account.mjs';
 import { BONDS, priceAt, curveYield, couponDates, bondQuote, bondSession, curveOf } from '../public/lib/bonds.mjs';
 import { isOpen } from '../public/lib/markets.mjs';
-import * as markets from '../public/lib/markets.mjs';
 
 const T0 = Date.UTC(2026, 8, 21, 2); // Monday 10:00 Taipei
 const HOUR = 3_600_000;
@@ -57,8 +56,8 @@ test('融券 in Taiwan: a 90% deposit and the sale money held, 0.08% handling, n
   assert.equal(s.closed[0].short, true);
 });
 
-// Shorts outside Taiwan are crypto's: 複委託 is cash only (a kit with isSubBrokered
-// refuses a foreign stock's short, cashOnly; an older one shorted those alike).
+// Shorts outside Taiwan are crypto's: 複委託 is cash only (a foreign stock's short is
+// refused, cashOnly).
 const crypto = (symbol, price, over = {}) => quote(symbol, price, { market: 'CRYPTO', kind: 'crypto', currency: 'TWD', ...over });
 
 test('short selling elsewhere: proceeds in cash, owed at market, a yearly borrowing fee', () => {
@@ -80,11 +79,9 @@ test('shorts elsewhere need 150% cover to open, get called and bought back when 
   let a = withCredit(newAccount(100_000, T0, 'acc'));
   const q = crypto('X', 100);
   const v = val(a, T0, [['X', q]]);
-  if (markets.isSubBrokered) {
-    // A US stock sells only what's held: 複委託 is cash only.
-    const us = quote('AAPL', 100, { market: 'US', currency: 'TWD' });
-    assert.deepEqual(placeOrder(a, { side: 'sell', qty: 10 }, { quote: us, rates: RATES, valuation: val(a, T0, [['AAPL', us]]), now: T0 }), { error: 'cashOnly', have: 0 });
-  }
+  // A US stock sells only what's held: 複委託 is cash only.
+  const us = quote('AAPL', 100, { market: 'US', currency: 'TWD' });
+  assert.deepEqual(placeOrder(a, { side: 'sell', qty: 10 }, { quote: us, rates: RATES, valuation: val(a, T0, [['AAPL', us]]), now: T0 }), { error: 'cashOnly', have: 0 });
   const big = placeOrder(a, { side: 'sell', qty: 3000 }, { quote: q, rates: RATES, valuation: v, now: T0 });
   assert.equal(big.error, 'shortMargin');
   assert.ok(big.max > 1500 && big.max < 2100);

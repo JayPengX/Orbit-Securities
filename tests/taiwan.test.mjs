@@ -256,29 +256,24 @@ test('after hours: 盤後零股 takes orders from 13:40, 盤後定價 from 14:00
   if (twseKit) assert.deepEqual(SC.afterHours(tpe(day, '13:35'), true), { from: tpe(day, '13:40'), match: tpe(day, '14:30') });
 });
 
-test('a first listing (初上市) has no daily limit for its first five trading days, once the app sets quote.listed (older kit: ±10%)', () => {
+test('a first listing (初上市) has no daily limit for its first five trading days, once the app sets quote.listed', () => {
   const list = [{ symbol: '7867.TW', kind: '初上市', list: tpe('2026-10-22', '00:00') }];
-  const listed = SI.listedOn?.(list, '7867.TW') ?? null;
+  const listed = SI.listedOn(list, '7867.TW');
   const q = { symbol: '7867.TW', kind: 'stock', market: 'TW', currency: 'TWD', price: 60, prev: 50, listed };
-  const band = priceLimits(q, tpe('2026-10-28', '10:00'));
-  if (typeof SI.listedOn === 'function') {
-    assert.equal(listed, tpe('2026-10-22', '00:00'));
-    assert.equal(band, null);
-    assert.deepEqual(priceLimits(q, tpe('2026-10-30', '10:00')), { up: 55, down: 45 }, 'the sixth trading day: ±10% again');
-  } else assert.deepEqual(band, { up: 55, down: 45 });
+  assert.equal(listed, tpe('2026-10-22', '00:00'));
+  assert.equal(priceLimits(q, tpe('2026-10-28', '10:00')), null);
+  assert.deepEqual(priceLimits(q, tpe('2026-10-30', '10:00')), { up: 55, down: 45 }, 'the sixth trading day: ±10% again');
 });
 
-test('追繳 is met once the 差額 called is paid in full (callPaid), on a kit that counts it; else only back at 166%', () => {
+test('追繳 is met once the 差額 called is paid in full (callPaid), not only back at 166%', () => {
   const now = tpe('2026-10-13', '15:00');
   const call = { since: now, due: now + 2 * DAY, need: 10_000 };
   const v = { owed: 100_000, assets: 125_000, ratio: 1.25 };
   const account = { events: [{ id: 'repay:p1', type: 'repay', t: now + 1000, currency: 'TWD', amount: 10_000 }] };
-  const paid = SA.callPaid?.(account, call, { TWD: 1 }) ?? 0;
+  const paid = SA.callPaid(account, call, { TWD: 1 });
   const c = SA.callState(call, v, now + DAY, paid);
-  if (typeof SA.callPaid === 'function') {
-    assert.equal(paid, 10_000);
-    assert.deepEqual(c, { call: null, sell: false, event: 'met', paid: true });
-  } else assert.deepEqual(c.call, call);
+  assert.equal(paid, 10_000);
+  assert.deepEqual(c, { call: null, sell: false, event: 'met', paid: true });
 });
 
 test("二代健保 on a dividend: 2.11% to the dollar, half up on the kit with NT$10M's cap (older kit: cut down)", () => {
@@ -291,9 +286,7 @@ test("二代健保 on a dividend: 2.11% to the dollar, half up on the kit with N
 test("the app reads the held kit's new exports through the module, never by name (a phone may run an older kit)", () => {
   const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const named = [...app.matchAll(/^import \{([^}]*)\} from '\.\/lib\/[a-z]+\.mjs'/gm)].flatMap(m => m[1].split(',').map(x => x.trim()));
-  for (const name of ['closingAuction', 'closingMatch', 'CLOSE_DECIDE', 'callPaid', 'listedOn', 'divPayDate', 'nhiPremium', 'NHI_CAP', 'newListing']) assert.ok(!named.includes(name), name);
-  assert.match(app, /stockAccount\.callPaid\?\.\(/);
-  assert.match(app, /stockIpo\.listedOn\?\.\(/);
+  for (const name of ['closingAuction', 'closingMatch', 'CLOSE_DECIDE', 'divPayDate', 'nhiPremium', 'NHI_CAP', 'newListing']) assert.ok(!named.includes(name), name);
 });
 
 test('a whole-lot day order past 13:30 waits for the closing match, on a kit that keeps it open', async () => {

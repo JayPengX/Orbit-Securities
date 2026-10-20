@@ -3,7 +3,7 @@
 import {
   newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
-import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, LEND_TERM_DAYS, lendFee, lendable } from './lib/savings.mjs';
+import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, lendFee, lendable } from './lib/savings.mjs';
 import {
   BASE, CURRENCIES, MARKETS, METALS, collateralRate, MARGIN_CALL, MARGIN_RESTORE, SHORT_FEE, currencyInfo, isOpen, isTradable, isShortable, qtyStep, roundQty, delayOf, tickSize, onTick, priceLimits, marketFill, isOddLot, oddLotOpen, CASH_RATE, lotSize, lunchOf, atLunch, limitShare, settleDays
 } from './lib/markets.mjs';
@@ -31,7 +31,7 @@ import {
   keepOffline, onlineOnly, proxyJson
 } from '#kit/quadra.mjs';
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
-import { IPO_URL, IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
+import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import * as stockAccount from './lib/account.mjs';
 // (Read through the module, with a fallback, for what an older kit lacks.)
@@ -109,20 +109,20 @@ const state = {
 const ipoState = { list: null, at: 0, busy: null };
 // A first listing's listing day on its quote (quote.listed, from the list
 // above): no daily price limit for its first five trading days (kit's
-// stock-ipo.mjs listedOn; an older kit has none, and keeps the ±10%).
+// stock-ipo.mjs listedOn).
 const markListed = q => {
-  if (q?.market === 'TW') q.listed = stockIpo.listedOn?.(ipoState.list, q.symbol) ?? null;
+  if (q?.market === 'TW') q.listed = stockIpo.listedOn(ipoState.list, q.symbol);
   return q;
 };
 
-// A confirm in the kit's new look (a colour tile with a kit icon, numbered points); an older kit keeps the emoji it knew.
+// A confirm in the kit's look (a colour tile with a kit icon, points with icons); an ask without a kit icon for its emoji keeps the emoji.
 const ASK_ICON = { '🎟': ['ticket', 'indigo'], '📅': ['calendar', 'teal'], '🏦': ['bank', 'indigo'], '⚠️': ['bell', 'red'], '🤝': ['coin', 'orange'], '↩️': ['history', 'blue'], '📈': ['chart', 'green'], '📉': ['chart', 'red'], '💱': ['exchange', 'orange'] };
 const POINT_ICON = { '💰': ['wallet', 'orange'], '🎲': ['ticket', 'indigo'], '📈': ['chart', 'green'], '🔒': ['lock', 'gray'], '💸': ['coin', 'red'], '📅': ['calendar', 'teal'] };
 function askKit(opts) {
   const named = ASK_ICON[opts.icon];
-  if (!kitUI.confirm || !named || !kitUI.icons?.[named[0]]) return ask(opts);
-  // Points with a kit icon of their own (the kit from the securities parts on: { icon, text } points); older: numbered.
-  const iconed = kitUI.stockRowHtml && (opts.points || []).every(([mark]) => POINT_ICON[mark] && kitUI.icons[POINT_ICON[mark][0]]);
+  if (!named || !kitUI.icons[named[0]]) return ask(opts);
+  // Points with a kit icon of their own ({ icon, text } points); the others numbered.
+  const iconed = (opts.points || []).every(([mark]) => POINT_ICON[mark] && kitUI.icons[POINT_ICON[mark][0]]);
   const points = (opts.points || []).map(([mark, head, line], i) => (iconed ? { icon: POINT_ICON[mark][0], tint: TINT[POINT_ICON[mark][1]], text: line ? `${head} · ${line}` : head } : [String(i + 1), head, line]));
   return kitUI.confirm({ ...opts, icon: named[0], tint: TINT[named[1]], points });
 }
@@ -525,8 +525,8 @@ function afterPrices() {
   // close, two business days to pay it back to 166% (補繳), then what was
   // bought on margin is sold if the ratio is still under 130% (處分).
   if (!v.missingRates.length && !v.stale.length) {
-    // (Also met once the 差額 called is paid in full, on a kit that counts it: callPaid.)
-    const c = callState(account.call || null, v, now, stockAccount.callPaid?.(account, account.call || null, state.rates) ?? 0);
+    // (Also met once the 差額 called is paid in full: callPaid.)
+    const c = callState(account.call || null, v, now, stockAccount.callPaid(account, account.call || null, state.rates));
     if (c.event === 'issued') {
       accountNotice('margin', t('callIssued', { ratio: `${Math.floor(v.ratio * 100)}%`, v: money(c.call.need, BASE), date: dateTime(c.call.due) }), { tone: 'bad', tag: `call:${now}`, hash: 'fx' });
     } else if (c.event === 'met') accountNotice('margin', t(c.paid ? 'callMetPaid' : 'callMet'), { tag: `callmet:${now}`, hash: 'fx' });
@@ -612,7 +612,7 @@ function marginCallNotice(account, v) {
     if (localStorage.getItem(STORE.marginNotice) === mark) return;
     localStorage.setItem(STORE.marginNotice, mark);
   } catch {}
-  const key = typeof stockAccount.callPaid === 'function' && account.call?.need > 0 ? 'noticeMarginBodyOrPaid' : 'noticeMarginBody';
+  const key = account.call?.need > 0 ? 'noticeMarginBodyOrPaid' : 'noticeMarginBody';
   accountNotice('margin', t(key, { ratio: `${Math.floor(v.ratio * 100)}%` }), { tone: 'bad', tag: `margin:${mark}`, hash: 'fx' });
 }
 
@@ -835,15 +835,13 @@ const sectionHtml = (title, body, { more = '', moreAction = '', side = '', cls =
   if (!body) return '';
   const own = moreAction.match(/class="([^"]*)"/)?.[1] || '';
   const act = moreAction.replace(/class="[^"]*"/, '').trim();
-  const head = kitHtml(
-    () => kitUI.sectionHead?.(title, { more, count, onMore: null }),
-    () => `<div class="q-section-head"><h2>${h(title)}</h2>${count !== '' ? `<span class="q-sh-count num">${h(count)}</span>` : ''}${more ? `<button type="button" class="q-sh-more">${h(more)}</button>` : ''}</div>`
-  )
-    .replace('class="q-sh-more"', `${act} class="q-sh-more${own ? ` ${own}` : ''}"`)
+  const head = kitUI
+    .sectionHead(title, { more, count, onMore: null })
+    .outerHTML.replace('class="q-sh-more"', `${act} class="q-sh-more${own ? ` ${own}` : ''}"`)
     .replace('</h2>', `</h2>${side}`);
   return `<section class="q-section${cls ? ` ${cls}` : ''}">${head}${body}</section>`;
 };
-const ico = name => kitUI.icons?.[name] ?? '';
+const ico = name => kitUI.icons[name] ?? '';
 const TINT = { teal: 'var(--q-accent)', indigo: 'var(--q-indigo)', orange: 'var(--q-orange)', red: 'var(--q-red)', green: 'var(--q-green)', blue: 'var(--q-blue)', purple: 'var(--q-purple)', pink: 'var(--q-pink)', gray: 'var(--q-gray)', brown: 'var(--q-brown)', cyan: 'var(--q-cyan)', mint: 'var(--q-mint)' };
 // When a closed market opens next: Yahoo's session moved past weekends and
 // the market's holidays (holidays.mjs) to the next trading day.
@@ -902,7 +900,7 @@ const heldMargin = symbol => {
   return p && !p.short ? marginShares(p) : 0;
 };
 // When today's session ends: its close, or a half day's early close.
-const closeOf = (q, now = Date.now()) => Math.min(q.session?.end ?? Infinity, stockMarkets.earlyCloseAt?.(q.market, now) ?? Infinity);
+const closeOf = (q, now = Date.now()) => Math.min(q.session?.end ?? Infinity, stockMarkets.earlyCloseAt(q.market, now) ?? Infinity);
 function marketStatus(q) {
   if (!q) return '';
   if (q.kind === 'crypto') return `<span class="mkt-status open">${statusDot(q)}${h(t('always'))}</span>`;
@@ -922,7 +920,7 @@ function marketStatus(q) {
   if (halt && now < halt.until) return `<span class="mkt-status halt">${statusDot(q)}${h(halt.level === 3 ? t('haltDay') : t('haltUntil', { time: clock(halt.until, q.tz) }))} ${local}</span>`;
   const us = usSessionOf(q, now);
   if (us === 'pre' || us === 'post') {
-    const until = us === 'pre' ? (q.session?.start > now ? q.session.start : nextOpen(q, now)) : stockMarkets.usExtendedEnd?.(now);
+    const until = us === 'pre' ? (q.session?.start > now ? q.session.start : nextOpen(q, now)) : stockMarkets.usExtendedEnd(now);
     return `<span class="mkt-status ext">${statusDot(q)}${h(t(us === 'pre' ? 'statusPre' : 'statusPost', { time: until ? clock(until, q.tz) : '—' }))} ${local}</span>`;
   }
   // A half day closes early (the kit's earlyCloseAt).
@@ -1123,30 +1121,18 @@ function homeOpenChip() {
   return open.length ? `<button class="q-tag green" type="button" data-action="movers-go" data-v="${h(open[0] === 'jp' || open[0] === 'hk' ? 'world' : open[0])}"><i class="open-dot" aria-hidden="true"></i>${h(open.map(id => t(`openMkt_${id}`)).join('・'))} ${h(t('openNow'))}</button>` : '';
 }
 
-// ---- Kit pieces for the home (each `kitUI.x?.()`, with a fallback for an older kit cached on a phone) ----
-// An element of the kit as HTML, its taps by data-action (this app's one click handler).
-const kitHtml = (make, fallback) => {
-  try {
-    const node = make?.();
-    return node ? node.outerHTML : fallback();
-  } catch {
-    return fallback();
-  }
-};
+// ---- Kit pieces for the home (each an element of the kit as HTML, its taps by data-action: this app's one click handler) ----
 // A bare empty state: the kit's, one line.
-const plainEmpty = text => kitUI.emptyHtml?.({ title: text }) ?? `<p class="empty">${h(text)}</p>`;
+const plainEmpty = text => kitUI.emptyHtml({ title: text });
 // The kit's empty state, with an icon, and a button of the app's own under it.
 const emptyHtml = ({ icon, tint = TINT.gray, title, body = '', go = '', attrs = '' }) => {
   const btn = go ? `<button class="q-btn primary small" type="button" ${attrs}>${h(go)}</button>` : '';
-  const node = kitHtml(
-    () => kitUI.empty?.({ icon, tint, title, body }),
-    () => `<div class="q-empty">${tileHtml(ico(icon), tint)}<strong>${h(title)}</strong>${body ? `<p>${h(body)}</p>` : ''}</div>`
-  );
+  const node = kitUI.empty({ icon, tint, title, body }).outerHTML;
   return `<div class="q-rowcard empty-card">${node.replace(/<\/div>$/, `${btn}</div>`)}</div>`;
 };
 // The day's move as Apple Stocks draws it: a solid pill, white on red or green.
-// The day's move as the kit's solid pill (percent in, ours is a fraction); an older kit keeps the plain tag.
-const movePill = q => kitUI.movePillHtml?.(q && Number.isFinite(q.pct) ? q.pct * 100 : null) ?? pctTag(q);
+// The day's move as the kit's solid pill (percent in, ours is a fraction).
+const movePill = q => kitUI.movePillHtml(q && Number.isFinite(q.pct) ? q.pct * 100 : null);
 // A watchlist row, Apple Stocks style, the kit's stockRow: logo, name and code, spark, the price over the pill.
 function stockRow(symbol, { sub = '' } = {}) {
   const q = state.quotes.get(symbol);
@@ -1157,7 +1143,7 @@ function stockRow(symbol, { sub = '' } = {}) {
   const logo = logoUrls(symbol, kind);
   const line = [held ? t('heldTag') : '', due ? due[2] : bareSymbol(symbol), sub].filter(Boolean).join(' · ');
   return (
-    discTile(kitUI.stockRowHtml?.({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? fmtPrice(q.price, q.currency) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, open: symbol, data: { action: 'open', symbol } }), logo) ?? quoteRow(symbol, { note: sub })
+    discTile(kitUI.stockRowHtml({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? fmtPrice(q.price, q.currency) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, open: symbol, data: { action: 'open', symbol } }), logo)
   );
 }
 // What's coming that matters to this account: orders waiting, an ex-date today, a held stock on TWSE's lists, the next market holidays.
@@ -1223,14 +1209,9 @@ function renderHome() {
     { icon: 'lock', tint: TINT.green, label: t('qaSave'), attrs: 'data-action="tool" data-tool="td"' },
     { icon: 'grid', tint: TINT.purple, label: t('qaAlloc'), attrs: 'data-action="tool" data-tool="alloc"' }
   ];
-  const quick = kitHtml(
-    () => {
-      const node = kitUI.actionGrid?.(actions.map(a => ({ icon: a.icon, tint: a.tint, label: a.label, onTap: null })));
-      node?.querySelectorAll('.q-action').forEach((b, i) => actions[i].attrs.split(/\s(?=data-)/).forEach(a => b.setAttribute(a.split('=')[0], a.split('=')[1].replace(/"/g, ''))));
-      return node;
-    },
-    () => `<div class="q-actions-grid">${actions.map(a => `<button class="q-action" type="button" ${a.attrs}>${tileHtml(ico(a.icon), a.tint)}<span>${h(a.label)}</span></button>`).join('')}</div>`
-  );
+  const grid = kitUI.actionGrid(actions.map(a => ({ icon: a.icon, tint: a.tint, label: a.label, onTap: null })));
+  grid.querySelectorAll('.q-action').forEach((b, i) => actions[i].attrs.split(/\s(?=data-)/).forEach(a => b.setAttribute(a.split('=')[0], a.split('=')[1].replace(/"/g, ''))));
+  const quick = grid.outerHTML;
   // 我的持股: a rail, each holding's picture, name, price and today's move.
   const positions = v ? [...v.positions].sort((a, b) => Math.abs(b.valueTWD) - Math.abs(a.valueTWD)).slice(0, 12) : [];
   const holdCard = p => {
@@ -1339,7 +1320,7 @@ function loadIpo() {
     try {
       // This year's list, and early in a year last year's too (kit ipoUrls): a
       // December draw still resolves, and its listing keeps its five days without a limit.
-      const urls = stockIpo.ipoUrls?.(Date.now()) ?? [IPO_URL];
+      const urls = stockIpo.ipoUrls(Date.now());
       const lists = await Promise.all(urls.map((u, i) => proxyJson(u, { ttl: 30 * 60_000 }).then(parseIpoList, e => (i ? [] : Promise.reject(e)))));
       ipoState.list = [...new Map(lists.flat().map(s => [ipoKey(s), s])).values()];
       ipoState.at = Date.now();
@@ -1705,8 +1686,7 @@ function kitSheet(id, { cls = '', detent = 'large', lead = null, onClose = () =>
   s.el.id = id;
   return s.el;
 }
-// A sheet's head: its title, and under it the kit's subtitle line (a kit from before it: the line inside the title).
-const KIT_SUBTITLE = Boolean(kitUI.sheetHtml?.({ subtitle: 'x' }).includes('q-sheet-sub'));
+// A sheet's head: its title, and under it the kit's subtitle line.
 function setHead(dialog, titleHtml, subtitle = '') {
   const head = dialog?.querySelector('.q-sheet-head');
   const h2 = head?.querySelector('h2');
@@ -1715,7 +1695,6 @@ function setHead(dialog, titleHtml, subtitle = '') {
   if (h2.dataset.k === key) return;
   h2.dataset.k = key;
   if (!subtitle) return void (h2.innerHTML = titleHtml);
-  if (!KIT_SUBTITLE) return void (h2.innerHTML = `${titleHtml}<small style="display:block;color:var(--q-label-2);font:var(--q-t-caption)">${h(subtitle)}</small>`);
   h2.innerHTML = titleHtml;
   let sub = head.querySelector(':scope > .q-sheet-sub');
   if (!sub) h2.after((sub = Object.assign(document.createElement('small'), { className: 'q-sheet-sub' })));
@@ -1728,20 +1707,8 @@ function closeDetail() {
 
 // The kit's sheetHero with this app's own picture in it (`logo`: a symbol's picture) and its status row (`status`: the market and quote tags), plus the live price.
 function sheetHeroHtml({ badge, eyebrow, big, sub, tint, tagsHtml = '', bigAttr = '' }) {
-  if (!kitUI.sheetHero) return '';
-  try {
-    let html = kitUI.sheetHeroHtml?.({ eyebrow, big, sub, tint, logoHtml: badge, statusHtml: tagsHtml }) ?? '';
-    // (A kit from before the hero's logo and status slots: the markup put in by hand.)
-    if (!html.includes('q-sh-logos') || (tagsHtml && !html.includes('q-sh-status'))) {
-      html = kitUI.sheetHero({ eyebrow, big, sub, tint }).outerHTML;
-      html = html.replace(/^(<div[^>]*>)/, `$1<div class="q-sh-logos">${badge}</div>`);
-      if (tagsHtml) html = html.replace(/<\/div>$/, `<div class="q-sh-row q-sh-status">${tagsHtml}</div></div>`);
-    }
-    if (bigAttr) html = html.replace('class="q-sh-big"', `class="q-sh-big num" ${bigAttr}`);
-    return html;
-  } catch {
-    return '';
-  }
+  const html = kitUI.sheetHeroHtml({ eyebrow, big, sub, tint, logoHtml: badge, statusHtml: tagsHtml });
+  return bigAttr ? html.replace('class="q-sh-big"', `class="q-sh-big num" ${bigAttr}`) : html;
 }
 function renderDetail() {
   const d = state.detail;
@@ -1806,7 +1773,7 @@ function renderDetail() {
     ${q ? toolsHtml(d.symbol, q) : ''}
     ${q ? aboutHtml(d.symbol, q) : ''}
     ${ownTradesHtml(d.symbol)}
-    ${tradable ? `<div class="trade-bar${kitUI.sheetFoot ? ' q-sheet-foot q-sf' : ''}"><button class="q-btn trade buy" type="button" data-action="trade" data-side="buy">${h(t('buy'))}</button><button class="q-btn trade sell" type="button" data-action="trade" data-side="sell">${h(t('sell'))}</button></div>` : ''}
+    ${tradable ? `<div class="trade-bar q-sheet-foot q-sf"><button class="q-btn trade buy" type="button" data-action="trade" data-side="buy">${h(t('buy'))}</button><button class="q-btn trade sell" type="button" data-action="trade" data-side="sell">${h(t('sell'))}</button></div>` : ''}
   `
   );
   renderChart();
@@ -1999,7 +1966,7 @@ const planAllowed = q => (stockAccount.planAllowed ? stockAccount.planAllowed(q)
 const canPlan = (q, symbol) => isTradable(q.kind) && !BONDS[q.symbol]
   && (planAllowed(q) || activePlans(state.account).some(p => p.symbol === symbol));
 // The least a buy can be: NT$100, a US one what exchanges for US$10 (the kit's planMinTWD).
-const planMin = q => stockAccount.planMinTWD?.(q?.market, state.rates[q?.currency]) ?? PLAN_MIN;
+const planMin = q => stockAccount.planMinTWD(q?.market, state.rates[q?.currency]);
 
 function toolsHtml(symbol, q) {
   const folds = [alertCardHtml(symbol, q), canPlan(q, symbol) ? planCardHtml(symbol, q) : ''].join('');
@@ -2041,7 +2008,7 @@ const planDayOptions = selected =>
     .join('');
 const hhmm = ({ h: hh, m }) => `${String(hh).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 // The odd-lot session's first match today (09:10; 09:00 from 2026-12-07, the kit's oddLotOpenAt).
-const oddLotFirst = (at = Date.now()) => hhmm(stockMarkets.oddLotOpenAt?.(at) ?? { h: 9, m: 10 });
+const oddLotFirst = (at = Date.now()) => hhmm(stockMarkets.oddLotOpenAt(at));
 // How a plan buys and what a buy costs, as the kit does it: a Taiwan stock
 // or ETF a limit order at the odd-lot session's first match (09:10, 09:00
 // from 2026-12-07), any whole lots a trade of their own; NT$1 a buy to the
@@ -2051,7 +2018,7 @@ function planTermsHtml(q, at = Date.now()) {
   const lines = [];
   if (q.market === 'TW' && stockAccount.planOrderType) {
     const nine = stockMarkets.ODD_LOT_NINE;
-    const open = hhmm(stockMarkets.oddLotOpenAt?.(at) ?? { h: 9, m: 10 });
+    const open = hhmm(stockMarkets.oddLotOpenAt(at));
     lines.push(t('planTimeTw', { time: nine && at < nine ? t('planTimeNine', { time: open, date: fmtDate(nine) }) : open }));
   } else lines.push(t('planTimeOpen'));
   const m = MARKETS[q.market] || MARKETS.INTL;
@@ -2060,7 +2027,7 @@ function planTermsHtml(q, at = Date.now()) {
   if (fee) lines.push(at < fee.flatUntil ? t('planFeeFlat', { fee: money(fee.flat, cur, { digits: fee.flat < 1 ? 2 : undefined }), until: fmtDate(fee.flatUntil - 1), rate: rateText(fee.rate), min: money(fee.min, cur) }) : t('planFeeRate', { rate: rateText(fee.rate), min: money(fee.min, cur) }));
   else if (q.market !== 'TW' && m.commission?.rate) lines.push(t('feeCommission', { rate: rateText(m.commission.rate), min: money(m.commission.min, m.currency || q.currency) }));
   // A US one from US$10, in fractional shares (the kit's PLAN_MIN_LOCAL, fractional).
-  if (stockAccount.PLAN_MIN_LOCAL?.[q.market] && stockMarkets.fractional?.(q.market, q.kind)) lines.push(t('planMinUs', { min: money(planMin(q), BASE) }));
+  if (stockAccount.PLAN_MIN_LOCAL?.[q.market] && stockMarkets.fractional(q.market, q.kind)) lines.push(t('planMinUs', { min: money(planMin(q), BASE) }));
   return lines.map(x => `<p class="foot-note">${h(x)}</p>`).join('');
 }
 // The plan of `symbol` that ended by itself (three months running without
@@ -2100,7 +2067,7 @@ function planCardHtml(symbol, q) {
       <label class="field grow"><span>${h(t('planAmount'))} (NT$)</span><input id="plan-amount" class="q-field num" inputmode="numeric" autocomplete="off" value="${h(state.plan.amount)}" /></label>
       <label class="field"><span>${h(t('planDay'))}</span><select id="plan-day" class="q-field">${planDayOptions(state.plan.day)}</select></label>
     </div>
-    ${perUnit > 0 && amount > 0 ? `<p class="foot-note">${h(t('planBuys', { units: num(units, stockMarkets.fractional?.(q.market, q.kind) && units < 1 ? 4 : units < 10 ? 2 : 0), unit: unitOf(symbol) }))}${q.currency !== BASE ? ` · ${h(t('planFx', { cur: q.currency }))}` : ''}</p>` : ''}
+    ${perUnit > 0 && amount > 0 ? `<p class="foot-note">${h(t('planBuys', { units: num(units, stockMarkets.fractional(q.market, q.kind) && units < 1 ? 4 : units < 10 ? 2 : 0), unit: unitOf(symbol) }))}${q.currency !== BASE ? ` · ${h(t('planFx', { cur: q.currency }))}` : ''}</p>` : ''}
     <button class="q-btn primary block" type="button" data-action="plan-add" ${amount >= planMin(q) && state.account ? '' : 'disabled'}>${h(t(editing ? 'planSave' : 'planStart'))}</button>
     ${editing ? `<button class="q-btn small block" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button>` : ''}
     <p class="foot-note">${h(stockAccount.PLAN_FAIL_LIMIT ? t('planNoteEnd', { min: money(planMin(q), BASE), n: stockAccount.PLAN_FAIL_LIMIT }) : t('planNote', { min: money(planMin(q), BASE) }))}</p>
@@ -2608,7 +2575,7 @@ function renderTicket() {
           big: fmtPrice(q.price, q.currency),
           sub: `${q.currency} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${fmtPrice(Math.abs(q.change), q.currency)} (${pct(q.pct)})`,
           tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)'
-        }) || `<div class="ticket-quote"><strong class="num${limitClass(q)}">${fmtPrice(q.price, q.currency)}</strong><span class="cur">${h(q.currency)}</span>${changeHtml(q)}</div>`
+        })
       }
       <div class="q-seg side-toggle" role="group">
         <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t('buy'))}</button>
@@ -2619,15 +2586,10 @@ function renderTicket() {
       ${extOk ? seg([['', t('session_regular')], ['1', t(`session_${usSession}`)]], 'ext', 'ext', v => Boolean(v) === Boolean(d.ext)) : ''}
       ${marginRate > 0 ? seg([['', t('cashBuy')], ['1', t('creditBuy', { n: Math.round(marginRate * 10) })]], 'credit', 'credit', v => Boolean(v) === credit) : ''}
       <div class="ticket-fields">
-        ${
-          kitUI.stakeInput
-            ? `<div class="q-stake ticket-stake" style="--n:${presets.filter(([, v]) => v > 0).length || 1}"><label class="q-stake-amt"><small>${h(t('quantity'))} · ${h(unit)}</small><input id="t-qty" class="num" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>${presets.filter(([, v]) => v > 0).length ? `<div class="q-stake-presets">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}" aria-pressed="${Number(d.qty) === v}">${h(label)}</button>`).join('')}</div>` : ''}</div>`
-            : `<label class="big-field"><span>${h(t('quantity'))}<em>${h(unit)}</em></span><input id="t-qty" class="num" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>`
-        }
+        <div class="q-stake ticket-stake" style="--n:${presets.filter(([, v]) => v > 0).length || 1}"><label class="q-stake-amt"><small>${h(t('quantity'))} · ${h(unit)}</small><input id="t-qty" class="num" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>${presets.filter(([, v]) => v > 0).length ? `<div class="q-stake-presets">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}" aria-pressed="${Number(d.qty) === v}">${h(label)}</button>`).join('')}</div>` : ''}</div>
         ${d.type === 'limit' ? `<label class="big-field"><span>${h(t('limitPrice'))}<em>${h(q.currency)}</em></span><input id="t-limit" class="num" inputmode="decimal" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
         ${d.type === 'stop' ? `<label class="big-field"><span>${h(t('stopPrice'))}<em>${h(q.currency)}</em></span><input id="t-stop" class="num" inputmode="decimal" autocomplete="off" value="${h(d.stop)}" /></label>` : ''}
       </div>
-      ${kitUI.stakeInput ? '' : `<div class="chip-row presets">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button class="q-chip" type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}">${h(label)}</button>`).join('')}</div>`}
       <div class="q-tags ticket-tags">
         <span class="q-tag">${h(d.side === 'buy' ? t('cashAvail', { amount: money(cash, q.currency) }) : t('sharesAvail', { qty: fmtQty(shares), unit }))}</span>
         ${d.type !== 'market' && band ? `<span class="q-tag">${h(t('limitBand', { down: fmtPrice(band.down, q.currency), up: fmtPrice(band.up, q.currency) }))}</span>` : ''}
@@ -2651,12 +2613,12 @@ function renderTicket() {
       ${d.type !== 'limit' && est && !afterLines.length ? `<p class="foot-note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
-      <div class="place-bar${kitUI.sheetFoot ? ' q-sheet-foot q-sf' : ''}">${
-        kitUI.sheetFoot && est ? `<div class="q-sf-sum"><small>${h(d.side === 'buy' ? t('totalCost') : t('totalProceeds'))}</small><b class="num">${h(money(est.total, q.currency))}</b></div>` : ''
+      <div class="place-bar q-sheet-foot q-sf">${
+        est ? `<div class="q-sf-sum"><small>${h(d.side === 'buy' ? t('totalCost') : t('totalProceeds'))}</small><b class="num">${h(money(est.total, q.currency))}</b></div>` : ''
       }${
         topUp?.enough && est && !problems.length
           ? `<button class="q-btn primary place ${d.side}" type="button" data-action="place-fx" data-from="${h(topUp.from)}" data-need="${topUp.need}" ${pricesLive() ? '' : 'disabled'}>${h(t('autoFx'))}</button>`
-          : `<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? t('placeBuy') : t('placeSell'))}${est && !kitUI.sheetFoot ? ` · ${h(money(est.total, q.currency))}` : ''}</button>`
+          : `<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? t('placeBuy') : t('placeSell'))}</button>`
       }</div>
     </div>`
   );
@@ -3040,7 +3002,7 @@ function exTagHtml(symbol) {
 // cost (commission and tax), less what it cost; a short's as the ledger has it.
 function netPl(p) {
   if (p.short || !(p.qty > 0) || !p.value) return { pl: p.pl, pct: p.plPct };
-  const costs = stockAccount.estimate?.({ market: p.market, kind: p.kind, currency: p.currency, side: 'sell', qty: p.qty, price: p.price })?.costs || 0;
+  const costs = stockAccount.estimate({ market: p.market, kind: p.kind, currency: p.currency, side: 'sell', qty: p.qty, price: p.price }).costs || 0;
   const pl = p.pl - costs * (p.valueTWD / p.value);
   const base = p.valueTWD - p.pl;
   return { pl, pct: base ? pl / Math.abs(base) : 0 };
@@ -3121,8 +3083,8 @@ function callPanelHtml(v) {
   if (!call) lines.push(`<p class="foot-note">${h(t('callIntraday'))}</p>`);
   else {
     lines.push(`<p class="warn">${h(t('callDue', { v: money(need, BASE), date: dateTime(call.due) }))}</p>`);
-    // A kit that also cancels it once the 差額 called is paid in full (callPaid): what's paid and left.
-    const paidKit = typeof stockAccount.callPaid === 'function' && call.need > 0;
+    // It is also cancelled once the 差額 called is paid in full (callPaid): what's paid and left.
+    const paidKit = call.need > 0;
     if (paidKit) {
       const paid = stockAccount.callPaid(state.account, call, state.rates);
       lines.push(`<p class="foot-note">${h(t('callPaidLeft', { need: money(call.need, BASE), paid: money(paid, BASE), left: money(Math.max(0, call.need - paid), BASE) }))}</p>`);
@@ -3480,7 +3442,7 @@ function lendAskProblem(kind, ask = lendAsk()) {
   return ask > going + 1e-9 ? t('lendTooHigh', { rate: lendPct(going) }) : '';
 }
 // When a contract ends by itself (lendEnds: six months, or 18 with its renewals).
-const lendEndsAt = l => stockSavings.lendEnds?.(l) ?? l.t + LEND_TERM_DAYS * 86_400_000;
+const lendEndsAt = l => stockSavings.lendEnds(l);
 
 // The daily closes of what's lent (lendFee charges each day at its close),
 // read once a session per symbol: a Promise while loading, the closes, or
@@ -4375,10 +4337,10 @@ function renderTool() {
   morph(box, `${toolHero(state.tool)}<div class="tool-page">${body}</div>`);
 }
 // Each tool sheet's hero: the one number it is about and its facts as short tags,
-// in the kit's sheetHero (nothing, on an older kit).
+// in the kit's sheetHero.
 function toolHero(kind) {
   const v = valuation();
-  if (!v || !kitUI.sheetHero) return '';
+  if (!v) return '';
   const now = Date.now();
   const rate = x => pct(x, { digits: 2, sign: false });
   const make = {
@@ -4489,7 +4451,7 @@ function showTab(tab) {
 }
 
 function renderStatic() {
-  kitUI.wireLogos?.(document);
+  kitUI.wireLogos(document);
   $('title').textContent = t('appName');
   document.title = t('appName');
   for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.dataset.t);
@@ -4500,8 +4462,7 @@ function renderStatic() {
     const own = panel.querySelector(':scope > .q-nav-title');
     if (own) own.setTitle?.(t(`tab_${id}`));
     else {
-      const title = kitUI.navTitle?.(t(`tab_${id}`));
-      if (title) panel.prepend(title);
+      panel.prepend(kitUI.navTitle(t(`tab_${id}`)));
     }
   }
 }

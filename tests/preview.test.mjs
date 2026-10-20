@@ -18,8 +18,8 @@ const quote = (symbol, price, at = T0, over = {}) => ({
   session: { start: tpe(new Date(at + 8 * HOUR).toISOString().slice(0, 10), '09:00'), end: tpe(new Date(at + 8 * HOUR).toISOString().slice(0, 10), '13:30') }, marketTime: at, line: [], ...over
 });
 const val = (a, t, quotes) => valuate(replay(a, t), new Map(quotes), RATES);
-// The day-trade tax (half of 0.3%) ends with 2027 in law; a kit without that date keeps it.
-const HALF_TAX = (markets.DAY_TRADE_TAX_UNTIL ?? Infinity) > T0 ? 1500 : 3000;
+// The day-trade tax (half of 0.3%) ends with 2027 in law.
+const HALF_TAX = markets.DAY_TRADE_TAX_UNTIL > T0 ? 1500 : 3000;
 // An account opened `months` before T0 with `n` trades in the last year.
 function trader(months, n) {
   const created = T0 - months * 31 * DAY;
@@ -65,8 +65,8 @@ test('a sale of more lots than were bought today pays the day-trade tax on the m
   const lq = q(later);
   const shown = ticketEstimate(a, { quote: lq, side: 'sell', qty: 3000, price: 1000, now: later });
   const fill = placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: 3000 }, { quote: lq, rates: RATES, valuation: val(a, later, [['2330.TW', lq]]), now: later, id: 's' }).fill;
-  // 3 lots sold, 1 bought today: a third at 0.15%, the rest at 0.3% (an older kit: all at 0.15%).
-  assert.equal(fill.tax, kit.dayTradeShare ? Math.floor(3_000_000 * (0.0015 / 3 + (0.003 * 2) / 3)) : 4500);
+  // 3 lots sold, 1 bought today: a third at 0.15%, the rest at 0.3%.
+  assert.equal(fill.tax, Math.floor(3_000_000 * (0.0015 / 3 + (0.003 * 2) / 3)));
   assert.equal(shown.tax, fill.tax);
   assert.equal(shown.dayTrade, true);
 });
@@ -381,42 +381,40 @@ test('the ticket offers only what the kit takes: no 融資 or short abroad, Hong
   const tw = quote('2330.TW', 1000);
   const star = quote('688981.SS', 90, T0, { market: 'CN', currency: 'CNY' });
   const main = quote('600519.SS', 1500, T0, { market: 'CN', currency: 'CNY' });
-  // 融資 at home with the credit account; abroad only on an older kit.
+  // 融資 at home with the credit account; abroad never (複委託 is cash only).
   assert.equal(marginRateFor(credited, tw, 'buy', T0), 0.6);
-  assert.equal(marginRateFor(credited, us, 'buy', T0), markets.isSubBrokered ? 0 : 0.5);
-  assert.equal(cashOnly(us), Boolean(markets.isSubBrokered));
+  assert.equal(marginRateFor(credited, us, 'buy', T0), 0);
+  assert.equal(cashOnly(us), true);
   assert.equal(cashOnly(tw), false);
   assert.equal(cashOnly(quote('EURUSD=X', 1.1, T0, { kind: 'fx', market: 'FX', currency: 'USD' })), false);
   // Each one agrees with placeOrder.
   const v = val(credited, T0, [['AAPL', us]]);
   const margin = placeOrder(credited, { side: 'buy', type: 'limit', limit: 200, qty: 1, margin: true }, { quote: us, rates: RATES, valuation: v, now: T0 });
-  if (markets.isSubBrokered) assert.equal(margin.error, 'cashOnly');
-  assert.deepEqual(orderTypes(hk), markets.limitOnly ? ['limit'] : ['market', 'limit', 'stop']);
+  assert.equal(margin.error, 'cashOnly');
+  assert.deepEqual(orderTypes(hk), ['limit']);
   assert.deepEqual(orderTypes(us), ['market', 'limit', 'stop']);
-  assert.equal(northboundBlock(star), markets.cnBoard ? 'star' : null);
-  assert.equal(northboundBlock(quote('300750.SZ', 200, T0, { market: 'CN', currency: 'CNY' })), markets.cnBoard ? 'chinext' : null);
+  assert.equal(northboundBlock(star), 'star');
+  assert.equal(northboundBlock(quote('300750.SZ', 200, T0, { market: 'CN', currency: 'CNY' })), 'chinext');
   assert.equal(northboundBlock(main), null);
-  if (markets.usSession) {
-    // 2028-03-01 (Wednesday, EST): 08:00 New York is the pre-market, 12:00 regular, 17:00 post, 19:00 shut.
-    const ny = hm => Date.parse(`2028-03-01T${hm}:00-05:00`);
-    assert.deepEqual(['08:00', '12:00', '17:00', '19:00'].map(x => usSessionOf(us, ny(x))), ['pre', 'regular', 'post', null]);
-    assert.equal(usSessionOf(tw, ny('08:00')), undefined);
-    assert.equal(extOffered(us, { type: 'limit' }, ny('08:00')), true);
-    assert.equal(extOffered(us, { type: 'limit', tif: 'gtc' }, ny('08:00')), false);
-    assert.equal(extOffered(us, { type: 'market' }, ny('17:00')), false);
-    assert.equal(extOffered(us, { type: 'limit' }, ny('12:00')), false);
-    // A pre-market order the ticket offers is one the kit takes, lasting to 18:00.
-    const funded = kit.exchange(newAccount(1_000_000, T0 - DAY, 'b'), { from: 'TWD', to: 'USD', amount: 64_000 }, { rates: RATES, now: T0 - DAY, id: 'x' }).account;
-    const r = placeOrder(funded, { side: 'buy', type: 'limit', limit: 190, qty: 1, ext: true }, { quote: us, rates: RATES, now: ny('08:00') });
-    assert.equal(r.error, undefined);
-    assert.equal(r.order.ext, true);
-    assert.equal(r.order.expires, ny('18:00'));
-  }
+  // 2028-03-01 (Wednesday, EST): 08:00 New York is the pre-market, 12:00 regular, 17:00 post, 19:00 shut.
+  const ny = hm => Date.parse(`2028-03-01T${hm}:00-05:00`);
+  assert.deepEqual(['08:00', '12:00', '17:00', '19:00'].map(x => usSessionOf(us, ny(x))), ['pre', 'regular', 'post', null]);
+  assert.equal(usSessionOf(tw, ny('08:00')), undefined);
+  assert.equal(extOffered(us, { type: 'limit' }, ny('08:00')), true);
+  assert.equal(extOffered(us, { type: 'limit', tif: 'gtc' }, ny('08:00')), false);
+  assert.equal(extOffered(us, { type: 'market' }, ny('17:00')), false);
+  assert.equal(extOffered(us, { type: 'limit' }, ny('12:00')), false);
+  // A pre-market order the ticket offers is one the kit takes, lasting to 18:00.
+  const funded = kit.exchange(newAccount(1_000_000, T0 - DAY, 'b'), { from: 'TWD', to: 'USD', amount: 64_000 }, { rates: RATES, now: T0 - DAY, id: 'x' }).account;
+  const r = placeOrder(funded, { side: 'buy', type: 'limit', limit: 190, qty: 1, ext: true }, { quote: us, rates: RATES, now: ny('08:00') });
+  assert.equal(r.error, undefined);
+  assert.equal(r.order.ext, true);
+  assert.equal(r.order.expires, ny('18:00'));
   // A US plan's fractions sell down to 0.0001; buys and other markets whole.
-  assert.equal(sellFraction(us, 'sell'), markets.US_FRACTION ?? null);
+  assert.equal(sellFraction(us, 'sell'), markets.US_FRACTION);
   assert.equal(sellFraction(us, 'buy'), null);
-  assert.equal(ticketRound(us, 'sell', 2.59857), markets.US_FRACTION ? 2.5985 : 2);
-  assert.equal(ticketStepOk(us, 'sell', 2.5985), Boolean(markets.US_FRACTION));
+  assert.equal(ticketRound(us, 'sell', 2.59857), 2.5985);
+  assert.equal(ticketStepOk(us, 'sell', 2.5985), true);
   assert.equal(ticketStepOk(us, 'buy', 2.5985), false);
   assert.equal(ticketStepOk(tw, 'sell', 2.5), false);
 });

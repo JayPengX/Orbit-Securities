@@ -16,9 +16,8 @@ const quote = (symbol, price, at = T0, over = {}) => ({
   session: { start: tpe(new Date(at + 8 * HOUR).toISOString().slice(0, 10), '09:00'), end: tpe(new Date(at + 8 * HOUR).toISOString().slice(0, 10), '13:30') }, marketTime: at, line: [], ...over
 });
 const val = (a, t, quotes) => valuate(replay(a, t), new Map(quotes), RATES);
-// The day-trade tax (half of 0.3%) ends with 2027 in law (證券交易稅條例 §2-2); a kit
-// without that date keeps it.
-const HALF_TAX = (markets.DAY_TRADE_TAX_UNTIL ?? Infinity) > T0 ? 1500 : 3000;
+// The day-trade tax (half of 0.3%) ends with 2027 in law (證券交易稅條例 §2-2).
+const HALF_TAX = markets.DAY_TRADE_TAX_UNTIL > T0 ? 1500 : 3000;
 
 // An account opened `months` before T0 with `n` trades of NT$`each` in the last year.
 function trader(months, n, each = 100_000) {
@@ -149,17 +148,14 @@ test('no credit account: no margin or borrowed shorts in any market, and the bro
   const a = newAccount(1_000_000, T0, 'acc');
   const us = quote('AAPL', 200, T0, { market: 'US', currency: 'USD', session: { start: T0 - HOUR, end: T0 + 5 * HOUR } });
   const v = val(a, T0, [['AAPL', us]]);
-  // A foreign stock: 複委託 is cash only (cashOnly) on a kit that has it (isSubBrokered), whatever the credit account; an older kit asked for the credit account.
-  const abroad = markets.isSubBrokered ? 'cashOnly' : 'creditNeeded';
-  assert.equal(placeOrder(a, { side: 'buy', qty: 10, margin: true }, { quote: us, rates: RATES, valuation: v, now: T0 }).error, abroad);
-  assert.equal(placeOrder(a, { side: 'sell', qty: 10 }, { quote: us, rates: RATES, valuation: v, now: T0 }).error, abroad);
-  if (markets.isSubBrokered) {
-    const credited = { ...a, events: [...a.events, { id: 'credit:y', type: 'credit', t: T0 - 1, limit: 5_000_000 }] };
-    assert.equal(placeOrder(credited, { side: 'buy', qty: 10, margin: true }, { quote: us, rates: RATES, valuation: val(credited, T0, [['AAPL', us]]), now: T0 }).error, 'cashOnly');
-    // A crypto short still needs the credit account.
-    const btc = quote('BTC-USD', 100, T0, { kind: 'crypto', market: 'CRYPTO', currency: 'USD', session: null });
-    assert.equal(placeOrder(a, { side: 'sell', qty: 1 }, { quote: btc, rates: RATES, valuation: val(a, T0, [['BTC-USD', btc]]), now: T0 }).error, 'creditNeeded');
-  }
+  // A foreign stock: 複委託 is cash only (cashOnly), whatever the credit account.
+  assert.equal(placeOrder(a, { side: 'buy', qty: 10, margin: true }, { quote: us, rates: RATES, valuation: v, now: T0 }).error, 'cashOnly');
+  assert.equal(placeOrder(a, { side: 'sell', qty: 10 }, { quote: us, rates: RATES, valuation: v, now: T0 }).error, 'cashOnly');
+  const credited = { ...a, events: [...a.events, { id: 'credit:y', type: 'credit', t: T0 - 1, limit: 5_000_000 }] };
+  assert.equal(placeOrder(credited, { side: 'buy', qty: 10, margin: true }, { quote: us, rates: RATES, valuation: val(credited, T0, [['AAPL', us]]), now: T0 }).error, 'cashOnly');
+  // A crypto short still needs the credit account.
+  const btc = quote('BTC-USD', 100, T0, { kind: 'crypto', market: 'CRYPTO', currency: 'USD', session: null });
+  assert.equal(placeOrder(a, { side: 'sell', qty: 1 }, { quote: btc, rates: RATES, valuation: val(a, T0, [['BTC-USD', btc]]), now: T0 }).error, 'creditNeeded');
   // A currency pair sold is no borrowing: still allowed.
   const pair = quote('EURUSD=X', 1.1, T0, { kind: 'fx', market: 'FX', currency: 'USD', session: null });
   assert.notEqual(placeOrder(a, { side: 'sell', qty: 1000 }, { quote: pair, rates: RATES, valuation: val(a, T0, [['EURUSD=X', pair]]), now: T0 }).error, 'creditNeeded');

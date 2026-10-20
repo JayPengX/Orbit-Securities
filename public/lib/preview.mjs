@@ -1,10 +1,10 @@
 // What a screen shows before anything is done: the ticket's estimate, the
 // most a short can sell, a time deposit's end and interest, a loan of shares'
 // fee. Each is worked out by the very rules that then do it (the kit's stock-*), so the preview is what happens.
-import { available, defaulted, estimate, placeOrder, replay, requiredCash } from './account.mjs';
+import { available, defaulted, estimate, marginLoan, placeOrder, replay, requiredCash } from './account.mjs';
 import * as kit from './account.mjs';
-import { SHORT_INITIAL, collateralRate, dealPrice, isOddLot, localDayOf, priceLimits, qtyStep, roundQty, tickSize, toTick } from './markets.mjs';
-import { SHORT_DEPOSIT, SHORT_HANDLING, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
+import { SHORT_INITIAL, collateralRate, dealPrice, isOddLot, qtyStep, roundQty, tickSize, toTick } from './markets.mjs';
+import { SHORT_DEPOSIT, SHORT_HANDLING, shortDeposit, creditAccount, creditUsed, dayTradeBuyFirst } from './credit.mjs';
 import * as credit from './credit.mjs';
 import * as mk from './markets.mjs';
 import { addMonths, lendFee, LEND_RATE, tdInterest, tdRate } from './savings.mjs';
@@ -13,32 +13,24 @@ const DAY = 86_400_000;
 const YEAR = 365 * DAY;
 const EPS = 1e-9;
 
-// The kit's own figures, read through the module (a phone may run an older
-// kit; each fallback is that kit's rule):
+// The kit's own figures:
 // - the price an order's amount is counted at (額度, deposits): its limit,
 //   a Taiwan market or stop order's limit-up (漲停), else the last price;
 export function quotaPrice(quote, { type, limit } = {}, now = Date.now()) {
   if (type === 'limit' && Number(limit) > 0) return Number(limit);
-  return (kit.limitUpFor ? kit.limitUpFor({ type }, quote, now) : null) ?? quote.price;
+  return kit.limitUpFor({ type }, quote, now) ?? quote.price;
 }
-// - what 融資 lends on a purchase (Taiwan: the trade's value × 成數, the
-//   part under NT$1,000 not lent);
-export const marginLoan = (market, currency, gross, total, rate) => (kit.marginLoan ? kit.marginLoan(market, currency, gross, total, rate) : Math.round(total * rate * 100) / 100);
-// - 融券's deposit on a sale of `value` (90%, up to the next NT$100).
-export const shortDeposit = value => (credit.shortDeposit ? credit.shortDeposit(value) : Math.round(SHORT_DEPOSIT * value));
 
 // The share of a Taiwan sale that pays the day-trade tax (half), as a fill
 // has it: all of a day trade sold first (現股當沖); else, once the account may
 // day trade buying first (3 months open, 10 trades in the year), the kit's
 // dayTradeShare (only the quantity the day's whole-lot cash buys match, never
-// odd lots: 證券交易稅條例 §2-2). An older kit: all of it, with any buy today.
+// odd lots: 證券交易稅條例 §2-2).
 export function dayTradeShareOf(account, { symbol, market, side, kind = 'stock', qty = 0, dayShort = false }, now = Date.now()) {
   if (side !== 'sell' || market !== 'TW') return 0;
   if (dayShort) return 1;
   if (!dayTradeBuyFirst(account, now)) return 0;
-  if (kit.dayTradeShare) return qty > 0 ? kit.dayTradeShare({ events: account?.events || [] }, { symbol, market, side, kind, qty }, now) : 0;
-  const today = localDayOf(now, 'TW');
-  return (account?.events || []).some(e => e.type === 'fill' && e.symbol === symbol && e.side === 'buy' && e.t <= now && localDayOf(e.t, 'TW') === today) ? 1 : 0;
+  return qty > 0 ? kit.dayTradeShare({ events: account?.events || [] }, { symbol, market, side, kind, qty }, now) : 0;
 }
 // Whether a Taiwan sale pays the day-trade tax on any of it.
 export const isDayTradeSell = (account, order, now = Date.now()) => dayTradeShareOf(account, { qty: 1000, ...order }, now) > 0;
@@ -95,15 +87,12 @@ export function lotsDeposit(market, kind, held, short, price) {
 // stop) order at the most it could fill at, 漲停 (the price where there's no
 // band).
 export function dayTradePrice(quote, { type, limit } = {}, now = Date.now()) {
-  if (kit.limitUpFor) return quotaPrice(quote, { type, limit }, now);
-  if (type === 'limit' && Number(limit) > 0) return Number(limit);
-  return priceLimits(quote)?.up ?? quote.price;
+  return quotaPrice(quote, { type, limit }, now);
 }
 
 // The day's day-trade limit (當沖額度) on what's sold first: { limit, used,
-// left } in NT$, or null on a kit without it (read through the module: a
-// phone may run an older kit).
-export const dayTradeLeft = (account, netWorthTWD, now = Date.now()) => credit.dayTradeRoom?.(account, netWorthTWD, now) ?? null;
+// left } in NT$.
+export const dayTradeLeft = (account, netWorthTWD, now = Date.now()) => credit.dayTradeRoom(account, netWorthTWD, now);
 // (The credit account for a Taiwan short, or none: it's only Taiwan's that sets 融券's terms.)
 export const shortCredit = (account, market, now = Date.now()) => (market === 'TW' ? creditAccount(account, now) : null);
 
@@ -278,29 +267,28 @@ export function maxBuy({ holdFor, spendable, price, kind, margin = 0, cap = Infi
   return roundQty(Math.min(lo * step, cap), kind);
 }
 
-// What a market's ticket offers, by the kit's rules (read through the
-// module: an older kit has none of them, and offers all):
+// What a market's ticket offers, by the kit's rules:
 // - 複委託 is cash only (isSubBrokered): a foreign stock is never bought on
 //   融資 nor sold short, only what's held sold (a currency pair borrows nothing);
-export const cashOnly = quote => Boolean(quote && mk.isSubBrokered?.(quote.market)) && quote.kind !== 'fx';
+export const cashOnly = quote => Boolean(quote && mk.isSubBrokered(quote.market)) && quote.kind !== 'fx';
 // - the order types it takes: Hong Kong limit orders only (limitOnly);
-export const orderTypes = quote => (mk.limitOnly?.(quote?.market) ? ['limit'] : ['market', 'limit', 'stop']);
+export const orderTypes = quote => (mk.limitOnly(quote?.market) ? ['limit'] : ['market', 'limit', 'stop']);
 // - a US stock or ETF's session now (usSession: 'pre', 'regular', 'post' or
 //   null when shut), undefined for anything else;
 const US_LISTED = new Set(['stock', 'etf']);
-export const usSessionOf = (quote, now = Date.now()) => (quote?.market === 'US' && US_LISTED.has(quote.kind) && mk.usSession ? mk.usSession(now) : undefined);
+export const usSessionOf = (quote, now = Date.now()) => (quote?.market === 'US' && US_LISTED.has(quote.kind) ? mk.usSession(now) : undefined);
 // - 盤前／盤後 (`ext`): a US stock or ETF's day limit order, offered while
 //   the pre- or post-market trades;
 export const extOffered = (quote, { type, tif } = {}, now = Date.now()) => ['pre', 'post'].includes(usSessionOf(quote, now)) && type === 'limit' && tif !== 'gtc';
 // - Stock Connect: a STAR or ChiNext share can be sold, never bought
 //   (cnBoard: 'star' or 'chinext'; null when it can be bought).
 export const northboundBlock = quote => {
-  const board = quote?.market === 'CN' ? mk.cnBoard?.(quote.symbol) : null;
+  const board = quote?.market === 'CN' ? mk.cnBoard(quote.symbol) : null;
   return board && board !== 'main' ? board : null;
 };
 // - a US stock or ETF sells down to its fractions (a plan's: fractional,
 //   US_FRACTION), bought in whole shares on the ticket;
-export const sellFraction = (quote, side) => (side === 'sell' && mk.fractional?.(quote?.market, quote?.kind) ? mk.US_FRACTION : null);
+export const sellFraction = (quote, side) => (side === 'sell' && mk.fractional(quote?.market, quote?.kind) ? mk.US_FRACTION : null);
 export function ticketRound(quote, side, n) {
   const f = sellFraction(quote, side);
   return f ? +(Math.floor(n / f + 1e-6) * f).toFixed(4) : roundQty(n, quote.kind);
