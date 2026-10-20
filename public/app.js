@@ -52,7 +52,8 @@ const STORE = {
   settings: 'stockStudy.settings',
   actions: 'stockStudy.actionsChecked',
   quotes: 'stockStudy.quotes',
-  marginNotice: 'stockStudy.marginNotice'
+  marginNotice: 'stockStudy.marginNotice',
+  divNext: 'stockStudy.divNext'
 };
 
 const locale = detectLocale();
@@ -748,7 +749,7 @@ async function checkCorporateActions() {
   const now = Date.now();
   const credited = [];
   for (const [symbol, held] of Object.entries(s.held)) {
-    if (METALS[symbol] || BONDS[symbol] || now - (checked[`${state.account.id}:${symbol}`] || 0) < ACTIONS_EVERY_MS) continue;
+    if (METALS[symbol] || BONDS[symbol] || (now - (checked[`${state.account.id}:${symbol}`] || 0) < ACTIONS_EVERY_MS && symbol in divNext())) continue;
     const kind = state.account.events.find(e => e.symbol === symbol)?.kind;
     if (kind === 'crypto' || kind === 'fx') continue;
     try {
@@ -758,6 +759,7 @@ async function checkCorporateActions() {
       // that reads it pays on it, else on the market's usual delay.
       const facts = actions.dividends?.length ? state.about.get(symbol)?.facts || (await fetchFundamentals(symbol).catch(() => null)) : null;
       const r = applyCorporateActions(state.account, symbol, { ...actions, exDividendDate: facts?.exDividendDate ?? null, dividendDate: facts?.dividendDate ?? null }, { rates: state.rates, now: Date.now() });
+      saveDivNext(symbol, divForecast(symbol, actions.dividends || [], facts, now));
       if (r.added.length) {
         commit(r.account);
         credited.push(...r.added);
@@ -1096,10 +1098,12 @@ const kindOrCat = id => {
   const cat = CATEGORIES.find(c => c.id === id);
   return cat ? L(cat) : t(`kind_${id}`);
 };
-// What can be bought right now: NT$-counted cash plus what margin lends.
+// What a new order can spend now: each wallet's cash less what open orders
+// hold (unsettled sale proceeds count: a broker lets them buy), in NT$. Not
+// what could be borrowed against the holdings (a loan is its own step).
 function buyingPower(v) {
-  const cashTWD = v.cash.reduce((sum, c) => sum + Math.max(0, c.twd || 0), 0);
-  return Math.max(0, cashTWD + (v.margin === 'ok' ? v.capacity : 0));
+  const free = available(state.account, snap()).cash;
+  return Math.max(0, v.cash.reduce((sum, c) => sum + (c.amount > 0 ? Math.max(0, free[c.currency] ?? c.amount) * (c.twd / c.amount) : 0), 0));
 }
 // The account's day change, named for its day: 今日 while a market held
 // trades today, else that last day (週五 on a weekend; a date past a week).
@@ -1944,7 +1948,10 @@ function positionHtml(symbol) {
       ${stat(t('avgCost'), fmtPrice(p.avg, p.currency), p.currency)}
       ${stat(t('marketValue'), money(p.valueTWD, BASE), p.currency !== BASE ? money(p.value, p.currency) : '')}
       ${stat(t('unrealized'), money(netPl(p).pl, BASE, { sign: true }), pct(netPl(p).pct), dirClass(netPl(p).pl))}
-    </div>`
+    </div>${(() => {
+      const d = upcomingIncome(400).find(x => x.kind === 'div' && x.symbol === symbol);
+      return d ? `<div class="q-tags pos-income"><span class="q-tag up num">${ico('coin')}${h(t('nextDivTag', { date: shortDate(d.t), est: d.est ? `${t('estTag')} ` : '', v: money(d.net, BASE) }))}</span></div>` : '';
+    })()}`
   );
 }
 
@@ -2312,7 +2319,7 @@ function fundAboutHtml(f, q, a) {
   const top = f.holdings?.[0]?.weight || 0;
   const top10 = (f.holdings || []).reduce((sum, x) => sum + x.weight, 0);
   const v = [];
-  if (f.expenseRatio != null) v.push(verdict(t('vCost'), f.expenseRatio < 0.002 ? t('vVeryCheap') : f.expenseRatio < 0.006 ? t('vOk') : t('vPricey'), f.expenseRatio < 0.002 ? 'good' : f.expenseRatio < 0.006 ? 'mid' : 'warn', `${t('expenseRatio')} ${pct(f.expenseRatio, { sign: false, digits: 2 })}`));
+  if (f.expenseRatio != null) v.push(verdict(t('vCost'), f.expenseRatio < 0.002 ? t('vVeryCheap') : f.expenseRatio < 0.006 ? t('vOk') : t('vPricey'), f.expenseRatio < 0.002 ? 'good' : f.expenseRatio < 0.006 ? 'mid' : 'warn', t('vCostYear', { v: pct(f.expenseRatio, { sign: false, digits: 2 }) })));
   if (sizeTwd) v.push(verdict(t('vSize'), sizeTwd > 3e10 ? t('vBig') : sizeTwd > 3e9 ? t('vMid') : t('vSmall'), sizeTwd > 3e10 ? 'good' : sizeTwd > 3e9 ? 'mid' : 'warn', compactMoney(sizeTwd, BASE)));
   if (f.holdings?.length) v.push(verdict(t('vSpread'), top > 0.3 || top10 > 0.65 ? t('vConcentrated') : t('vDiversified'), top > 0.3 || top10 > 0.65 ? 'warn' : 'good', t('top10Share', { pct: pct(top10, { sign: false, digits: 0 }) })));
   v.push(verdict(t('vDividend'), !f.dividendYield ? t('vNoDiv') : [t('vSmallDiv'), t('vSomeDiv'), t('vHighDiv')][band(f.dividendYield, 0.01, 0.04)], !f.dividendYield ? 'info' : ['info', 'mid', 'good'][band(f.dividendYield, 0.01, 0.04)], `${t('divYield')} ${pct(f.dividendYield || 0, { sign: false })}`));
@@ -2341,7 +2348,7 @@ function fundAboutHtml(f, q, a) {
   return `
     ${profile.length ? `<p class="about-profile">${profile.map(x => `<span>${h(x)}</span>`).join('')}</p>` : ''}
     ${v.length ? `<div class="verdicts">${v.join('')}</div><p class="foot-note">${h(t('verdictNote'))}</p>` : ''}
-    ${returns.length ? `<div class="q-stats about-returns">${returns.map(([k, x]) => stat(t(k), pct(x, { digits: 1 }), '', dirClass(x))).join('')}</div>` : ''}
+    ${returns.length ? `<div class="q-stats about-returns" style="--n:${returns.length}">${returns.map(([k, x]) => stat(t(k), pct(x, { digits: 1 }), k === 'retYtd' ? '' : t('retYearly'), dirClass(x))).join('')}</div>` : ''}
     ${sectors}${mix}${holdings}
     ${factGroup(t('gFund'), [
       ['expenseRatio', f.expenseRatio != null ? pct(f.expenseRatio, { sign: false, digits: 2 }) : null, 'expenseRatioHelp'],
@@ -2876,6 +2883,7 @@ function cashHtml(v) {
 // The rest, a tap away each in a sheet of its own: what it's made of, what it pays, the plans and alerts, the orders waiting.
 function moreHtml(v) {
   const inc = incomeSummary(state.account);
+  const soon = upcomingIncome();
   const plans = activePlans(state.account);
   const alerts = Object.values(state.account.alerts || {}).filter(a => a.on);
   const open = state.account.orders.filter(o => o.status === 'open').length;
@@ -2884,7 +2892,7 @@ function moreHtml(v) {
     `<button class="q-ritem chevron" type="button" data-action="tool" data-tool="${tool}">${tileHtml(glyph, color)}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span>${small ? `<small>${h(small)}</small>` : ''}</span>${value}</button>`;
   const rows = [
     row('alloc', ico('grid'), TINT.indigo, t('allocation'), '', top ? `${top[0]} ${pct(top[1], { digits: 0, sign: false })}` : ''),
-    inc.total || pendingDividends(state.account).length ? row('income', ico('coin'), TINT.orange, t('incomeTitle'), `<span class="q-ritem-value num">${h(money(inc.last12, BASE))}</span>`, t('income12')) : '',
+    inc.total || soon.length ? row('income', ico('coin'), TINT.orange, t('incomeTitle'), `<span class="q-ritem-value num">${h(money(inc.last12, BASE))}</span>`, soon.length ? t('incomeNext', { date: shortDate(soon[0].t), v: money(soon[0].net, BASE) }) : t('income12')) : '',
     plans.length || plansEnded().length ? row('plans', ico('calendar'), TINT.teal, t('plansTitle'), `<span class="q-tag">${plans.length}</span>`) : '',
     alerts.length || alertsShown().length ? row('alerts', ico('bell'), TINT.red, t('alertsTitle'), `<span class="q-tag">${alerts.length}</span>`) : '',
     open ? `<button class="q-ritem chevron" type="button" data-action="hview-go" data-view="orders">${tileHtml(ico('list'), TINT.blue)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('openOrders'))}</span></span><span class="q-tag orange">${open}</span></button>` : ''
@@ -2900,11 +2908,92 @@ function topGroup(v) {
   return [kindLabel(k), x / total];
 }
 
+// Each holding's next dividend, kept between visits (checked with its
+// dividends, twice a day): the ex-date Yahoo announces where it's ahead,
+// else the last one's plus the usual gap; the last amount a share.
+const DAY_MS = 86_400_000;
+let divNextMemo = null;
+function divNext() {
+  if (!divNextMemo) {
+    try {
+      divNextMemo = JSON.parse(localStorage.getItem(STORE.divNext) || '{}');
+    } catch {
+      divNextMemo = {};
+    }
+  }
+  return divNextMemo;
+}
+function saveDivNext(symbol, f) {
+  divNext()[symbol] = f;
+  try {
+    localStorage.setItem(STORE.divNext, JSON.stringify(divNextMemo));
+  } catch {}
+}
+function divForecast(symbol, dividends, facts, now = Date.now()) {
+  const year = dividends.filter(d => d.date > now - 370 * DAY_MS && d.amount > 0).sort((a, b) => a.date - b.date);
+  if (!year.length) return null;
+  const market = state.account.events.find(e => e.symbol === symbol)?.market;
+  const announced = facts?.exDividendDate > now - DAY_MS ? facts.exDividendDate : null;
+  let ex = announced;
+  if (!ex) {
+    const gap = (365 / Math.min(12, year.length)) * DAY_MS;
+    for (ex = year.at(-1).date + gap; ex <= now; ex += gap);
+  }
+  const pay = stockMarkets.divPayDate?.(market, ex, announced && facts.dividendDate >= announced ? facts.dividendDate : null) ?? ex + 28 * DAY_MS;
+  return { ex, pay, per: year.at(-1).amount, est: !announced };
+}
+
+// What's coming in, soonest first, in NT$ after tax and fees: dividends
+// owed (exact), each holding's next one (estimated from its last), time
+// deposits ending and the half-yearly cash interest; to `days` ahead.
+function upcomingIncome(days = 120) {
+  const now = Date.now();
+  const until = now + days * DAY_MS;
+  const s = snap();
+  const v = valuation();
+  if (!s || !v) return [];
+  const twd = c => (c === BASE ? 1 : state.rates[c] || 0);
+  const out = [];
+  const pending = pendingDividends(state.account);
+  for (const e of pending) out.push({ kind: 'div', symbol: e.symbol, t: e.t, ex: e.ex, net: e.net * twd(e.currency), est: false });
+  for (const p of v.positions) {
+    const f = divNext()[p.symbol];
+    if (!f || p.short || !(p.qty > 0) || f.pay <= now || f.pay > until || f.ex <= now - DAY_MS) continue;
+    if (pending.some(e => e.symbol === p.symbol && Math.abs(e.ex - f.ex) < 10 * DAY_MS)) continue;
+    const taxes = stockMarkets.dividendTaxes(p.market, p.qty * f.per, p.symbol);
+    out.push({ kind: 'div', symbol: p.symbol, t: f.pay, ex: f.ex, net: taxes.net * twd(p.currency), est: f.est });
+  }
+  for (const td of Object.values(s.tds || {})) {
+    if (td.ends > until) continue;
+    out.push({ kind: 'td', t: Math.max(td.ends, now), net: stockSavings.incomeTaxes?.(tdInterest(td, td.ends).gross)?.net ?? tdInterest(td, td.ends).gross, est: false });
+  }
+  // NT$ cash interest: June 21 and December 21; what's earned so far plus
+  // today's cash to then.
+  const y = new Date(now + 8 * 3_600_000).getUTCFullYear();
+  const payDay = [Date.UTC(y, 5, 21), Date.UTC(y, 11, 21), Date.UTC(y + 1, 5, 21)].map(x => x - 8 * 3_600_000).find(x => x > now);
+  if (payDay <= until) {
+    const paid = state.account.events.filter(e => e.type === 'interest').reduce((a, e) => a + e.gross, 0);
+    const gross = Math.floor(Math.max(0, s.cashInterest - paid) + (Math.max(0, s.cash?.[BASE] || 0) * CASH_RATE * (payDay - now)) / (365 * DAY_MS));
+    const net = stockSavings.incomeTaxes?.(gross)?.net ?? gross;
+    if (net >= 1) out.push({ kind: 'cash', t: payDay, net, est: true });
+  }
+  return out.filter(x => x.net >= 0.5).sort((a, b) => a.t - b.t);
+}
+function upcomingRow(x) {
+  const value = `<span class="q-ritem-end up-end">${x.est ? `<span class="q-tag">${h(t('estTag'))}</span>` : ''}<span class="q-ritem-value num up-ink">+${h(money(x.net, BASE))}</span></span>`;
+  if (x.kind === 'div')
+    return `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(x.symbol)}">${symbolBadge(x.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(x.symbol))}</span><small>${h(t('upcomingDiv', { ex: shortDate(x.ex), pay: shortDate(x.t) }))}</small></span>${value}</button>`;
+  const td = x.kind === 'td';
+  const [title, line] = td ? ['tdTitle', 'upcomingTd'] : ['incomeInterest', 'upcomingCash'];
+  return `<div class="q-ritem">${tileHtml(ico(td ? 'lock' : 'coin'), td ? TINT.green : TINT.orange)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t(title))}</span><small>${h(t(line, { date: shortDate(x.t) }))}</small></span>${value}</div>`;
+}
+
 // Income: dividends, coupons and cash interest over the last year, month by
 // month, and what's on the way (a sheet).
 function incomeHtml(v) {
   const inc = incomeSummary(state.account);
   const list = pendingDividends(state.account);
+  const soon = upcomingIncome();
   const yieldPct = v.longTWD > 0 ? inc.last12 / v.longTWD : 0;
   const top = Object.entries(inc.payers).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const parts = [['incomeDiv', inc.div], ['incomeCoupon', inc.coupon], ['incomeInterest', inc.interest], ['incomeLending', inc.lending]].filter(([, x]) => x >= 0.5);
@@ -2917,13 +3006,9 @@ function incomeHtml(v) {
     ${parts.length ? `<div class="q-tags">${parts.map(([k, x]) => `<span class="q-tag">${h(t(k))} ${h(money(x, BASE))}</span>`).join('')}</div>` : ''}</div></section>
     ${sectionHtml(t('incomeTop'), top.length ? `<div class="q-rowcard">${top.map(([sym, x]) => `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(sym)}">${symbolBadge(sym)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(sym))}</span></span><span class="q-ritem-value num up-ink">+${h(money(x, BASE))}</span></button>`).join('')}</div>` : '')}
     ${sectionHtml(
-      t('pendingDivTitle'),
-      list.length
-        ? `<div class="q-rowcard">${list
-            .map(e => `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(e.symbol)}">${symbolBadge(e.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(e.symbol))}</span><small>${keepParts(t('pendingDivLine', { ex: fmtDate(e.ex), pay: fmtDate(e.t), qty: fmtQty(e.shares), per: `${fmtPrice(e.perShare, e.currency)} ${e.currency === 'TWD' && locale === 'zh' ? '元' : e.currency}` }) + (e.nhi > 0 ? ` · ${t('pendingDivNhi', { v: money(e.nhi, e.currency) })}` : ''))}</small></span><span class="q-ritem-value num up-ink">+${h(money(e.net, e.currency))}</span></button>`)
-            .join('')}</div><p class="foot-note">${h(t('pendingDivNote'))}</p>`
-        : '',
-      { side: inc.pending >= 0.5 ? `<span class="q-tag up num">${h(money(inc.pending, BASE))}</span>` : '' }
+      t('upcomingTitle'),
+      soon.length ? `<div class="q-rowcard">${soon.map(upcomingRow).join('')}</div>${soon.some(x => x.est) ? `<p class="foot-note">${h(t('upcomingNote'))}</p>` : ''}${list.length ? `<p class="foot-note">${h(t('pendingDivNote'))}</p>` : ''}` : '',
+      { side: soon.length ? `<span class="q-tag up num">${h(money(soon.reduce((a, x) => a + x.net, 0), BASE))}</span>` : '' }
     )}`;
 }
 

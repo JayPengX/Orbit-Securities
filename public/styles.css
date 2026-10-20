@@ -371,6 +371,15 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .summary-text summary { color: var(--accent); font-weight: 600; cursor: pointer; }
 .summary-text p { margin-top: 6px; color: var(--q-label-2); font: var(--q-t-subhead); }
 .about-returns { margin-top: 4px; }
+/* One row, as many across as there are figures (no lone cell). */
+html .q-stats.about-returns { grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); }
+/* (The app's .warn message margin isn't a tile's.) */
+.verdicts > .verdict { margin: 0; }
+.verdict small { overflow-wrap: anywhere; }
+/* What's coming in: the 估 tag beside its amount. */
+.q-ritem-end.up-end { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.pos-income { margin-top: 10px; }
+.pos-income .q-tag svg { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
 /* 買進 / 賣出 at the foot of the sheet, always in reach. */
 .trade-bar { position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom)); z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px calc(-1 * var(--q-margin)) calc(-24px - env(safe-area-inset-bottom)); padding: 12px var(--q-margin) calc(12px + env(safe-area-inset-bottom)); background: var(--q-sheet); box-shadow: 0 -1px 0 var(--q-sep); }
 .q-btn.trade { min-height: 50px; color: #fff; font-size: 17px; }
