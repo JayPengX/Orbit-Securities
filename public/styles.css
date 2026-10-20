@@ -690,3 +690,6 @@ a.act-row { color: inherit; }
 html .q-logo:not(.text) { background: #ffffff; }
 html .q-logo img { width: 100%; height: 100%; object-fit: contain; }
 .sym-badge.logo .sym-logo { padding: 10%; }
+/* A disc logo: the tile is the disc's colour, so no corners show around it. */
+html .q-logo.disc { background: var(--disc); }
+html .q-logo.disc img { transform: scale(1.02); }

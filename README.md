@@ -110,7 +110,8 @@ Live: https://jaypengx.github.io/Quadra-Securities/
   after-hours odd lots from 13:40 and 盤後定價 from 14:00; a whole-lot day
   order waits for the 13:30 match (`lib/twse.mjs`).
 - Logo and name tables are generated (`scripts/brand-logos.mjs`,
-  `scripts/tv-logos.mjs`, `scripts/tw-names.mjs`); never edit them by hand.
+  `scripts/tv-logos.mjs`, then `scripts/tv-round.mjs` for the disc icons' tile colour,
+  `scripts/tw-names.mjs`); never edit them by hand.
 
 ## Files (`public/lib`)
 

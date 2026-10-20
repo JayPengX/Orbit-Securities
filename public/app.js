@@ -13,6 +13,7 @@ import { fetchQuotes, fetchChart, fetchBars, fetchCorporateActions, fetchFundame
 import { CATEGORIES, OVERVIEW, TRACKERS, catalogInfo, searchCatalog } from './lib/catalog.mjs';
 import { brandIcon, brandLogo } from './lib/brands.mjs';
 import { tvLogos } from './lib/tvlogos.mjs';
+import { TV_ROUND } from './lib/tvround.mjs';
 import { TW_NAMES } from './lib/twnames.mjs';
 import { twHits, twFirst } from './lib/twsearch.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
@@ -1005,7 +1006,12 @@ function heroLogo(symbol, q) {
   const urls = logoUrls(symbol, kind);
   const name = nameOf(symbol, q);
   if (!kitUI.logoTileHtml || !urls.length || /^[A-Z]{6}=X$/.test(symbol)) return symbolBadge(symbol, q);
-  return kitUI.logoTileHtml(urls, { size: 56, alt: '', fallbackText: name || bareSymbol(symbol) });
+  return discTile(kitUI.logoTileHtml(urls, { size: 56, alt: '', fallbackText: name || bareSymbol(symbol) }), urls);
+}
+// A TradingView icon that is a disc on a clear square fills its tile: the tile takes the disc's colour (lib/tvround.mjs).
+function discTile(html, urls) {
+  const fill = html && TV_ROUND[urls?.[0]?.match(/^https:\/\/s3-symbol-logo\.tradingview\.com\/(.+)\.svg$/)?.[1]];
+  return fill ? html.replace('class="q-logo" style="', `class="q-logo disc" style="--disc:${fill};`) : html;
 }
 document.addEventListener(
   'load',
@@ -1151,7 +1157,7 @@ function stockRow(symbol, { sub = '' } = {}) {
   const logo = logoUrls(symbol, kind);
   const line = [held ? t('heldTag') : '', due ? due[2] : bareSymbol(symbol), sub].filter(Boolean).join(' · ');
   return (
-    kitUI.stockRowHtml?.({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? fmtPrice(q.price, q.currency) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, open: symbol, data: { action: 'open', symbol } }) ?? quoteRow(symbol, { note: sub })
+    discTile(kitUI.stockRowHtml?.({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? fmtPrice(q.price, q.currency) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, open: symbol, data: { action: 'open', symbol } }), logo) ?? quoteRow(symbol, { note: sub })
   );
 }
 // What's coming that matters to this account: orders waiting, an ex-date today, a held stock on TWSE's lists, the next market holidays.
