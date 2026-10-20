@@ -2892,7 +2892,7 @@ function moreHtml(v) {
     `<button class="q-ritem chevron" type="button" data-action="tool" data-tool="${tool}">${tileHtml(glyph, color)}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span>${small ? `<small>${h(small)}</small>` : ''}</span>${value}</button>`;
   const rows = [
     row('alloc', ico('grid'), TINT.indigo, t('allocation'), '', top ? `${top[0]} ${pct(top[1], { digits: 0, sign: false })}` : ''),
-    inc.total || soon.length ? row('income', ico('coin'), TINT.orange, t('incomeTitle'), `<span class="q-ritem-value num">${h(money(inc.last12, BASE))}</span>`, soon.length ? t('incomeNext', { date: shortDate(soon[0].t), v: money(soon[0].net, BASE) }) : t('income12')) : '',
+    inc.total || soon.length ? row('income', ico('coin'), TINT.orange, t('incomeTitle'), inc.last12 >= 0.5 || !soon.length ? `<span class="q-ritem-value num">${h(money(inc.last12, BASE))}</span>` : `<span class="q-ritem-value num up-ink">+${h(money(soon.reduce((a, x) => a + x.net, 0), BASE))}</span>`, soon.length ? t('incomeNext', { date: shortDate(soon[0].t), v: money(soon[0].net, BASE) }) : t('income12')) : '',
     plans.length || plansEnded().length ? row('plans', ico('calendar'), TINT.teal, t('plansTitle'), `<span class="q-tag">${plans.length}</span>`) : '',
     alerts.length || alertsShown().length ? row('alerts', ico('bell'), TINT.red, t('alertsTitle'), `<span class="q-tag">${alerts.length}</span>`) : '',
     open ? `<button class="q-ritem chevron" type="button" data-action="hview-go" data-view="orders">${tileHtml(ico('list'), TINT.blue)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('openOrders'))}</span></span><span class="q-tag orange">${open}</span></button>` : ''
