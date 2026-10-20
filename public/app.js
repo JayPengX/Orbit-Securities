@@ -33,6 +33,7 @@ import {
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as kitUI from '#kit/ui.mjs';
+import { flagUrl } from '#kit/logos.mjs';
 import * as kitQuadra from '#kit/quadra.mjs';
 import * as stockAccount from './lib/account.mjs';
 // (Read through the module, with a fallback, for what an older kit lacks.)
@@ -238,8 +239,8 @@ const flagOf = (symbol, q) => {
   const id = BONDS[symbol] ? 'US' : MARKETS[info?.market] ? info.market : 'INTL';
   return `<span class="mkt-tag">${h(marketLabel(id))}</span>`;
 };
-// A currency's mark on a tile: its code's country letters (no flag emoji).
-const curMark = c => `<b class="cur-mark">${h(String(c).slice(0, 2))}</b>`;
+// A currency's mark on a tile: its country's flag, a picture (no flag emoji, no letters).
+const curMark = c => `<img class="cur-flag" src="${h(flagUrl(String(c).slice(0, 2)))}" alt="${h(c)}">`;
 const dirClass = x => (x > 1e-12 ? 'up' : x < -1e-12 ? 'down' : 'flat');
 function unitOf(symbol) {
   if (METALS[symbol]) return L({ zh: METALS[symbol].unitZh, en: METALS[symbol].unitEn });
@@ -1224,7 +1225,7 @@ function renderHome() {
     const q = p.quote;
     return `<button class="q-rail-card hold-card q-press" type="button" data-action="open" data-symbol="${h(p.symbol)}">
       <span class="hold-top">${symbolBadge(p.symbol, q)}${movePill(q)}</span>
-      <span class="rec-name">${h(nameOf(p.symbol, q))}</span>
+      <span class="rec-name q-fit">${h(nameOf(p.symbol, q))}</span>
       <small class="num">${h(fmtQty(Math.abs(p.qty)))} ${h(unitOf(p.symbol))}</small>
       <strong class="num hold-val">${h(money(p.valueTWD, BASE))}</strong>
       ${q?.line?.length > 1 ? `<span class="card-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 128, height: 28 })}</span>` : ''}
@@ -1288,12 +1289,10 @@ function recCard(symbol, why) {
   let whyText = why ? t(why.key, { what: why.what ? (why.key === 'whyPeer' ? nameOf(why.what, state.quotes.get(why.what)) : kindOrCat(why.what)) : '' }) : '';
   // A closed market's big move was its last day's (週五波動大 on a weekend).
   if (why?.key === 'whyMover' && q && !dayOfChange({ positions: [{ quote: q }] }).today) whyText = t('whyMoverOn', { day: dayWord({ positions: [{ quote: q }] }) });
-  // Where it trades, in one word (港股, not the category's 港股・陸股, which wrapped).
-  const where = q && info && !/etf/.test(info.category) ? marketLabel(q.market) : info ? L(CATEGORIES.find(c => c.id === info.category)) : '';
   return `<button class="q-rail-card rec-card q-press" type="button" data-action="open" data-symbol="${h(symbol)}">
     <span class="rec-top">${symbolBadge(symbol, q || info)}${pctTag(q)}</span>
-    <span class="rec-name">${h(nameOf(symbol, q))}</span>
-    <small>${flagOf(symbol, q)} ${h(bareSymbol(symbol))}${where ? ` · ${h(where)}` : ''}</small>
+    <span class="rec-name q-fit">${h(nameOf(symbol, q))}</span>
+    <small>${flagOf(symbol, q)} ${h(bareSymbol(symbol))}</small>
     ${whyText ? `<span class="rec-why">${h(whyText)}</span>` : ''}
     <strong class="num rec-price">${q ? fmtPrice(q.price, q.currency, { short: true }) : '…'}</strong>
   </button>`;
@@ -1442,24 +1441,23 @@ async function checkIpoResults() {
 
 // ---- 市場: browse, search, today's movers -------------------------------------------------
 
-// Each list's tile: a market by its first character (台, 美, 日…), the rest by a glyph.
-const zhEn = (zh, en) => (locale === 'zh' ? zh : en);
+// Each list's tile: a market by its flag, the rest by a glyph.
 const catLook = id =>
   ({
     watch: [ico('star'), TINT.orange],
-    tw: [zhEn('台', 'TW'), TINT.red],
+    tw: [curMark('TW'), TINT.red],
     twetf: [ico('grid'), TINT.pink],
-    us: [zhEn('美', 'US'), TINT.blue],
+    us: [curMark('US'), TINT.blue],
     usetf: [ico('grid'), TINT.indigo],
     govbond: [ico('book'), TINT.brown],
     bond: [ico('list'), TINT.green],
     crypto: [ico('coin'), TINT.orange],
     fx: [ico('swap'), TINT.teal],
-    metal: [zhEn('金', 'Au'), '#c9a227'],
-    jp: [zhEn('日', 'JP'), TINT.purple],
-    hk: [zhEn('港', 'HK'), TINT.mint],
-    kr: [zhEn('韓', 'KR'), TINT.cyan],
-    eu: [zhEn('歐', 'EU'), TINT.blue],
+    metal: [ico('coin'), '#c9a227'],
+    jp: [curMark('JP'), TINT.purple],
+    hk: [curMark('HK'), TINT.mint],
+    kr: [curMark('KR'), TINT.cyan],
+    eu: [curMark('EU'), TINT.blue],
     fund: [ico('wallet'), TINT.indigo],
     other: [ico('map'), TINT.gray],
     index: [ico('chart'), TINT.gray]
@@ -1476,7 +1474,7 @@ function renderMarkets() {
   const cats = [...(watch.length ? [watchCat()] : []), ...CATEGORIES];
   if (!state.category) {
     const grid = `<div class="cat-grid q-even3">${cats
-      .map(c => `<button class="cat q-press" type="button" data-action="cat" data-id="${h(c.id)}">${catTile(c.id)}<span class="cat-name">${h(L(c))}</span><small class="num">${c.items.length}</small></button>`)
+      .map(c => `<button class="cat q-press" type="button" data-action="cat" data-id="${h(c.id)}">${catTile(c.id)}<span class="cat-name q-fit">${h(L(c))}</span><small class="num">${c.items.length}</small></button>`)
       .join('')}</div>`;
     morph(box, `${sectionHtml(t('moversTitle'), moversHtml())}${sectionHtml(t('categoriesTitle'), grid)}`);
     return;
@@ -3124,7 +3122,7 @@ function walletRow(c, reserved = 0, settling = 0, settleAt = 0) {
   const info = currencyInfo(c.currency);
   if (reserved > 1e-9 && c.amount) c = { ...c, amount: c.amount - reserved, twd: c.twd * (1 - reserved / c.amount) };
   const twd = c.currency === BASE;
-  const small = twd ? `${t('cashMonthly')} ${money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE)}` : L(info);
+  const small = twd ? t('cashMonthly', { amount: money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE) }) : L(info);
   const tags = [
     reserved > 1e-9 ? `<span class="q-tag orange">${h(t('reserved', { amount: money(reserved, c.currency) }))}</span>` : '',
     settling > 1e-9 ? `<span class="q-tag blue">${h(t('settling', { amount: money(settling, c.currency) }))}${settleAt ? ` · ${h(t('settleBy', { date: shortDate(settleAt) }))}` : ''}</span>` : ''
@@ -3941,7 +3939,7 @@ function activityRow(e) {
   }
   const [el, attrs] = activityTarget(e);
   return `<${el} ${attrs} class="q-ritem act-row">
-    ${lead}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span>${line ? `<small class="num">${h(line)}</small>` : ''}<small class="meta num">${h([clock(e.t), ...meta].join(' · '))}</small></span>
+    ${lead}<span class="q-ritem-text"><span class="q-ritem-title q-fit-wrap">${h(title)}</span>${line ? `<small class="num">${h(line)}</small>` : ''}<small class="meta num">${h([clock(e.t), ...meta].join(' · '))}</small></span>
     <span class="q-ritem-end">${amount}${tag ? `<span class="q-tag">${h(tag)}</span>` : ''}</span></${el}>`;
 }
 
