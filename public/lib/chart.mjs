@@ -1,7 +1,7 @@
 // Small SVG charts, drawn as strings: sparklines, a price or value chart with
 // a hover crosshair, and a 100% bar for allocations. Colours come from CSS
 // variables so light and dark themes (and red-up or green-up) just work.
-import { escapeHtml } from './format.mjs';
+import { escHtml } from '#kit/ui.mjs';
 
 const f = n => (Math.round(n * 10) / 10).toString();
 
@@ -55,13 +55,13 @@ export function lineChart(series, { width = 640, height = 240, base = null, yFor
   const ticks = [];
   for (let i = 0; i <= 3; i++) ticks.push(lo0 + ((hi0 - lo0) * i) / 3);
   const grid = ticks
-    .map(v => `<line class="grid" x1="${pad.l}" x2="${pad.l + W}" y1="${f(Y(v))}" y2="${f(Y(v))}"/><text class="axis-label" x="${pad.l + W + 6}" y="${f(Y(v) + 4)}">${escapeHtml(yFormat(v))}</text>`)
+    .map(v => `<line class="grid" x1="${pad.l}" x2="${pad.l + W}" y1="${f(Y(v))}" y2="${f(Y(v))}"/><text class="axis-label" x="${pad.l + W + 6}" y="${f(Y(v) + 4)}">${escHtml(yFormat(v))}</text>`)
     .join('');
   const xticks = [0, 0.5, 1]
     .map(k => {
       const t = t0 + (t1 - t0) * k;
       const anchor = k === 0 ? 'start' : k === 1 ? 'end' : 'middle';
-      return `<text class="axis-label" text-anchor="${anchor}" x="${f(X(t))}" y="${height - 6}">${escapeHtml(xFormat(t))}</text>`;
+      return `<text class="axis-label" text-anchor="${anchor}" x="${f(X(t))}" y="${height - 6}">${escHtml(xFormat(t))}</text>`;
     })
     .join('');
   const paths = series
@@ -149,11 +149,11 @@ export function stackBar(parts, { format = v => v } = {}) {
   if (!total) return '';
   const segs = parts
     .filter(p => p.value > 0)
-    .map(p => `<span class="stack-seg" style="flex-grow:${p.value / total};background:${p.color}" title="${escapeHtml(p.label)} ${escapeHtml(format(p.value))}"></span>`)
+    .map(p => `<span class="stack-seg" style="flex-grow:${p.value / total};background:${p.color}" title="${escHtml(p.label)} ${escHtml(format(p.value))}"></span>`)
     .join('');
   const legend = parts
     .filter(p => p.value > 0)
-    .map(p => `<li><i style="background:${p.color}"></i><span class="legend-label">${escapeHtml(p.label)}</span><strong class="num">${Math.round((p.value / total) * 1000) / 10}%</strong><span class="legend-value num">${escapeHtml(format(p.value))}</span></li>`)
+    .map(p => `<li><i style="background:${p.color}"></i><span class="legend-label">${escHtml(p.label)}</span><strong class="num">${Math.round((p.value / total) * 1000) / 10}%</strong><span class="legend-value num">${escHtml(format(p.value))}</span></li>`)
     .join('');
   return `<div class="stack-bar">${segs}</div><ul class="stack-legend">${legend}</ul>`;
 }
@@ -172,15 +172,15 @@ export function donut(parts, { format = v => v, center = '', sub = '', size = 14
     .map(p => {
       const len = (p.value / total) * c;
       const dash = Math.max(0.6, len - gap);
-      const arc = `<circle cx="50" cy="50" r="${r}" fill="none" stroke="${p.color}" stroke-width="12" stroke-dasharray="${f(dash)} ${f(c - dash)}" stroke-dashoffset="${f(-at)}" transform="rotate(-90 50 50)"><title>${escapeHtml(p.label)} ${escapeHtml(format(p.value))}</title></circle>`;
+      const arc = `<circle cx="50" cy="50" r="${r}" fill="none" stroke="${p.color}" stroke-width="12" stroke-dasharray="${f(dash)} ${f(c - dash)}" stroke-dashoffset="${f(-at)}" transform="rotate(-90 50 50)"><title>${escHtml(p.label)} ${escHtml(format(p.value))}</title></circle>`;
       at += len;
       return arc;
     })
     .join('');
   const legend = shown
-    .map(p => `<li><i style="background:${p.color}"></i><span class="legend-label">${escapeHtml(p.label)}</span><strong class="num">${Math.round((p.value / total) * 1000) / 10}%</strong><span class="legend-value num">${escapeHtml(format(p.value))}</span></li>`)
+    .map(p => `<li><i style="background:${p.color}"></i><span class="legend-label">${escHtml(p.label)}</span><strong class="num">${Math.round((p.value / total) * 1000) / 10}%</strong><span class="legend-value num">${escHtml(format(p.value))}</span></li>`)
     .join('');
-  return `<div class="donut-wrap"><div class="donut" style="width:${size}px;height:${size}px"><svg viewBox="0 0 100 100" role="img" aria-label="${escapeHtml(shown.map(p => `${p.label} ${Math.round((p.value / total) * 100)}%`).join(', '))}">${arcs}</svg>${center ? `<div class="donut-center"><strong class="num">${escapeHtml(center)}</strong>${sub ? `<small>${escapeHtml(sub)}</small>` : ''}</div>` : ''}</div><ul class="stack-legend">${legend}</ul></div>`;
+  return `<div class="donut-wrap"><div class="donut" style="width:${size}px;height:${size}px"><svg viewBox="0 0 100 100" role="img" aria-label="${escHtml(shown.map(p => `${p.label} ${Math.round((p.value / total) * 100)}%`).join(', '))}">${arcs}</svg>${center ? `<div class="donut-center"><strong class="num">${escHtml(center)}</strong>${sub ? `<small>${escHtml(sub)}</small>` : ''}</div>` : ''}</div><ul class="stack-legend">${legend}</ul></div>`;
 }
 
 // A row of small bars (a year of months), the last one highlighted.
@@ -189,7 +189,7 @@ export function miniBars(bars, { format = v => v, height = 56 } = {}) {
   const max = Math.max(...bars.map(b => b[1]), 0);
   if (!max) return '';
   return `<div class="mini-bars" style="height:${height}px">${bars
-    .map(([label, v], i) => `<span class="mini-bar${i === bars.length - 1 ? ' now' : ''}" style="height:${Math.max(v > 0 ? 6 : 2, (v / max) * 100)}%" title="${escapeHtml(label)} ${escapeHtml(format(v))}"></span>`)
+    .map(([label, v], i) => `<span class="mini-bar${i === bars.length - 1 ? ' now' : ''}" style="height:${Math.max(v > 0 ? 6 : 2, (v / max) * 100)}%" title="${escHtml(label)} ${escHtml(format(v))}"></span>`)
     .join('')}</div>`;
 }
 
@@ -220,7 +220,7 @@ export function candleChart(bars, { width = 640, height = 260, lines = [], yForm
   const ticks = [];
   for (let i = 0; i <= 3; i++) ticks.push(lo0 + ((hi0 - lo0) * i) / 3);
   const grid = ticks
-    .map(v => `<line class="grid" x1="${pad.l}" x2="${pad.l + W}" y1="${f(Y(v))}" y2="${f(Y(v))}"/><text class="axis-label" x="${pad.l + W + 6}" y="${f(Y(v) + 4)}">${escapeHtml(yFormat(v))}</text>`)
+    .map(v => `<line class="grid" x1="${pad.l}" x2="${pad.l + W}" y1="${f(Y(v))}" y2="${f(Y(v))}"/><text class="axis-label" x="${pad.l + W + 6}" y="${f(Y(v) + 4)}">${escHtml(yFormat(v))}</text>`)
     .join('');
   const candles = bars
     .map((b, i) => {
@@ -252,7 +252,7 @@ export function candleChart(bars, { width = 640, height = 260, lines = [], yForm
     .map(k => {
       const i = Math.round((bars.length - 1) * k);
       const anchor = k === 0 ? 'start' : k === 1 ? 'end' : 'middle';
-      return `<text class="axis-label" text-anchor="${anchor}" x="${f(k === 0 ? pad.l : k === 1 ? pad.l + W : X(i))}" y="${height - 6}">${escapeHtml(xFormat(bars[i].t))}</text>`;
+      return `<text class="axis-label" text-anchor="${anchor}" x="${f(k === 0 ? pad.l : k === 1 ? pad.l + W : X(i))}" y="${height - 6}">${escHtml(xFormat(bars[i].t))}</text>`;
     })
     .join('');
   const svg = `<svg class="chart-svg candles" viewBox="0 0 ${width} ${height}" role="img">${grid}${vol}${candles}${overlay}${xticks}<g class="hover" visibility="hidden"><line class="cross" y1="${pad.t}" y2="${height - pad.b}"/></g><rect class="hit" x="${pad.l}" y="0" width="${W}" height="${height}" fill="transparent"/></svg>`;

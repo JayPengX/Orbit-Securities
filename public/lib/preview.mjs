@@ -33,7 +33,6 @@ export function dayTradeShareOf(account, { symbol, market, side, kind = 'stock',
   return qty > 0 ? kit.dayTradeShare({ events: account?.events || [] }, { symbol, market, side, kind, qty }, now) : 0;
 }
 // Whether a Taiwan sale pays the day-trade tax on any of it.
-export const isDayTradeSell = (account, order, now = Date.now()) => dayTradeShareOf(account, { qty: 1000, ...order }, now) > 0;
 
 // The ticket's estimate, as the fill will be: the day-trade tax where it
 // applies (on the share that's day-traded), and a 融券 sale's 0.08% handling

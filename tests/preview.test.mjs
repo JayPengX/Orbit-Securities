@@ -1,15 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newAccount, replay, placeOrder, valuate, estimate, openDeposit, matureDeposits } from '../public/lib/account.mjs';
-import { tradeCosts, SHORT_INITIAL } from '../public/lib/markets.mjs';
+import { SHORT_INITIAL } from '../public/lib/markets.mjs';
 import * as markets from '../public/lib/markets.mjs';
 import { LEND_RATE, TD_TERMS, tdRate } from '../public/lib/savings.mjs';
 import * as kit from '../public/lib/account.mjs';
-import { ticketEstimate, isDayTradeSell, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from '../public/lib/preview.mjs';
+import { ticketEstimate, dayTradeShareOf, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from '../public/lib/preview.mjs';
 import { oddLotNeedsLimit, boardLots, placeLots } from '../public/lib/preview.mjs';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
+const isDayTradeSell = (account, order, now) => dayTradeShareOf(account, { qty: 1000, ...order }, now) > 0;
 const tpe = (d, hm) => Date.parse(`${d}T${hm}:00+08:00`);
 const RATES = { TWD: 1, USD: 32 };
 const T0 = tpe('2028-03-01', '10:00'); // a Wednesday

@@ -46,7 +46,3 @@ export function cleanNumber(value) {
   const next = dot < 0 ? -1 : text.indexOf('.', dot + 1);
   return next < 0 ? text : text.slice(0, next);
 }
-
-export function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-}

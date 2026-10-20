@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { money, price, pct, qty, compact, num, cleanNumber, escapeHtml, setFormatLocale } from '../public/lib/format.mjs';
+import { money, price, pct, qty, compact, num, cleanNumber, setFormatLocale } from '../public/lib/format.mjs';
 import { pointAt, movingAverage } from '../public/lib/series.mjs';
 import { pack, unpack } from '../public/lib/codec.mjs';
 
@@ -70,7 +70,6 @@ test('what a number field keeps: digits and the first point only', () => {
   assert.equal(cleanNumber('.5'), '.5');
   assert.equal(cleanNumber('abc'), '');
   assert.equal(cleanNumber(undefined), '');
-  assert.equal(escapeHtml(`<a href="x">'&'</a>`), '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;');
 });
 
 test('a series read at a moment: the last point at or before it (null before it starts)', () => {

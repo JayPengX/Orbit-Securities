@@ -1,11 +1,11 @@
-// Stock Study: rendering and wiring. The rules live in lib/ (account.mjs for
+// Quadra Securities: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
-  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, nextPayday, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, lendFee, lendable } from './lib/savings.mjs';
 import {
-  BASE, CURRENCIES, MARKETS, METALS, collateralRate, MARGIN_CALL, MARGIN_RESTORE, SHORT_FEE, currencyInfo, isOpen, isTradable, isShortable, qtyStep, roundQty, delayOf, tickSize, onTick, priceLimits, marketFill, isOddLot, oddLotOpen, CASH_RATE, lotSize, lunchOf, atLunch, limitShare, settleDays
+  BASE, CURRENCIES, MARKETS, METALS, collateralRate, MARGIN_CALL, MARGIN_RESTORE, SHORT_FEE, currencyInfo, isOpen, isTradable, isShortable, roundQty, delayOf, tickSize, onTick, priceLimits, marketFill, isOddLot, oddLotOpen, CASH_RATE, lotSize, lunchOf, atLunch, limitShare, settleDays
 } from './lib/markets.mjs';
 import { BONDS } from './lib/bonds.mjs';
 import { nextTradingStart, upcomingHolidays, localDay } from './lib/holidays.mjs';
@@ -17,10 +17,10 @@ import { TV_ROUND } from './lib/tvround.mjs';
 import { TW_NAMES } from './lib/twnames.mjs';
 import { twHits, twFirst } from './lib/twsearch.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
-import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, escapeHtml as h, setFormatLocale, cleanNumber } from './lib/format.mjs';
+import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
-import { shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit, cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, usHalt, sellFraction, ticketRound, ticketStepOk } from './lib/preview.mjs';
+import { shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit, cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, usHalt, ticketRound, ticketStepOk } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { twPhase, afterHoursSend, atLimit, exDayTags, closeMatchOf as twseCloseMatchOf, orderWaitKind } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
@@ -33,6 +33,7 @@ import {
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as kitUI from '#kit/ui.mjs';
+import * as kitQuadra from '#kit/quadra.mjs';
 import * as stockAccount from './lib/account.mjs';
 // (Read through the module, with a fallback, for what an older kit lacks.)
 import * as stockCredit from './lib/credit.mjs';
@@ -40,6 +41,7 @@ import * as stockIpo from './lib/ipo.mjs';
 import * as stockSavings from './lib/savings.mjs';
 import * as stockMarkets from './lib/markets.mjs';
 
+const h = kitUI.escHtml;
 const $ = id => document.getElementById(id);
 const TABS = ['home', 'markets', 'portfolio', 'fx', 'history'];
 const QUOTE_REFRESH_MS = 45_000;
@@ -806,10 +808,7 @@ function toast(text, kind = '', hash = '') {
 function showToast(text, kind = '', hash = '', action = null) {
   const go = hash && TABS.includes(hash) && state.tab !== hash ? { label: t('toastGo'), onTap: () => showTab(hash) } : null;
   const act = action || go;
-  if (kitUI.toast) return void kitUI.toast(text, { tone: kind, ms: act ? 6000 : 4200, ...(act ? { action: act } : {}) });
-  const el = Object.assign(document.createElement('div'), { className: `q-toast ${kind}`, textContent: text });
-  document.body.append(el);
-  setTimeout(() => el.remove(), 4200);
+  kitUI.toast(text, { tone: kind, ms: act ? 6000 : 4200, ...(act ? { action: act } : {}) });
 }
 
 // ---- Shared bits of markup --------------------------------------------------------
@@ -3046,7 +3045,6 @@ function walletRow(c, reserved = 0, settling = 0, settleAt = 0) {
 }
 
 function loanWalletRow(l) {
-  const info = currencyInfo(l.currency);
   return `<button class="q-ritem chevron wallet" type="button" data-action="tool" data-tool="loans">
     ${tileHtml(curMark(l.currency), TINT.red, 'soft flag')}
     <span class="q-ritem-text"><span class="q-ritem-title">${h(t('loanIn', { cur: l.currency }))}</span><small class="num">${h(t('loanRate', { rate: pct(l.rate, { digits: 2, sign: false }) }))}</small></span>
@@ -4194,15 +4192,11 @@ async function mergeRemote(remote, { pull = false, applied = () => {} } = {}) {
   // NT$ cash for the other apps to spend: what's its own, as it is. A loan
   // is never cash here: 融資 lends only as a purchase fills, straight into
   // the shares, and the loan comes off the holdings below (and is
-  // Securities' own to watch: margin calls, interest). Before, every loan
-  // came off this figure too, so it was counted twice and an account with
-  // 融資 showed the whole loan as an overdraft.
+  // Securities' own to watch: margin calls, interest).
   //
   // Below zero when Securities has spent money from the pool (a fill, an
   // exchange) or holds it for an open order (掛單): that's taken off the pool,
-  // so Play can't spend it again. (Floored at 0 before, the pool never saw
-  // what Securities spent or held, the same money went twice, and the
-  // account ran into overdraft when the order filled.)
+  // so Play can't spend it again.
   const sAll = replay(account);
   const figure = Math.round(ownCash(account, sAll) * 100) / 100;
   // Everything else Securities is worth, for the account's worth across apps
@@ -5048,52 +5042,11 @@ window.addEventListener('hashchange', () => {
 // The same top-right in every Quadra app: help, refresh, then the account.
 topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 
-// Big numbers shrink (to 60% at most) to stay on one line.
+// Big numbers shrink (to 60% at most) to stay on one line (the kit's fitNumbers).
 // (And a fact or an order's hint, a line each.)
 const FIT_SELECTOR = '.q-hc-big, .q-stat strong, .big-price, .idx-card > strong, .rec-foot strong, .q-ritem-end > strong, .fx-result, .verdict strong, .facts-grid dd span, .about-fin .about-h';
-function fitNumbers(nodes) {
-  for (const node of nodes) {
-    node.style.fontSize = '';
-    node.__fit = node.textContent;
-  }
-  const sizes = nodes.map(node => {
-    // (Fractional widths: whole pixels rounded a 64.4px number into a 64px
-    // box, which then showed 11,7… instead of shrinking.)
-    const box = node.getBoundingClientRect().width;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    const need = range.getBoundingClientRect().width;
-    if (!box || need <= box) return null;
-    const full = parseFloat(getComputedStyle(node).fontSize);
-    return Math.max(full * 0.6, Math.floor(((full * (box - 0.5)) / need) * 10) / 10);
-  });
-  nodes.forEach((node, i) => sizes[i] && (node.style.fontSize = `${sizes[i]}px`));
-  // Text doesn't narrow exactly with its size: each one shrunk is checked
-  // again and stepped down until it fits (as Play's).
-  nodes.forEach((node, i) => {
-    if (!sizes[i]) return;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    const floor = sizes[i] * 0.85;
-    for (let size = sizes[i]; size > floor && range.getBoundingClientRect().width > node.getBoundingClientRect().width - 0.5; ) node.style.fontSize = `${(size -= 0.4)}px`;
-  });
-}
-if ('ResizeObserver' in window) {
-  const resized = new ResizeObserver(entries => fitNumbers(entries.map(e => e.target)));
-  // After a redraw only the numbers new or changed (every one on every tab,
-  // measured and stepped down again at each redraw, was most of a tap's time);
-  // a width that changes is the ResizeObserver's.
-  const watch = new MutationObserver(() => {
-    const nodes = [...document.querySelectorAll(FIT_SELECTOR)].filter(node => node.__fit !== node.textContent);
-    for (const node of nodes) resized.observe(node);
-    if (nodes.length) fitNumbers(nodes);
-  });
-  watch.observe(document.body, { childList: true, subtree: true });
-  // Fitted before the font came, a number widens when it comes while its box
-  // (already at its narrowest) doesn't move, so nothing above sees it
-  // (為你推薦's 1,443,000 cut at 12px): fitted again once fonts load.
-  document.fonts?.addEventListener('loadingdone', () => fitNumbers([...document.querySelectorAll(FIT_SELECTOR)]));
-}
+// (The kit's watchFit: new, so a phone on an older kit just isn't fitted after a redraw.)
+kitQuadra.watchFit?.(FIT_SELECTOR);
 
 // Redraw charts when the width changes (not when a phone's address bar hides).
 let lastWidth = window.innerWidth;

@@ -249,10 +249,6 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .list-more { display: block; width: 100%; padding: 14px; border: 0; border-top: var(--q-hairline) solid var(--q-sep); background: none; color: var(--accent); font: 600 15px/1 var(--q-font); }
 
 /* ==== The stock's sheet ==== */
-.sheet-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; margin: 0 calc(-1 * var(--q-margin)) 4px; padding: 16px var(--q-margin) 10px; background: var(--q-sheet); }
-.sheet-title { flex: 1 1 auto; min-width: 0; }
-.sheet-title h2 { overflow: hidden; font: var(--q-t-headline); white-space: nowrap; text-overflow: ellipsis; }
-.sheet-title p { overflow: hidden; color: var(--q-label-2); font: var(--q-t-footnote); white-space: nowrap; text-overflow: ellipsis; }
 .quote-head { display: grid; gap: 4px; margin: 4px 0 12px; }
 .qh-price { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .big-price { display: inline-block; max-width: 100%; font: 700 38px/44px var(--q-font-rounded); letter-spacing: -0.02em; white-space: nowrap; }

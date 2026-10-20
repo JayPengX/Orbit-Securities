@@ -115,16 +115,22 @@ Live: https://jaypengx.github.io/Quadra-Securities/
 
 ## Files (`public/lib`)
 
+`account`, `markets`, `credit`, `savings`, `bonds`, `holidays`, `codec` and
+`ipo` are 3-line re-exports of the kit's `stock-*.mjs` (one copy for the
+app and the Worker that checks it); the rules live in the kit.
+
 | File | What |
 | --- | --- |
 | `account.mjs` | The ledger: orders, fills, shorts, FX, loans, dividends, valuation, history, merging |
 | `markets.mjs` | Currencies, markets, fees, taxes, hours, margin rules |
-| `credit.mjs`, `savings.mjs`, `bonds.mjs` | Taiwan credit trading; 定存 and lending; government bonds |
+| `credit.mjs`, `savings.mjs`, `bonds.mjs`, `ipo.mjs` | Taiwan credit trading; 定存 and lending; government bonds; 新股申購 |
 | `quotes.mjs`, `catalog.mjs` | Yahoo reads; the curated lists |
-| `chart.mjs`, `format.mjs`, `i18n.mjs` | Charts; number formats; text |
+| `chart.mjs`, `format.mjs`, `i18n.mjs`, `codec.mjs` | Charts; number formats; text; gzip saves |
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |
 | `foryou.mjs`, `series.mjs` | 為你推薦 (only what can be bought); a price series at a moment, moving averages |
 | `orders.mjs`, `preview.mjs` | When a day order expires; what a screen shows before it's done (the ticket's estimate, the most a short can sell, a 定存's end), by the same rules that then do it |
+| `twse.mjs`, `twsearch.mjs`, `alerts.mjs` | TWSE's sessions; finding Taiwan stocks by code or name; 處置 and 注意 lists |
+| `brands.mjs`, `tvlogos.mjs`, `tvround.mjs`, `twnames.mjs` | Generated logo and name tables |
 | `../app.js` | Rendering and wiring |
 
 ## Run and test

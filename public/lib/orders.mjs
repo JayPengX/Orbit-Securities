@@ -34,7 +34,7 @@ export function expireAsked(account, askedAt, now = Date.now(), grace = LAPSE_GR
 // When an overdraft (NT$ cash below zero) that began at `since` defaults:
 // T+2, two Taiwan business days on (weekends and market holidays skipped),
 // at the same time of day. (Taipei keeps no summer time, so whole days do.)
-export const OD_DAYS = 2;
+const OD_DAYS = 2;
 export function odDeadline(since, days = OD_DAYS) {
   let t = since;
   for (let n = days, i = 0; n > 0 && i < 60; i++) {
