@@ -4251,7 +4251,12 @@ async function mergeRemote(remote, { pull = false } = {}) {
   // Made or lost by market (once prices are in), for the admin page's totals.
   const pl = v && !v.missingRates.length ? resultByMarket(sAll, v) : prev?.pl;
   const plMoved = !!pl && (!prev?.pl || Object.keys({ ...pl, ...prev.pl }).some(k => Math.abs((pl[k] || 0) - (prev.pl[k] || 0)) >= Math.max(1_000, Math.abs(pl[k] || 0) * 0.02)));
-  const snapPatch = prev?.cash === figure && prev?.opened === opened && !moved && !plMoved ? undefined : { stock: { cash: figure, opened, ...(Number.isFinite(holdings) ? { holdings } : {}), ...(pl ? { pl } : {}), t: Date.now() } };
+  // Taxes paid (whole NT$) for the Quadra Pass's 真相 › 政府: 證交稅 and other
+  // trade taxes, tax withheld on dividends and interest (a foreign
+  // government's too), and 二代健保's supplementary premium.
+  const gov = { trade: Math.round(sAll.paid.tax), withheld: Math.round(sAll.paid.withheld), nhi: Math.round(sAll.paid.nhi) };
+  const govMoved = JSON.stringify(prev?.gov || {}) !== JSON.stringify(gov);
+  const snapPatch = prev?.cash === figure && prev?.opened === opened && !moved && !plMoved && !govMoved ? undefined : { stock: { cash: figure, opened, ...(Number.isFinite(holdings) ? { holdings } : {}), ...(pl ? { pl } : {}), gov, t: Date.now() } };
   const changed = !their || JSON.stringify(account) !== JSON.stringify(their);
   if (account !== state.account) commit(account, { sync: false });
   if (changed || snapPatch || (remote.inbox || []).length) {
