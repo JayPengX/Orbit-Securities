@@ -1,7 +1,7 @@
 // Quadra Securities: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
-  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, START_AMOUNT, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, lendFee, lendable } from './lib/savings.mjs';
 import {
@@ -4133,12 +4133,10 @@ function fold(tile, title, body, open = false, id = title, side = '') {
 const q = quadraSession('stock', { lang: locale });
 
 // The first time this pass opens Securities: an account of its own, funded
-// by the pool (a pass from before Quadra paid the opening money gets
-// Securities' own NT$100,000, as it always did).
-function ensureAccount(wallet) {
+// by the pool.
+function ensureAccount() {
   if (state.account) return;
-  const fundedByQuadra = (wallet?.entries || []).some(e => e.id === 'eco:start');
-  commit(newAccount(fundedByQuadra ? 0 : START_AMOUNT), { sync: false });
+  commit(newAccount(0), { sync: false });
   state.bench = null;
 }
 
@@ -4185,7 +4183,7 @@ async function mergeRemote(remote, { pull = false, applied = () => {} } = {}) {
   for (const other of others) account = mergeDistinct(account, other);
   let wallet = remote.wallet || q.wallet;
   if (!account) {
-    ensureAccount(wallet);
+    ensureAccount();
     account = state.account;
   }
   account = applyPool(account, wallet).account;
@@ -4208,8 +4206,8 @@ async function mergeRemote(remote, { pull = false, applied = () => {} } = {}) {
   const spendableTWD = available(account, sAll).cash[BASE] || 0;
   const holdings = v && !v.missingRates.length ? Math.round(v.netWorth - spendableTWD) : prev?.holdings;
   const moved = Number.isFinite(holdings) && !(Math.abs((prev?.holdings ?? Infinity) - holdings) < Math.max(1_000, Math.abs(holdings) * 0.02));
-  // The opening money in Securities' own books (an account older than the
-  // shared wallet's; 0 since): the Worker's reset makes up what it took too much of.
+  // The opening money in Securities' own books (0 for an account the pool
+  // funded), reported for the Worker's stock-check.
   const opened = account.events.filter(e => e.type === 'deposit' && !e.pool && (e.id === 'deposit:start' || e.start)).reduce((sum, e) => sum + e.amount, 0);
   // Made or lost by market (once prices are in), for the admin page's totals.
   const pl = v && !v.missingRates.length ? resultByMarket(sAll, v) : prev?.pl;
@@ -5116,11 +5114,10 @@ async function boot() {
         .finally(merged);
     });
   // A first account only once the pass has been read and has none: opened
-  // offline on a new phone, the wallet isn't known (a pass Quadra funded
-  // would have been given Securities' old NT$100,000, then folded into the
-  // pass's own account as a second opening deposit). Until then, none; the
-  // next sync (mergeRemote) makes it.
-  if (!state.account && first && !first.offline) ensureAccount(q.wallet);
+  // offline on a new phone, the pass's own account isn't known (a new one
+  // would be folded into it as a second). Until then, none; the next sync
+  // (mergeRemote) makes it.
+  if (!state.account && first && !first.offline) ensureAccount();
   state.accountReady = true;
   if (state.fromCache) $('loading').hidden = true;
   checkIncome();
