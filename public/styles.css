@@ -693,3 +693,5 @@ html .q-logo img { width: 100%; height: 100%; object-fit: contain; }
 /* A disc logo: the tile is the disc's colour, so no corners show around it. */
 html .q-logo.disc { background: var(--disc); }
 html .q-logo.disc img { transform: scale(1.02); }
+/* 持倉: each holding's money made or lost (NT$ · %) under its worth; the totals over the list. */
+.pl-stats { margin-bottom: 10px; }

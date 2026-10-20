@@ -1977,7 +1977,7 @@ function positionHtml(symbol) {
       ${stat(p.short ? t('shortHolding') : t('holding'), `${fmtQty(Math.abs(p.qty))} ${unitOf(symbol)}`, p.short ? t('borrowFeeSoFar', { amount: money(p.borrowFee || 0, p.currency, { digits: 2 }) }) : '')}
       ${stat(t('avgCost'), fmtPrice(p.avg, p.currency), p.currency)}
       ${stat(t('marketValue'), money(p.valueTWD, BASE), p.currency !== BASE ? money(p.value, p.currency) : '')}
-      ${stat(t('unrealized'), money(p.pl, BASE, { sign: true }), pct(p.plPct), dirClass(p.pl))}
+      ${stat(t('unrealized'), money(netPl(p).pl, BASE, { sign: true }), pct(netPl(p).pct), dirClass(netPl(p).pl))}
     </div>`
   );
 }
@@ -2861,7 +2861,7 @@ function renderPortfolio() {
   const view = state.nwView || 'pl';
   const incomplete = v.missingRates.length || !state.loaded;
   const sort = state.posSort || 'value';
-  const positions = [...v.positions].sort((x, y) => (sort === 'pl' ? y.plPct - x.plPct : sort === 'day' ? y.dayTWD - x.dayTWD : Math.abs(y.valueTWD) - Math.abs(x.valueTWD)));
+  const positions = [...v.positions].sort((x, y) => (sort === 'pl' ? netPl(y).pl - netPl(x).pl : sort === 'day' ? y.dayTWD - x.dayTWD : Math.abs(y.valueTWD) - Math.abs(x.valueTWD)));
   // The hero's figure follows its chart: what the money put in has made, or the total.
   const hero = `<div class="q-hero-card pf-hero">
     <span class="q-hc-eyebrow">${ico('chart')}<span>${h(view === 'pl' ? t('totalReturn') : t('netWorth'))}</span>${incomplete ? `<span class="hc-note">${h(t('pricesLoading'))}</span>` : ''}</span>
@@ -2870,9 +2870,15 @@ function renderPortfolio() {
     <div id="nw-chart" class="hc-chart" data-own></div>
     <div class="q-seg hc-seg" role="group">${['pl', 'nw'].map(k => `<button type="button" data-action="nw-view" data-v="${k}" aria-pressed="${view === k}">${h(t(`nwView_${k}`))}</button>`).join('')}</div>
   </div>`;
+  // 未實現 over every holding (after selling costs) and 已實現 so far, in NT$, over the list.
+  const unreal = v.positions.reduce((a, p) => a + netPl(p).pl, 0);
+  const costBase = v.positions.reduce((a, p) => a + Math.abs(p.valueTWD - p.pl), 0);
+  const plStats = `<div class="q-stats pl-stats">
+      ${stat(t('unrealized'), money(unreal, BASE, { sign: true }), costBase ? pct(unreal / costBase) : '', dirClass(unreal))}
+      ${stat(t('realizedPl'), money(v.realized || 0, BASE, { sign: true }), '', dirClass(v.realized || 0))}
+    </div>`;
   const held = v.positions.length
-    ? sectionHtml(t('positions'), `<div class="q-rowcard positions">${positions.map(p => positionRow(p, sort)).join('')}</div>`, {
-        side: `<span class="q-tag ${dirClass(v.unrealized)} sec-tag num">${h(money(v.unrealized, BASE, { sign: true }))}</span>`,
+    ? sectionHtml(t('positions'), `${plStats}<div class="q-rowcard positions">${positions.map(p => positionRow(p, sort)).join('')}</div>`, {
         more: v.positions.length > 1 ? t(`posSort_${sort}`) : '',
         moreAction: 'data-action="pos-sort" class="sort-btn"'
       })
@@ -3028,6 +3034,15 @@ function exTagHtml(symbol) {
 }
 // A holding: its picture and name, how much at what cost, its worth and its
 // return (today's, sorted by today).
+// 未實現損益 as a broker shows it: the holding's worth less what selling it now would
+// cost (commission and tax), less what it cost; a short's as the ledger has it.
+function netPl(p) {
+  if (p.short || !(p.qty > 0) || !p.value) return { pl: p.pl, pct: p.plPct };
+  const costs = stockAccount.estimate?.({ market: p.market, kind: p.kind, currency: p.currency, side: 'sell', qty: p.qty, price: p.price })?.costs || 0;
+  const pl = p.pl - costs * (p.valueTWD / p.value);
+  const base = p.valueTWD - p.pl;
+  return { pl, pct: base ? pl / Math.abs(base) : 0 };
+}
 function positionRow(p, sort = 'value') {
   const q = p.quote;
   const tags = [
@@ -3038,11 +3053,14 @@ function positionRow(p, sort = 'value') {
     alertTag(p.symbol)
   ].join('');
   const qty = p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}${lotsNote(p, q)}`;
-  const end = sort === 'day' ? `<span class="q-tag chg-tag ${dirClass(p.dayTWD)} num">${h(money(p.dayTWD, BASE, { sign: true }))}</span>` : `<span class="q-tag chg-tag ${dirClass(p.pl)} num">${h(pct(p.plPct))}</span>`;
+  // Money made or lost in NT$ (today's under 今日, since bought otherwise), its % as the tag; the worth goes left.
+  const net = netPl(p);
+  const [x, xPct] = sort === 'day' ? [p.dayTWD, p.dayPct] : [net.pl, net.pct];
+  const end = `<strong class="num ${dirClass(x)}">${h(money(x, BASE, { sign: true }))}</strong><span class="q-tag chg-tag ${dirClass(x)} num">${h(pct(xPct))}</span>`;
   return `<button class="q-ritem position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(p.symbol, q))}</span><small class="num">${h(qty)} · ${h(t('avgShort'))} ${h(fmtPrice(p.avg, p.currency))}</small>${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
-    <span class="q-ritem-end"><strong class="num">${h(money(p.valueTWD, BASE))}</strong>${end}</span>
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(p.symbol, q))}</span><small class="num">${keepParts(`${qty} · ${t('marketValue')} ${compactMoney(p.valueTWD, BASE)}`)}</small>${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
+    <span class="q-ritem-end">${end}</span>
   </button>`;
 }
 
