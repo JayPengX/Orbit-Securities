@@ -18,6 +18,8 @@ const twse = get('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL') 
 const tpex = get('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes') || [];
 // The emerging board (興櫃), TPEx's too.
 const esb = get('https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics') || [];
+// Listed convertible bonds (可轉債), by their issue data's short name.
+const cbs = (get('https://www.tpex.org.tw/openapi/v1/bond_ISSBD5_data') || []).filter(r => r.ListingStatus === '2' && /^[1-9]\d{4}$/.test(r.BondCode || ''));
 if (twse.length < 500 || tpex.length < 300 || esb.length < 200) throw new Error(`lists too short: TWSE ${twse.length}, TPEx ${tpex.length}, 興櫃 ${esb.length}`);
 // Stocks (four digits), ETFs (00 and two to four more, a letter after some),
 // ETNs (02…), REITs (01…T), TDRs (91…) and preferred shares (a letter after
@@ -26,6 +28,7 @@ const CODE = /^(\d{4}[A-Z]?|00\d{2,4}[A-Z]?|02\d{3}[0-9A-Z]|01\d{3}T|91\d{2,4})$
 const names = {};
 for (const r of twse) if (CODE.test(r.Code) && r.Name) names[`${r.Code}.TW`] = r.Name.trim();
 for (const r of [...tpex, ...esb]) if (CODE.test(r.SecuritiesCompanyCode) && r.CompanyName) names[`${r.SecuritiesCompanyCode}.TWO`] ||= r.CompanyName.trim();
+for (const r of cbs) if (r.ShortName) names[`${r.BondCode}.TWO`] ||= r.ShortName.trim();
 const body = Object.keys(names).sort().map(k => `  ${JSON.stringify(k)}: ${JSON.stringify(names[k])},`).join('\n');
 writeFileSync(new URL('../public/lib/twnames.mjs', import.meta.url), `// Made by scripts/tw-names.mjs: every Taiwan listing's Chinese short name.
 // Don't edit by hand; run the script again.

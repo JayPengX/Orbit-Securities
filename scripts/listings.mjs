@@ -7,7 +7,8 @@
 //
 // Left out, as a broker's app has them elsewhere or Yahoo has no prices:
 // warrants and callable bull/bear contracts (Taiwan's and Hong Kong's, some
-// 30,000; the US's SPAC warrants, rights and units), convertible bonds, Tokyo's PRO Market (professionals only) and
+// 30,000; the US's SPAC warrants, rights and units), the convertible bonds
+// Yahoo has no price for, Tokyo's PRO Market (professionals only) and
 // Hong Kong's debt securities.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
@@ -36,8 +37,8 @@ const xlsx = (url, name) =>
   );
 const clean = s => String(s || '').normalize('NFKC').replace(/\s+/g, ' ').trim();
 const out = {};
-// Kinds, a letter each: s stock, e ETF, b bond ETF, n ETN, r REIT, d TDR, p preferred, m emerging board (興櫃).
-const KIND = { stock: 's', etf: 'e', bond: 'b', etn: 'n', reit: 'r', tdr: 'd', pref: 'p', emerging: 'm' };
+// Kinds, a letter each: s stock, e ETF, b bond ETF, n ETN, r REIT, d TDR, p preferred, m emerging board (興櫃), c convertible bond (可轉債).
+const KIND = { stock: 's', etf: 'e', bond: 'b', etn: 'n', reit: 'r', tdr: 'd', pref: 'p', emerging: 'm', cb: 'c' };
 const add = (market, symbol, name, kind) => (out[market] ||= new Map()).has(symbol) || out[market].set(symbol, [symbol, clean(name), KIND[kind]]);
 
 // Taiwan: TWSE's and TPEx's daily close lists (stocks, ETFs, ETNs, REITs,
@@ -53,6 +54,27 @@ for (const r of tpex) if (twKind(r.SecuritiesCompanyCode)) add('tw', `${r.Securi
 const esb = json('https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics', 'esb.json');
 if (esb.length < 200) throw new Error(`emerging board list too short: ${esb.length}`);
 for (const r of esb) if (/^\d{4}$/.test(r.SecuritiesCompanyCode)) add('tw', `${r.SecuritiesCompanyCode}.TWO`, r.CompanyName, 'emerging');
+// TPEx's listed convertible bonds (可轉債), the ones Yahoo has a price for
+// (about half: the rest seldom trade).
+const cbs = json('https://www.tpex.org.tw/openapi/v1/bond_ISSBD5_data', 'cb.json').filter(r => r.ListingStatus === '2' && /^[1-9]\d{4}$/.test(r.BondCode || ''));
+if (cbs.length < 200) throw new Error(`convertible bond list too short: ${cbs.length}`);
+const priced = async code => {
+  for (let tries = 0; tries < 3; tries++) {
+    try {
+      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${code}.TWO?range=5d`, { headers: { 'user-agent': 'Mozilla/5.0' } });
+      if (r.status === 404) return false;
+      if (r.ok) return Boolean((await r.json()).chart?.result?.[0]?.meta?.regularMarketPrice);
+    } catch {}
+  }
+  return false;
+};
+let withPrice = 0;
+for (let i = 0; i < cbs.length; i += 16) {
+  const batch = cbs.slice(i, i + 16);
+  const ok = await Promise.all(batch.map(r => priced(r.BondCode)));
+  batch.forEach((r, j) => ok[j] && ++withPrice && add('tw', `${r.BondCode}.TWO`, r.ShortName, 'cb'));
+}
+if (withPrice < 50) throw new Error(`Yahoo prices only ${withPrice} convertible bonds`);
 
 // The US: Nasdaq's symbol directories (Nasdaq, NYSE, NYSE American, NYSE
 // Arca, Cboe), test issues left out. Yahoo writes BRK.B as BRK-B, a

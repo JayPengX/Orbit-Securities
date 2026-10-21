@@ -20,7 +20,7 @@ test('every key the page asks for exists', () => {
   for (const m of html.matchAll(/data-t="([A-Za-z0-9_]+)"/g)) used.add(m[1]);
   for (const k of ['alertHitAbove', 'alertHitBelow', 'alertWhenAbove', 'alertWhenBelow', 'alertAddAbove', 'alertAddBelow']) used.add(k);
   const families = {
-    kind_: ['stock', 'etf', 'bond', 'fund', 'crypto', 'metal', 'index', 'future', 'fx', 'cash', 'govbond'],
+    kind_: ['stock', 'etf', 'bond', 'fund', 'crypto', 'metal', 'index', 'future', 'fx', 'cash', 'govbond', 'cb'],
     range_: ['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max'],
     otype_: ['market', 'limit', 'stop'],
     status_: ['open', 'filled', 'cancelled', 'rejected'],
@@ -33,7 +33,7 @@ test('every key the page asks for exists', () => {
     err_: ['funds', 'shares', 'qty', 'qtyStep', 'limit', 'stop', 'noQuote', 'notTradable', 'noRate', 'side', 'fx', 'tooSmall', 'amount', 'capacity', 'margin', 'noLoan', 'shortMargin', 'noValuation', 'planAmount', 'planDay', 'alertPrice', 'tick', 'priceLimit', 'unsettled', 'dayTradeLimit', 'split', 'cashOnly', 'limitOnly', 'northboundBoard', 'noDayTrade', 'extLimit', 'planMarket', 'planMin'],
     session_: ['regular', 'pre', 'post'],
     cnBoard_: ['star', 'chinext'],
-    listKind_: ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm']
+    listKind_: ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm', 'c']
   };
   for (const [prefix, list] of Object.entries(families)) for (const k of list) used.add(prefix + k);
   for (const m of app.matchAll(/para\)|\['(g_[a-z]+\d)'/g)) if (m[1]) used.add(m[1]);

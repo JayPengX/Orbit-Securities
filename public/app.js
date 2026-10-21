@@ -259,7 +259,7 @@ function unitOf(symbol) {
   if (/^[A-Z]{6}=X$/.test(symbol)) return symbol.slice(0, 3);
   const kind = state.quotes.get(symbol)?.kind || catalogInfo(symbol)?.kind;
   if (kind === 'crypto' || /-USD$/.test(symbol)) return symbol.replace(/-USD$/, '');
-  return kind === 'fund' ? t('units') : t('shares');
+  return kind === 'fund' || kind === 'cb' ? t('units') : t('shares');
 }
 // A rate as a percentage with only the digits it has: 0.1425%, 0.3%.
 const rateText = x => `${num(x * 100, 4, 0)}%`;
@@ -308,7 +308,7 @@ function listSymbols() {
 // Rows are [symbol, name, kind letter].
 const LISTING_OF = { tw: 'tw', twetf: 'tw', bond: 'tw', us: 'us', usetf: 'us', jp: 'jp', hk: 'hk' };
 const LISTING_KIND = { tw: 's', twetf: 'e', bond: 'b', us: 's', usetf: 'e', jp: 's', hk: 's' };
-const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm'];
+const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm', 'c'];
 const listings = new Map();
 const listingName = new Map();
 const listingLoads = new Map();
@@ -748,8 +748,10 @@ function checkBonds() {
   if (!state.account) return;
   const s = snap();
   for (const symbol of Object.keys(s.held)) {
-    if (!BONDS[symbol]) continue;
-    const r = applyBondCashflows(state.account, symbol, { rates: state.rates, now: Date.now() });
+    // (A Taiwan convertible bond: repaid at face on its maturity.)
+    const cb = stockAccount.applyCbMaturity && stockMarkets.cbMaturity?.(symbol);
+    if (!BONDS[symbol] && !cb) continue;
+    const r = cb ? stockAccount.applyCbMaturity(state.account, symbol, { now: Date.now() }) : applyBondCashflows(state.account, symbol, { rates: state.rates, now: Date.now() });
     if (!r.added.length) continue;
     commit(r.account);
     for (const e of r.added)
@@ -927,6 +929,7 @@ function marketRules(q) {
   if (board) parts.push(t('ruleNorthbound', { board: t(`cnBoard_${board}`) }));
   const emerging = stockMarkets.isEmerging?.(q.symbol);
   if (emerging) parts.push(t('ruleEmerging'));
+  else if (q.kind === 'cb') parts.push(t('ruleCb', { date: stockMarkets.cbMaturity?.(q.symbol) ? fmtDate(stockMarkets.cbMaturity(q.symbol)) : '—' }));
   else if (orderTypes(q).length === 1) parts.push(t('ruleLimitOnly'));
   if (cashOnly(q) && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleCashOnly'));
   if (q.market === 'TW' && q.kind === 'stock' && !emerging) {
