@@ -78,6 +78,8 @@ const state = {
   updated: 0,
   // The 市場 tab's list (null: browsing, today's movers and the lists).
   category: null,
+  // A market's full list open (browseHtml): {cat, kind, n}.
+  browse: null,
   // The tool sheet open (alloc, income, plans, alerts, rates, loans, credit, td, lend).
   tool: null,
   query: '',
@@ -224,7 +226,9 @@ function nameOf(symbol, quote = state.quotes.get(symbol)) {
   if (locale === 'zh' && twZhName(symbol)) return twZhName(symbol);
   if (METALS[symbol]) return L(METALS[symbol]);
   if (symbol.endsWith('=X') && symbol.length === 8) return `${symbol.slice(0, 3)}/${symbol.slice(3, 6)}`;
-  return quote?.shortName || quote?.name || symbol;
+  // Hong Kong's by HKEX's Chinese name; the rest of a market's full list by its exchange's name till Yahoo's comes.
+  if (locale === 'zh' && symbol.endsWith('.HK') && listingName.has(symbol)) return listingName.get(symbol);
+  return quote?.shortName || quote?.name || listingName.get(symbol) || symbol;
 }
 // (A coin by its own ticker: BTC, not BTC-USD.)
 const bareSymbol = s => (METALS[s] ? s : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1'));
@@ -295,7 +299,54 @@ function coreSymbols() {
 
 function listSymbols() {
   const cat = state.category ? categoryOf(state.category) : null;
+  if (cat && browsing()) return browseRows().slice(0, state.browse.n);
   return cat ? cat.items.map(i => i[0]) : [];
+}
+
+// Every security each market lists (scripts/listings.mjs): fetched the first
+// time its 全部 list is opened or a search needs it, never at start.
+// Rows are [symbol, name, kind letter].
+const LISTING_OF = { tw: 'tw', twetf: 'tw', bond: 'tw', us: 'us', usetf: 'us', jp: 'jp', hk: 'hk' };
+const LISTING_KIND = { tw: 's', twetf: 'e', bond: 'b', us: 's', usetf: 'e', jp: 's', hk: 's' };
+const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p'];
+const listings = new Map();
+const listingName = new Map();
+const listingLoads = new Map();
+function loadListing(market) {
+  if (!listingLoads.has(market)) {
+    listingLoads.set(
+      market,
+      fetch(`data/listings-${market}.json`)
+        .then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+        .then(rows => {
+          listings.set(market, rows);
+          for (const [sym, name] of rows) listingName.set(sym, name);
+          return rows;
+        })
+        .catch(error => {
+          listingLoads.delete(market);
+          throw error;
+        })
+    );
+  }
+  return listingLoads.get(market);
+}
+const browsing = () => state.browse?.cat === state.category && Boolean(LISTING_OF[state.category]);
+const browseRows = () => (listings.get(LISTING_OF[state.category]) || []).filter(r => r[2] === state.browse.kind).map(r => r[0]);
+// A search in Chinese or Japanese reads Hong Kong's and Japan's lists too
+// (Yahoo has their names in English only); any list already here is read as well.
+const NEEDS_LISTINGS = q => (/[^\x20-\x7e]/.test(q) ? ['hk', 'jp'] : []);
+function listingHits(q, n = 40) {
+  const lower = q.toLowerCase();
+  const code = q.toUpperCase();
+  const out = [];
+  for (const rows of listings.values()) {
+    for (const [sym, name] of rows) {
+      if (sym.split('.')[0] === code || (q.length > 1 && name.toLowerCase().includes(lower))) out.push(sym);
+      if (out.length >= n) return out;
+    }
+  }
+  return out;
 }
 
 function absorb(quotes) {
@@ -1494,6 +1545,7 @@ function renderMarkets() {
     .map(c => `<button class="q-chip" type="button" data-action="cat" data-id="${h(c.id)}" aria-pressed="${state.category === c.id || (!c.id && !state.category)}">${h(L(c))}</button>`)
     .join('')}</div>`;
   const watchOnly = cat.id === 'index' || cat.id === 'metal' ? `<p class="foot-note">${h(t('watchOnlyNote'))}</p>` : '';
+  if (LISTING_OF[cat.id]) return morph(box, `${chips}${browseHtml(cat, symbols, cap, more)}`);
   morph(
     box,
     `${chips}${sectionHtml(
@@ -1504,6 +1556,44 @@ function renderMarkets() {
   );
 }
 const LIST_SHOWN = 30;
+const BROWSE_PAGE = 50;
+
+// A market with its full list: 精選 (the catalogue's picks) or 全部 (all it
+// lists, a kind at a time, fifty rows at a time).
+function browseHtml(cat, symbols, cap, more) {
+  const market = LISTING_OF[cat.id];
+  const rows = listings.get(market);
+  const all = browsing();
+  const seg = `<div class="q-seg browse-seg" role="group"><button type="button" data-action="browse" data-v="" aria-pressed="${!all}">${h(t('browsePicks'))}</button><button type="button" data-action="browse" data-v="all" aria-pressed="${all}">${h(rows ? t('browseAllN', { n: rows.length.toLocaleString() }) : t('browseAll'))}</button></div>`;
+  if (!all) {
+    return `${seg}${sectionHtml(L(cat), `<div class="q-rowcard quotes">${symbols.slice(0, cap).map(s => quoteRow(s)).join('')}${more > 0 ? `<button class="list-more" type="button" data-action="list-all">${h(t('listAll', { n: symbols.length }))}</button>` : ''}</div>`, { cls: 'list-section' })}`;
+  }
+  if (!rows) return `${seg}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
+  const counts = {};
+  for (const r of rows) counts[r[2]] = (counts[r[2]] || 0) + 1;
+  const kinds = `<div class="q-chips bleed browse-kinds">${LISTING_KINDS.filter(k => counts[k])
+    .map(k => `<button class="q-chip" type="button" data-action="browse-kind" data-v="${k}" aria-pressed="${state.browse.kind === k}">${h(t(`listKind_${k}`))} <small class="num">${counts[k].toLocaleString()}</small></button>`)
+    .join('')}</div>`;
+  const list = browseRows();
+  const shown = list.slice(0, state.browse.n);
+  const left = list.length - shown.length;
+  return `${seg}${kinds}<section class="q-section list-section"><div class="q-rowcard quotes">${shown.map(s => quoteRow(s)).join('') || plainEmpty(t('nothingHere'))}${left > 0 ? `<button class="list-more" type="button" data-action="browse-more">${h(t('browseMore', { n: Math.min(left, BROWSE_PAGE), left: left.toLocaleString() }))}</button>` : ''}</div><p class="foot-note">${h(t('browseNote'))}</p></section>`;
+}
+async function openBrowse(kind) {
+  const cat = state.category;
+  const market = LISTING_OF[cat];
+  state.browse = { cat, kind: kind || LISTING_KIND[cat], n: BROWSE_PAGE };
+  renderMarkets();
+  try {
+    await loadListing(market);
+  } catch {
+    if (state.browse?.cat === cat) state.browse.failed = true;
+    return renderMarkets();
+  }
+  if (state.browse?.cat !== cat) return;
+  renderMarkets();
+  refresh({ list: true });
+}
 
 // The markets with movers to show (three or more), and the one shown: the picked one,
 // else the one trading now. Home and 市場 share it, so a pick on one holds on the other.
@@ -1532,7 +1622,7 @@ function moversHtml() {
 }
 
 // The catalogue's matches, then Taiwan's listings by code or Chinese name (lib/twsearch.mjs).
-const localHits = q => [...new Set([...searchCatalog(q, 40).map(i => i.symbol), ...twHits(q, TW_NAMES, ipoState.list)])].slice(0, 40);
+const localHits = q => [...new Set([...searchCatalog(q, 40).map(i => i.symbol), ...twHits(q, TW_NAMES, ipoState.list), ...listingHits(q)])].slice(0, 40);
 let searchTimer;
 function onSearchInput(value) {
   state.query = value.trim();
@@ -1541,9 +1631,11 @@ function onSearchInput(value) {
   if (!state.query) return;
   searchTimer = setTimeout(async () => {
     const q = state.query;
-    const local = localHits(q);
     state.search = { query: q, results: [], loading: true };
     renderSearch();
+    await Promise.all(NEEDS_LISTINGS(q).map(m => loadListing(m).catch(() => {})));
+    if (state.query !== q) return;
+    const local = localHits(q);
     let remote = [];
     try {
       remote = await searchSymbols(q);
@@ -4663,6 +4755,22 @@ document.addEventListener('click', async event => {
     case 'list-all':
       state.listAll = state.category;
       renderMarkets();
+      break;
+    case 'browse':
+      if (el.dataset.v) openBrowse();
+      else {
+        state.browse = null;
+        renderMarkets();
+      }
+      break;
+    case 'browse-kind':
+      openBrowse(el.dataset.v);
+      window.scrollTo(0, 0);
+      break;
+    case 'browse-more':
+      state.browse.n += BROWSE_PAGE;
+      renderMarkets();
+      refresh({ list: true });
       break;
     case 'open':
       openDetail(el.dataset.symbol);
