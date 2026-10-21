@@ -1366,7 +1366,8 @@ function renderHome() {
     ? sectionHtml(t('homeWatch'), watch.length ? `<div class="q-rowcard">${watch.slice(0, 6).map(s => stockRow(s)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.orange, title: t('emptyWatchTitle'), body: t('emptyWatchBody'), go: t('emptyWatchGo'), attrs: 'data-action="goto" data-tab="markets"' }), {
         count: watch.length || '',
         more: watch.length > 6 ? t('seeAll') : '',
-        moreAction: 'data-action="open-watch"'
+        moreAction: 'data-action="open-watch"',
+        cls: 'home-watch'
       })
     : '';
   const index = OVERVIEW.map(sym => {
@@ -1396,7 +1397,7 @@ function renderHome() {
     ${quick}
     ${watchlist}
     ${holdings}
-    ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"' })}
+    ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'home-movers' })}
     ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.indigo, title: t('forYouNone'), body: t('forYouNoneSub'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
     ${ipoHtml()}
     ${eventsHtml}`
@@ -1682,8 +1683,8 @@ function moversHtml() {
   const mt = (key, onKey) => (day ? t(onKey, { day }) : t(key));
   const row = q => `<button class="q-ritem quote" type="button" data-action="open" data-symbol="${h(q.symbol)}">${symbolBadge(q.symbol, q)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(q.symbol, q))}</span><small class="num" data-q-live="mover:${h(q.symbol)}">${fmtPrice(q.price, q.currency)}</small></span>${pctTag(q)}</button>`;
   return `${moverSeg(groups, group)}
-    ${up.length ? `<p class="sub-head">${h(mt('moversUp', 'moversUpOn'))}</p><div class="q-rowcard">${up.map(row).join('')}</div>` : ''}
-    ${down.length ? `<p class="sub-head">${h(mt('moversDown', 'moversDownOn'))}</p><div class="q-rowcard">${down.map(row).join('')}</div>` : ''}`;
+    <div class="mv-pair">${up.length ? `<div><p class="sub-head">${h(mt('moversUp', 'moversUpOn'))}</p><div class="q-rowcard">${up.map(row).join('')}</div></div>` : ''}
+    ${down.length ? `<div><p class="sub-head">${h(mt('moversDown', 'moversDownOn'))}</p><div class="q-rowcard">${down.map(row).join('')}</div></div>` : ''}</div>`;
 }
 
 // The catalogue's matches, then Taiwan's listings by code or Chinese name (lib/twsearch.mjs).
@@ -2087,8 +2088,16 @@ function factsHtml(q) {
   // Short facts two a row; a long one (hours, holidays, costs) the row's
   // width, and one too long for even that each of its parts (` · `) a line
   // of its own, never wrapped (a currency, "TWD · Taiwan dollar", one line).
+  // A short fact left alone at the end of its run (before a wide one, or last) takes the row: no hole.
+  const isWide = v => String(v).length > 22;
+  let run = 0;
+  const lone = rows.map(([, v], i) => {
+    if (isWide(v)) return (run = 0), false;
+    run++;
+    return run % 2 === 1 && (i === rows.length - 1 || isWide(rows[i + 1][1]));
+  });
   return `<dl class="facts-grid">${rows
-    .map(([k, v]) => (String(v).length > 22 ? `<div class="wide"><dt>${h(k)}</dt><dd>${(String(v).length > 34 ? String(v).split(' · ') : [String(v)]).map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : String(v).includes(' – ') ? `<div class="range"><dt>${h(k)}</dt><dd>${String(v).split(' – ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} –` : x)}</span>`).join(' ')}</dd></div>` : `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`))
+    .map(([k, v], i) => (isWide(v) || lone[i] ? `<div class="wide"><dt>${h(k)}</dt><dd>${(String(v).length > 34 ? String(v).split(' · ') : [String(v)]).map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : String(v).includes(' – ') ? `<div class="range"><dt>${h(k)}</dt><dd>${String(v).split(' – ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} –` : x)}</span>`).join(' ')}</dd></div>` : `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`))
     .join('')}</dl>`;
 }
 
@@ -3051,7 +3060,8 @@ function cashHtml(v) {
   const rows = v.cash.map(c => walletRow(c, heldFor(c), unsettledNow[c.currency] || 0, settleAt[c.currency])).join('');
   const pay = `<div class="q-ritem">${tileHtml(ico('calendar'), TINT.green)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('weeklyPay'))}</span><small>${h(fmtDate(quadraPayday(Date.now())))}</small></span><span class="q-ritem-value num">+${h(money(paydayFor(state.wallet), BASE))}</span></div>`;
   return sectionHtml(t('cash'), `<div class="q-rowcard wallets">${rows}${v.loans.map(loanWalletRow).join('')}${pay}</div>`, {
-    side: `<strong class="sec-value num">${h(money(v.cashTWD - heldTWD, BASE))}</strong>`
+    side: `<strong class="sec-value num">${h(money(v.cashTWD - heldTWD, BASE))}</strong>`,
+    cls: 'pf-cash'
   });
 }
 
@@ -3072,7 +3082,7 @@ function moreHtml(v) {
     alerts.length || alertsShown().length ? row('alerts', ico('bell'), TINT.red, t('alertsTitle'), `<span class="q-tag">${alerts.length}</span>`) : '',
     open ? `<button class="q-ritem chevron" type="button" data-action="hview-go" data-view="orders">${tileHtml(ico('list'), TINT.blue)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('openOrders'))}</span></span><span class="q-tag orange">${open}</span></button>` : ''
   ].join('');
-  return sectionHtml(t('moreTitle'), `<div class="q-rowcard">${rows}</div>`);
+  return sectionHtml(t('moreTitle'), `<div class="q-rowcard">${rows}</div>`, { cls: 'pf-more' });
 }
 // The biggest part of the account by kind, and its share.
 function topGroup(v) {
@@ -3537,7 +3547,7 @@ function renderFx() {
     box,
     `${exchangeHtml()}
     ${v.margin !== 'ok' || state.account.call ? `<button class="callout bad" type="button" data-action="tool" data-tool="loans">${h(t('maintenance'))} ${h(pct(v.ratio, { digits: 0, sign: false }))} · ${h(t(`margin_${v.margin}`))}</button>` : ''}
-    ${sectionHtml(t('fxViewRates'), `<div class="q-rowcard rates">${rates.slice(0, 6).map(c => rateRow(c)).join('')}</div>`, { more: t('seeAll'), moreAction: 'data-action="tool" data-tool="rates"', side: over })}
+    ${sectionHtml(t('fxViewRates'), `<div class="q-rowcard rates">${rates.slice(0, 6).map(c => rateRow(c)).join('')}</div>`, { more: t('seeAll'), moreAction: 'data-action="tool" data-tool="rates"', side: over, cls: 'fx-rates' })}
     ${sectionHtml(t('moneyTools'), moneyToolsHtml(v))}`
   );
 }
