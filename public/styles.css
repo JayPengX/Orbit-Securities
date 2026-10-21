@@ -700,3 +700,19 @@ html .q-logo.disc { background: var(--disc); }
 html .q-logo.disc img { transform: scale(1.02); }
 /* 持倉: each holding's money made or lost (NT$ · %) under its worth; the totals over the list. */
 .pl-stats { margin-bottom: 10px; }
+
+/* No white in dark mode (Jay 2026-10-21): the converter's currency pills and swap are glass on the card. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .fx-cur,
+  :root:not([data-theme='light']) .fx-swap {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    box-shadow: none;
+  }
+}
+:root[data-theme='dark'] .fx-cur,
+:root[data-theme='dark'] .fx-swap {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  box-shadow: none;
+}
