@@ -231,6 +231,8 @@ export const CATEGORIES = [
   { id: 'eu', zh: '歐股', en: 'Europe', icon: '🇪🇺', items: EU },
   { id: 'fund', zh: '基金', en: 'Funds', icon: '🗂️', items: FUNDS },
   ...(FUTS.length ? [{ id: 'fut', zh: '期貨', en: 'Futures', icon: '📉', items: FUTS }] : []),
+  // (Its chain is built in the app around the index: app.js optCat.)
+  ...(markets.optionMonths ? [{ id: 'opt', zh: '選擇權', en: 'Options', icon: '🎯', items: [] }] : []),
   { id: 'other', zh: '其他市場', en: 'More markets', icon: '🌏', items: OTHER },
   { id: 'index', zh: '指數', en: 'Indexes', icon: '📈', items: INDEXES }
 ];

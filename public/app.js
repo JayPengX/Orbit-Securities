@@ -233,6 +233,10 @@ function nameOf(symbol, quote = state.quotes.get(symbol)) {
     const f = stockMarkets.futureOf(symbol);
     return locale === 'zh' ? `${f.zh} ${f.month}月` : `${f.en} ${new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(Date.UTC(f.year, f.month - 1, 1))}`;
   }
+  if (stockMarkets.isOption?.(symbol)) {
+    const o = stockMarkets.optionOf(symbol);
+    return locale === 'zh' ? `${o.zh} ${o.month}月 ${o.strike} ${o.right === 'C' ? '買權' : '賣權'}` : `TXO ${new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(Date.UTC(o.year, o.month - 1, 1))} ${o.strike} ${o.right === 'C' ? 'call' : 'put'}`;
+  }
   if (stockMarkets.isTwFund?.(symbol)) return fundParts(quote?.name || listingName.get(symbol) || symbol).base;
   return quote?.shortName || quote?.name || listingName.get(symbol) || symbol;
 }
@@ -247,7 +251,7 @@ function fundParts(name) {
 }
 // (A Taiwan fund by its class, else its house (its logo shows that): its 統編 means nothing to a reader.)
 const fundLine = s => fundParts(state.quotes.get(s)?.name || listingName.get(s) || '').cls || (fundHouseOf(s) ? `${fundHouseOf(s)}投信` : s.slice(0, -4));
-const bareSymbol = s => (METALS[s] ? s : stockMarkets.isFuture?.(s) ? s.slice(0, -3) : stockMarkets.isTwFund?.(s) ? fundLine(s) : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1'));
+const bareSymbol = s => (METALS[s] ? s : stockMarkets.isFuture?.(s) || stockMarkets.isOption?.(s) ? s.slice(0, -3) : stockMarkets.isTwFund?.(s) ? fundLine(s) : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1'));
 const kindLabel = kind => t(`kind_${kind}`);
 const marketLabel = id => L(MARKETS[id] || MARKETS.INTL);
 const flagOf = (symbol, q) => {
@@ -269,12 +273,16 @@ const curMark = c => {
   const f = FLAGS[String(c).slice(0, 2).toUpperCase()];
   return f ? `<img class="cur-flag" src="flags/${f}.svg" alt="${h(c)}" onerror="this.replaceWith(this.nextElementSibling.content.cloneNode(true))"><template>${ico('coin')}</template>` : ico('coin');
 };
-// A quote's price as shown: a future in whole index points.
-const qAmt = (q, x) => (q.kind === 'fut' ? num(x, 0, 0) : fmtPrice(x, q.currency));
+// A quote's price as shown: a future in whole index points, an option's
+// premium in points to its tick (a tenth at most).
+const ptsOf = kind => (kind === 'fut' ? x => num(x, 0, 0) : kind === 'opt' ? x => num(x, 1, 0) : null);
+const qAmt = (q, x) => (ptsOf(q.kind) ? ptsOf(q.kind)(x) : fmtPrice(x, q.currency));
 const qPrice = q => qAmt(q, q.price);
-// A future's unit is index points, not NT$.
-const qUnit = q => (q.kind === 'fut' ? t('futPoints') : q.currency);
-const futLastDay = symbol => t('futLastDay', { date: fmtDate(stockMarkets.futureExpiry(symbol)) });
+// A future's or option's unit is index points, not NT$.
+const qUnit = q => (ptsOf(q.kind) ? t('futPoints') : q.currency);
+const isTaifex = s => Boolean(stockMarkets.isFuture?.(s) || stockMarkets.isOption?.(s));
+const expiryOf = s => (stockMarkets.isOption?.(s) ? stockMarkets.optionExpiry(s) : stockMarkets.futureExpiry(s));
+const futLastDay = symbol => t('futLastDay', { date: fmtDate(expiryOf(symbol)) });
 const dirClass = x => (x > 1e-12 ? 'up' : x < -1e-12 ? 'down' : 'flat');
 function unitOf(symbol) {
   if (METALS[symbol]) return L({ zh: METALS[symbol].unitZh, en: METALS[symbol].unitEn });
@@ -283,7 +291,7 @@ function unitOf(symbol) {
   if (/^[A-Z]{6}=X$/.test(symbol)) return symbol.slice(0, 3);
   const kind = state.quotes.get(symbol)?.kind || catalogInfo(symbol)?.kind;
   if (kind === 'crypto' || /-USD$/.test(symbol)) return symbol.replace(/-USD$/, '');
-  if (kind === 'fut') return t('contracts');
+  if (kind === 'fut' || kind === 'opt') return t('contracts');
   return kind === 'fund' || kind === 'cb' || kind === 'warrant' ? t('units') : t('shares');
 }
 // A rate as a percentage with only the digits it has: 0.1425%, 0.3%.
@@ -790,6 +798,7 @@ function checkBonds() {
   if (!state.account) return;
   settleWarrants();
   settleFutures();
+  settleOptions();
   const s = snap();
   for (const symbol of Object.keys(s.held)) {
     // (A Taiwan convertible bond: repaid at face on its maturity.)
@@ -834,6 +843,30 @@ async function settleFutures() {
       account = r.account;
       accountNotice('margin', t('toastFutRisk', { name: nameOf(p.symbol) }), { tone: 'bad', tag: `futrisk:${p.symbol}:${now}`, hash: 'portfolio' });
     }
+  }
+  if (account !== state.account) {
+    commit(account);
+    askFills(state.account, { now: true }).catch(() => {});
+    render();
+  }
+}
+
+// Options held past their expiry: settled in cash at what they're worth at
+// TAIFEX's final price once it's out (nothing, for one out of the money).
+async function settleOptions() {
+  const now = Date.now();
+  const due = Object.values(snap()?.positions || {}).filter(p => p.kind === 'opt' && now >= expiryOf(p.symbol));
+  if (!due.length || !stockAccount.applyOptExpiry) return;
+  const table = await stockQuotes.fetchFutTable().catch(() => null);
+  let account = state.account;
+  for (const p of due) {
+    const o = stockMarkets.optionOf(p.symbol);
+    const final = table?.final?.[`${o.year}${String(o.month).padStart(2, '0')}`];
+    const r = stockAccount.applyOptExpiry(account, p.symbol, final, { now });
+    if (!r.added.length) continue;
+    account = r.account;
+    const e = r.added[0];
+    accountNotice('income', e.total > 0 ? t('toastOptExpiry', { name: nameOf(p.symbol), price: num(final, 0, 0), amount: money(e.total, BASE) }) : t('toastOptWorthless', { name: nameOf(p.symbol), price: num(final, 0, 0) }), { tag: `optexp:${p.symbol}`, hash: 'portfolio' });
   }
   if (account !== state.account) {
     commit(account);
@@ -1022,6 +1055,7 @@ const TINT = { teal: 'var(--q-accent)', indigo: 'var(--q-indigo)', orange: 'var(
 // The market's own rules for this security, in a line: its lot, daily
 // limit, lunch break, settlement, and anything special.
 function marketRules(q) {
+  if (q.kind === 'opt') return [t('ruleOpt', { mult: money(stockMarkets.OPTION.mult, BASE) }), t('ruleOptExpiry', { date: fmtDate(expiryOf(q.symbol)) }), t('ruleDayOrder')].join(' · ');
   if (q.kind === 'fut') {
     const f = stockMarkets.futureOf(q.symbol);
     const [im, mm] = stockAccount.futMargin(q.symbol, q);
@@ -1636,19 +1670,22 @@ const catLook = id =>
     eu: [curMark('EU'), TINT.blue],
     fund: [ico('wallet'), TINT.indigo],
     fut: [ico('chart'), TINT.purple],
+    opt: [ico('chart'), TINT.pink],
     other: [ico('map'), TINT.gray],
     index: [ico('chart'), TINT.gray]
   })[id] || [ico('list'), TINT.gray];
 const catTile = (id, size = '') => tileHtml(...catLook(id), `cat-glyph${size ? ` ${size}` : ''}`);
 const watchCat = () => ({ id: 'watch', zh: '自選', en: 'Watchlist', items: watched(state.account).map(s => [s]) });
-const categoryOf = id => (id === 'watch' ? watchCat() : CATEGORIES.find(c => c.id === id));
+// (選擇權: the chosen month's chain around the index, built from it.)
+const categoryOf = id => (id === 'watch' ? watchCat() : id === 'opt' ? optCat() : CATEGORIES.find(c => c.id === id));
+const optCat = () => ({ ...CATEGORIES.find(c => c.id === 'opt'), items: optSymbols().map(s => [s]) });
 
 function renderMarkets() {
   const box = $('markets-body');
   if (state.query) return renderSearch();
   const watch = watched(state.account);
   if (state.category === 'watch' && !watch.length) state.category = null;
-  const cats = [...(watch.length ? [watchCat()] : []), ...CATEGORIES];
+  const cats = [...(watch.length ? [watchCat()] : []), ...CATEGORIES.map(c => (c.id === 'opt' ? optCat() : c))];
   if (!state.category) {
     const grid = `<div class="cat-grid q-even3">${cats
       .map(c => `<button class="cat q-press" type="button" data-action="cat" data-id="${h(c.id)}">${catTile(c.id)}<span class="cat-name q-fit">${h(L(c))}</span><small class="num">${c.items.length}</small></button>`)
@@ -1666,6 +1703,7 @@ function renderMarkets() {
     .join('')}</div>`;
   const watchOnly = cat.id === 'index' || cat.id === 'metal' ? `<p class="foot-note">${h(t('watchOnlyNote'))}</p>` : '';
   if (LISTING_OF[cat.id]) return morph(box, `${chips}${browseHtml(cat, symbols, cap, more)}`);
+  if (cat.id === 'opt') return morph(box, `${chips}${optChainHtml()}`);
   morph(
     box,
     `${chips}${sectionHtml(
@@ -1677,6 +1715,46 @@ function renderMarkets() {
 }
 const LIST_SHOWN = 30;
 const BROWSE_PAGE = 50;
+
+// ---- 選擇權 (TXO): a month's chain, calls and puts by strike ----
+// Strikes every 100 points within OPT_SPAN of the index, at-the-money first in view.
+const OPT_SPAN = 1500;
+const optMonth = () => {
+  const months = stockMarkets.optionMonths?.() || [];
+  return months.includes(state.optMonth) ? state.optMonth : months[0];
+};
+function optStrikes() {
+  const index = state.quotes.get('^TWII')?.price;
+  if (!(index > 0)) return [];
+  const atm = Math.round(index / stockMarkets.OPT_STEP) * stockMarkets.OPT_STEP;
+  const out = [];
+  for (let k = atm - OPT_SPAN; k <= atm + OPT_SPAN; k += stockMarkets.OPT_STEP) out.push(k);
+  return out;
+}
+const optSymbols = () => (optMonth() ? optStrikes().flatMap(k => ['C', 'P'].map(r => stockMarkets.optionSymbol(optMonth(), r, k))) : []);
+function optChainHtml() {
+  const months = stockMarkets.optionMonths?.() || [];
+  const month = optMonth();
+  const index = state.quotes.get('^TWII')?.price;
+  const seg = `<div class="q-seg opt-months" role="group">${months
+    .map(m => `<button type="button" data-action="opt-month" data-v="${m}" aria-pressed="${m === month}">${h(t('optMonth', { m: Number(m.slice(4)), date: shortDate(expiryOf(stockMarkets.optionSymbol(m, 'C', 10000))) }))}</button>`)
+    .join('')}</div>`;
+  const strikes = optStrikes();
+  if (!strikes.length) return `${seg}<section class="q-section list-section">${plainEmpty(t('loadingQuote'))}</section>`;
+  const atm = strikes[Math.floor(strikes.length / 2)];
+  const cell = (k, r) => {
+    const sym = stockMarkets.optionSymbol(month, r, k);
+    const q = state.quotes.get(sym);
+    const itm = r === 'C' ? k < index : k > index;
+    return `<button class="opt-cell${itm ? ' itm' : ''}" type="button" data-action="open" data-symbol="${h(sym)}"><b class="num" data-q-live="opt:${h(sym)}">${q ? qPrice(q) : '—'}</b>${q ? `<small class="num ${dirClass(q.change)}">${q.change > 0 ? '+' : q.change < 0 ? '−' : ''}${num(Math.abs(q.change), 1, 0)}</small>` : ''}</button>`;
+  };
+  const rows = strikes.map(k => `<div class="opt-row${k === atm ? ' atm' : ''}">${cell(k, 'C')}<span class="opt-k num">${num(k, 0, 0)}</span>${cell(k, 'P')}</div>`).join('');
+  return `${seg}${sectionHtml(
+    t('optChainTitle', { index: num(index, 0, 0) }),
+    `<div class="opt-chain q-rowcard"><div class="opt-row opt-head"><span>${h(t('optCall'))}</span><span>${h(t('optStrike'))}</span><span>${h(t('optPut'))}</span></div>${rows}</div><p class="foot-note">${h(t('optChainNote'))}</p>`,
+    { cls: 'list-section' }
+  )}`;
+}
 
 // A market with its full list: 精選 (the catalogue's picks) or 全部 (all it
 // lists, a kind at a time, fifty rows at a time).
@@ -1944,7 +2022,7 @@ function renderDetail() {
   // (A Taiwan fund under its house, unless its title is that already.)
   const house = q?.market === 'TWFUND' ? q.exchange : '';
   const sub =
-    kind === 'fut'
+    kind === 'fut' || kind === 'opt'
       ? `${kindLabel(kind)} · ${futLastDay(d.symbol)}`
       : [house ? (bareSymbol(d.symbol) === house ? '' : house) : q?.market ? marketLabel(q.market) : q?.exchange, kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
   const tradable = q && isTradable(q.kind);
@@ -2033,7 +2111,7 @@ function renderChart() {
     return;
   }
   const cur = q?.currency || d.chart?.quote?.currency;
-  const isFut = stockMarkets.isFuture(d.symbol);
+  const pts = ptsOf(isTaifex(d.symbol) ? (stockMarkets.isOption?.(d.symbol) ? 'opt' : 'fut') : '');
   const intraday = d.range === '1d' || d.range === '5d';
   const base = d.range === '1d' && q && q.kind !== 'crypto' ? q.prev : points[0][1];
   const dir = dirClass(points.at(-1)[1] - base);
@@ -2053,7 +2131,7 @@ function renderChart() {
   const head = '';
   const height = width < 480 ? 220 : 260;
   if (state.settings.chart === 'candle' && bars) {
-    const { svg, frame } = candleChart(bars, { width, height, lines: mas, yFormat: v => (isFut ? num(v, 0, 0) : fmtPrice(v, cur)), xFormat });
+    const { svg, frame } = candleChart(bars, { width, height, lines: mas, yFormat: v => (pts ? pts(v) : fmtPrice(v, cur)), xFormat });
     box.innerHTML = `${head}${svg}${legend}`;
     delete box.dataset.drawn;
     attachCandleHover(box, bars, frame, b => {
@@ -2069,7 +2147,7 @@ function renderChart() {
   const drawn = [d.symbol, d.range, state.settings.chart, state.settings.ma, width, points.length, points.at(-1).join(), base, cur, bars?.length].join('|');
   if (box.dataset.drawn === drawn && box.querySelector('svg')) return;
   const series = [{ points }, ...mas.map(m => ({ points: m.points, cls: m.cls }))];
-  const { svg, frame } = lineChart(series, { width, height, base: d.range === '1d' ? base : null, dir, yFormat: v => (isFut ? num(v, 0, 0) : fmtPrice(v, cur)), xFormat });
+  const { svg, frame } = lineChart(series, { width, height, base: d.range === '1d' ? base : null, dir, yFormat: v => (pts ? pts(v) : fmtPrice(v, cur)), xFormat });
   box.innerHTML = `${head}${svg}${legend}${state.settings.chart === 'candle' && !bars ? `<p class="foot-note">${h(t('noCandles'))}</p>` : ''}`;
   box.dataset.drawn = drawn;
   attachHover(box, series, frame, (i, tt, [v, ...ma]) => `<strong class="num">${fmtPrice(v, cur)}</strong><span>${h(when(tt))}</span><span class="chg ${dirClass(v - base)}">${pct(v / base - 1)}</span>${ma.map((x, k) => (x != null ? `<span>MA${mas[k].n} ${fmtPrice(x, cur)}</span>` : '')).join('')}`);
@@ -2131,7 +2209,17 @@ function factsHtml(q) {
     ...(priceLimits(q) ? [[t('limitPrices'), `${fmtPrice(priceLimits(q).up, q.currency)} / ${fmtPrice(priceLimits(q).down, q.currency)}`]] : []),
     // (A fund has a NAV a day: no range or volume.)
     ...(q.kind === 'fut' && Number.isFinite(q.basis) ? [[t('futBasis'), `${q.basis > 0 ? '+' : ''}${num(q.basis, 0, 0)}`], [t('futValue1'), money(q.price * stockMarkets.futMult(q.symbol), BASE)], [t('futExpiryFact'), fmtDate(stockMarkets.futureExpiry(q.symbol))]] : []),
-    ...(q.market === 'TWFUND' || q.kind === 'fut'
+    ...(q.kind === 'opt'
+      ? [
+          [t('optUnderlying'), num(q.underlying, 0, 0)],
+          [t('optStrike'), `${num(q.strike, 0, 0)} ${t(q.right === 'C' ? 'optCall' : 'optPut')}`],
+          [t('optIntrinsic'), num(stockMarkets.optionIntrinsic(q.symbol, q.underlying), 0, 0)],
+          [t('optTimeValue'), num(Math.max(0, q.price - stockMarkets.optionIntrinsic(q.symbol, q.underlying)), 1, 0)],
+          [t('optValue1'), money(q.price * stockMarkets.OPTION.mult, BASE)],
+          [t('futExpiryFact'), fmtDate(expiryOf(q.symbol))]
+        ]
+      : []),
+    ...(q.market === 'TWFUND' || q.kind === 'fut' || q.kind === 'opt'
       ? []
       : [
           [t('dayRange'), q.dayLow != null ? `${fmtPrice(q.dayLow, q.currency)} – ${fmtPrice(q.dayHigh, q.currency)}` : '—'],
@@ -2709,6 +2797,7 @@ function renderTicket() {
     return;
   }
   if (q0.kind === 'fut') return renderFutTicket(box, d, q0);
+  if (q0.kind === 'opt') return renderOptTicket(box, d, q0);
   const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom } = ticketInfo();
   const open = isOpen(q);
   const unit = unitOf(d.symbol);
@@ -2951,6 +3040,75 @@ function renderFutTicket(box, d, q) {
   );
 }
 
+// An option's ticket (選擇權): contracts (口), bought paid in full (the
+// premium, NT$50 a point) or sold back; writing one isn't offered.
+function renderOptTicket(box, d, q) {
+  if (!['market', 'limit'].includes(d.type)) {
+    d.type = 'market';
+    d.limit = String(q.price);
+  }
+  const s = snap();
+  const cash = Math.max(0, (s ? available(state.account, s) : { cash: {} }).cash[BASE] || 0);
+  const held = Math.max(0, s?.positions[d.symbol]?.qty || 0);
+  if (!held) d.side = 'buy';
+  const mult = stockMarkets.OPTION.mult;
+  const qty = Number(d.qty);
+  const ref = d.type === 'limit' ? Number(d.limit) : marketFill(q.market, q.kind, d.side, q.price);
+  const est = qty > 0 && ref > 0 ? stockAccount.estimate({ market: q.market, kind: 'opt', currency: BASE, side: d.side, qty, price: ref, symbol: d.symbol, first: firstTrade(state.account) }) : null;
+  const per = ref > 0 ? ref * mult + stockMarkets.OPTION.fee + Math.round(ref * mult * stockMarkets.OPT_TAX) : 0;
+  const max = d.side === 'sell' ? held : per > 0 ? Math.floor(cash / per) : 0;
+  const expiry = expiryOf(d.symbol);
+  const unit = unitOf(d.symbol);
+  const problems = [];
+  if (Date.now() >= expiry) problems.push(t('err_futExpired'));
+  if (d.qty && !(Number.isInteger(qty) && qty > 0)) problems.push(t('err_qtyStep'));
+  if (d.side === 'sell' && qty > held) problems.push(t('err_optNoWrite'));
+  if (est && d.side === 'buy' && est.total > cash + 1e-9) problems.push(t('err_funds', { need: money(est.total, BASE), have: money(cash, BASE) }));
+  const presets = [[d.side === 'sell' ? t('optSellAll') : t('max'), max], ['1', 1], ['2', 2], ['5', 5]].filter(([, v], i) => v > 0 && (i === 0 || v <= Math.max(max, 1) || d.side === 'buy'));
+  const lines = est
+    ? [
+        [t('estPrice'), num(est.price, 1, 0)],
+        [t('optPremium'), money(est.gross, BASE)],
+        ...(est.commission ? [[t('commission'), money(est.commission, BASE)]] : []),
+        ...(est.tax ? [[t('futTax'), money(est.tax, BASE)]] : [])
+      ]
+    : [];
+  const notes = [t('optNote', { mult: money(mult, BASE), date: fmtDate(expiry) }), !isOpen(q) ? t('closedQueue') : ''].filter(Boolean);
+  const canPlace = est && !problems.length;
+  const seg = (items, action, attr, on) => `<div class="q-seg" role="group">${items.map(([v, label]) => `<button type="button" data-action="${action}" data-${attr}="${h(v)}" aria-pressed="${on(v)}">${h(label)}</button>`).join('')}</div>`;
+  const totalKey = d.side === 'buy' ? 'optPay' : 'optGet';
+  morph(
+    box,
+    `<div class="ticket">
+      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: nameOf(d.symbol, q), big: qPrice(q), sub: `${t('futPoints')} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${num(Math.abs(q.change), 1, 0)} (${pct(q.pct)})`, tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)' })}
+      <div class="q-seg side-toggle" role="group">
+        <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t('optBuy'))}</button>
+        <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}" ${held ? '' : 'disabled'}>${h(t('optSell'))}</button>
+      </div>
+      ${seg(['market', 'limit'].map(x => [x, t(`otype_${x}`)]), 'otype', 'otype', v => d.type === v)}
+      <div class="ticket-fields">
+        <div class="q-stake ticket-stake" style="--n:${presets.length || 1}"><label class="q-stake-amt"><small>${h(t('quantity'))} · ${h(unit)}</small><input id="t-qty" class="num" inputmode="numeric" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>${presets.length ? `<div class="q-stake-presets">${presets.map(([label, v]) => `<button type="button" data-action="qty" data-qty="${v}" aria-pressed="${Number(d.qty) === v}">${h(label)}</button>`).join('')}</div>` : ''}</div>
+        ${d.type === 'limit' ? `<label class="big-field"><span>${h(t('limitPrice'))}<em>${h(t('futPoints'))}</em></span><input id="t-limit" class="num" inputmode="decimal" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
+      </div>
+      <div class="q-tags ticket-tags">
+        <span class="q-tag">${h(t('cashAvail', { amount: money(cash, BASE) }))}</span>
+        ${held ? `<span class="q-tag">${h(t('optHeld', { n: fmtQty(held) }))}</span>` : ''}
+      </div>
+      ${
+        est
+          ? `<dl class="preview">${lines.map(([k, v]) => `<div><dt>${h(k)}</dt><dd class="num">${h(v)}</dd></div>`).join('')}
+          <div class="preview-total"><dt>${h(t(totalKey))}</dt><dd class="num"><strong>${h(money(est.total, BASE))}</strong></dd></div></dl>`
+          : ''
+      }
+      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
+      <ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>
+      ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
+      ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
+      <div class="place-bar q-sheet-foot q-sf">${est ? `<div class="q-sf-sum"><small>${h(t(totalKey))}</small><b class="num">${h(money(est.total, BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(t(d.side === 'buy' ? 'optBuy' : 'optSell'))}</button></div>
+    </div>`
+  );
+}
+
 function placeFromTicket() {
   const d = state.detail;
   const q = state.quotes.get(d.symbol);
@@ -2977,6 +3135,9 @@ function placeFromTicket() {
   } else {
     if (parts.length === 2) {
       d.msg = { kind: 'good', text: t('lotsPlaced', { board: fmtQty(parts[0].qty), odd: fmtQty(parts[1].qty) }) };
+      toast(d.msg.text, 'good');
+    } else if (r.fill?.kind === 'opt') {
+      d.msg = { kind: 'good', text: t('optFilledMsg', { side: t(r.fill.side), qty: fmtQty(r.fill.qty), price: num(r.fill.price, 1, 0), total: money(r.fill.total, BASE) }) };
       toast(d.msg.text, 'good');
     } else if (r.fill?.kind === 'fut') {
       d.msg = { kind: 'good', text: t('futFilledMsg', { side: t(r.fill.side), qty: fmtQty(r.fill.qty), price: num(r.fill.price, 0, 0) }) };
@@ -3077,6 +3238,8 @@ function errorText(r) {
       return t('err_navOnly');
     case 'futExpired':
       return t('err_futExpired');
+    case 'optNoWrite':
+      return t('err_optNoWrite');
     case 'dayTradeLimit':
       return t('err_dayTradeLimit', { room: money(r.room ?? 0, BASE), limit: money(r.limit ?? 0, BASE) });
     case 'creditLimit':
@@ -4952,6 +5115,11 @@ document.addEventListener('click', async event => {
       break;
     case 'ipo-apply':
       applyIpo(el.dataset.key);
+      break;
+    case 'opt-month':
+      state.optMonth = el.dataset.v;
+      renderMarkets();
+      refresh({ list: true });
       break;
     case 'cat':
       state.category = el.dataset.id || null;
