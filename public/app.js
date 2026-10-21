@@ -33,7 +33,6 @@ import {
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as kitUI from '#kit/ui.mjs';
-import { flagUrl } from '#kit/logos.mjs';
 import * as kitQuadra from '#kit/quadra.mjs';
 import * as stockAccount from './lib/account.mjs';
 // (Read through the module, with a fallback, for what an older kit lacks.)
@@ -240,13 +239,13 @@ const flagOf = (symbol, q) => {
   return `<span class="mkt-tag">${h(marketLabel(id))}</span>`;
 };
 // A currency's mark on a tile: its country's flag, a picture (no flag emoji, no letters).
-// A currency's round flag (circle-flags has the EU's as european_union; its eu.svg
-// is only a link, which a phone shows as a broken image); a flag that won't
-// load becomes the currency's letters in a round tile.
-const FLAG_ALIAS = { EU: 'european_union' };
+// A currency's round flag, bundled (circle-flags 2.7.0, in public/flags: no
+// network, no broken image); a currency without one, or a flag that won't
+// load, gets the coin icon in its tile.
+const FLAGS = { TW: 'tw', US: 'us', JP: 'jp', HK: 'hk', CN: 'cn', KR: 'kr', EU: 'european_union', GB: 'gb', CH: 'ch', DK: 'dk', CA: 'ca', AU: 'au', SG: 'sg', IN: 'in' };
 const curMark = c => {
-  const cc = String(c).slice(0, 2).toUpperCase();
-  return `<img class="cur-flag" src="${h(flagUrl(FLAG_ALIAS[cc] || cc))}" alt="${h(c)}" onerror="this.outerHTML='<span class=&quot;cur-code&quot;>${h(String(c).slice(0, 3).replace(/[^A-Z]/gi, ''))}</span>'">`;
+  const f = FLAGS[String(c).slice(0, 2).toUpperCase()];
+  return f ? `<img class="cur-flag" src="flags/${f}.svg" alt="${h(c)}" onerror="this.replaceWith(this.nextElementSibling.content.cloneNode(true))"><template>${ico('coin')}</template>` : ico('coin');
 };
 const dirClass = x => (x > 1e-12 ? 'up' : x < -1e-12 ? 'down' : 'flat');
 function unitOf(symbol) {
