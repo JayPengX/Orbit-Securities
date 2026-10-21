@@ -1,4 +1,5 @@
 import { BONDS, bondName } from './bonds.mjs';
+import * as markets from './markets.mjs';
 
 // What the markets tab lists: curated lists by market and kind, each item
 // [Yahoo symbol, Chinese name, English name, kind if not Yahoo's own]. Any
@@ -193,6 +194,17 @@ const FX = [
   ['EURGBP=X', '歐元/英鎊', 'EUR/GBP', 'fx'], ['USDKRW=X', '美元/韓元', 'USD/KRW', 'fx'], ['USDSGD=X', '美元/新加坡幣', 'USD/SGD', 'fx']
 ];
 
+// TAIFEX's TAIEX futures: each size's two nearest months (an older kit: none).
+const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const FUTS = markets.futureMonths
+  ? ['TX', 'MTX', 'TMF'].flatMap(code =>
+      markets.futureMonths(code).map(symbol => {
+        const f = markets.futureOf(symbol);
+        return [symbol, `${f.zh} ${f.month}月`, `${f.en} ${MONTH_EN[f.month - 1]}`, 'fut'];
+      })
+    )
+  : [];
+
 const GOV_BONDS = Object.values(BONDS).map(b => [b.id, bondName(b, 'zh'), bondName(b, 'en'), 'govbond']);
 
 const INDEXES = [
@@ -218,6 +230,7 @@ export const CATEGORIES = [
   { id: 'kr', zh: '韓股', en: 'Korea', icon: '🇰🇷', items: KR },
   { id: 'eu', zh: '歐股', en: 'Europe', icon: '🇪🇺', items: EU },
   { id: 'fund', zh: '基金', en: 'Funds', icon: '🗂️', items: FUNDS },
+  ...(FUTS.length ? [{ id: 'fut', zh: '期貨', en: 'Futures', icon: '📉', items: FUTS }] : []),
   { id: 'other', zh: '其他市場', en: 'More markets', icon: '🌏', items: OTHER },
   { id: 'index', zh: '指數', en: 'Indexes', icon: '📈', items: INDEXES }
 ];
