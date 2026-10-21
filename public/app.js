@@ -1250,28 +1250,9 @@ function renderHome() {
   const v = state.account ? valuation() : null;
   const held = Object.keys(snap()?.positions || {});
   const recs = forYou({ quotes: state.quotes, held, watched: watched(state.account), wallet: state.wallet, aff: affinityMap(), n: 10 });
-  if (v) loadNetWorthHistory();
-  // The hero's line: the account's worth over its days (the chart's own history, or its snapshots).
-  const heroSpark = (() => {
-    if (!v) return '';
-    const rebuilt = state.nwHistory?.history?.length ? state.nwHistory.history : Object.values(state.account.snapshots || {}).sort((a, b) => a.t - b.t).map(x => [x.t, x.nw]);
-    const pts = rebuilt.slice(-40);
-    if (pts.length < 2) return '';
-    return `<span class="hero-spark">${sparkline([...pts, [Date.now(), v.netWorth]], null, { width: 300, height: 44 })}</span>`;
-  })();
-  const hero = v
-    ? (() => {
-        const base = v.netWorth - v.dayChange;
-        return `<button class="q-hero-card q-press home-hero" type="button" data-action="goto" data-tab="portfolio">
-          <span class="q-hc-eyebrow">${ico('wallet')}<span>${h(t('netWorth'))}</span></span>
-          <strong class="q-hc-big num" data-q-live="networth">${h(money(v.netWorth, BASE))}</strong>
-          <span class="hc-tags"><span class="q-tag hc-tag">${h(arrow(v.dayChange))}${h(dayWord(v))} ${h(money(v.dayChange, BASE, { sign: true }))}${base ? ` · ${h(pct(v.dayChange / base))}` : ''}</span></span>
-          ${heroSpark}
-          <span class="q-hc-sub">${h(t('buyingPower'))} <b class="num">${h(money(buyingPower(v), BASE))}</b></span>
-        </button>
-        ${overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))}</button>` : ''}`;
-      })()
-    : `<div class="q-hero-card home-hero"><span class="q-hc-eyebrow">${ico('wallet')}<span>${h(t('netWorth'))}</span></span><strong class="q-hc-big">—</strong></div>`;
+  // No balance here: it's 資產's (Jay 2026-10-21). Home is the market; an
+  // overdraft still says so, as it needs doing.
+  const hero = v && overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))}</button>` : '';
   const actions = [
     { icon: 'chart', tint: TINT.blue, label: t('qaBuy'), attrs: 'data-action="goto" data-tab="markets"' },
     { icon: 'exchange', tint: TINT.orange, label: t('qaFx'), attrs: 'data-action="goto" data-tab="fx"' },
@@ -1289,7 +1270,7 @@ function renderHome() {
       <span class="hold-top">${symbolBadge(p.symbol, q)}${movePill(q)}</span>
       <span class="rec-name q-fit">${h(nameOf(p.symbol, q))}</span>
       <small class="num">${h(fmtQty(Math.abs(p.qty)))} ${h(unitOf(p.symbol))}</small>
-      <strong class="num hold-val">${h(money(p.valueTWD, BASE))}</strong>
+      <strong class="num hold-val">${q ? fmtPrice(q.price, q.currency) : '…'}</strong>
       ${q?.line?.length > 1 ? `<span class="card-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 128, height: 28 })}</span>` : ''}
     </button>`;
   };
@@ -1324,8 +1305,6 @@ function renderHome() {
     ? `${moverSeg(groups, group)}
       <div class="q-rowcard">${[...up, ...down].map(q => stockRow(q.symbol)).join('')}</div>`
     : emptyHtml({ icon: 'chart', tint: TINT.orange, title: t('moversNone'), body: t('moversNoneSub') });
-  const fills = (state.account?.events || []).filter(e => e.type === 'fill').sort((a, b) => b.t - a.t).slice(0, 5);
-  const recent = sectionHtml(t('homeRecent'), fills.length ? `<div class="q-rowcard">${fills.map(fillRow).join('')}</div>` : emptyHtml({ icon: 'history', tint: TINT.blue, title: t('recentNone'), body: t('recentNoneSub') }), fills.length ? { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="history"' } : {});
   const events = v ? eventRows(v) : [];
   const eventsHtml = v
     ? sectionHtml(t('homeEvents'), events.length ? `<div class="q-rowcard">${events.join('')}</div>` : emptyHtml({ icon: 'calendar', tint: TINT.gray, title: t('evNone'), body: t('evNoneSub') }))
@@ -1333,14 +1312,13 @@ function renderHome() {
   morph(
     box,
     `${hero}
-    ${quick}
-    ${holdings}
-    ${watchlist}
     ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip() })}
+    ${quick}
+    ${watchlist}
+    ${holdings}
     ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"' })}
     ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.indigo, title: t('forYouNone'), body: t('forYouNoneSub'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
     ${ipoHtml()}
-    ${recent}
     ${eventsHtml}`
   );
 }
@@ -5289,10 +5267,8 @@ q.on('wallet', wallet => {
   // Money the other apps moved arrives in this account's NT$ cash.
   if (state.account) {
     const pooled = applyPool(state.account, wallet);
-    if (pooled.account !== state.account) {
-      commit(pooled.account);
-      for (const e of pooled.added.filter(x => x.kind !== 'stake' && x.kind !== 'payout')) toast(`${describeEntry(e, locale)} ${money(e.amount, BASE, { sign: true })}`, e.amount >= 0 ? 'good' : '');
-    }
+    // Quietly: what Play or another app spent or paid is in 紀錄, never a pop-up on opening (Jay 2026-10-21).
+    if (pooled.account !== state.account) commit(pooled.account);
   }
   renderStatus();
   if (state.tab === 'portfolio' || state.tab === 'home') render();
