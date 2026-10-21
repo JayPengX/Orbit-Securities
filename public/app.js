@@ -818,8 +818,11 @@ function checkBonds() {
 // out. And with the account's NT$ (their open gain or loss in) under a quarter
 // of their initial margin (風險指標 25%), the broker closes them at market.
 async function settleFutures() {
-  const futs = Object.values(snap()?.positions || {}).filter(p => p.kind === 'fut');
-  if (!futs.length || !stockAccount.applyFutExpiry) return;
+  // (Written options are closed with them when it comes to that.)
+  const all = Object.values(snap()?.positions || {});
+  const futs = all.filter(p => p.kind === 'fut');
+  const written = all.filter(p => p.kind === 'opt' && p.qty < 0);
+  if ((!futs.length && !written.length) || !stockAccount.applyFutExpiry) return;
   const now = Date.now();
   let account = state.account;
   if (futs.some(p => now >= stockMarkets.futureExpiry(p.symbol))) {
@@ -835,9 +838,9 @@ async function settleFutures() {
   }
   const v = valuate(replay(account, now), state.quotes, state.rates);
   if (v.futRisk) {
-    for (const p of futs) {
+    for (const p of [...futs, ...written]) {
       const q = state.quotes.get(p.symbol);
-      if (!q || !isOpen(q, now) || now >= stockMarkets.futureExpiry(p.symbol) || account.orders.some(o => o.status === 'open' && o.symbol === p.symbol && o.forced)) continue;
+      if (!q || !isOpen(q, now) || now >= expiryOf(p.symbol) || account.orders.some(o => o.status === 'open' && o.symbol === p.symbol && o.forced)) continue;
       const r = place(account, { symbol: p.symbol, side: p.qty > 0 ? 'sell' : 'buy', type: 'market', qty: Math.abs(p.qty), forced: true }, { quote: q, rates: state.rates, valuation: v, now, id: `futrisk:${p.symbol}:${now}` });
       if (!r.account) continue;
       account = r.account;
@@ -3049,31 +3052,46 @@ function renderOptTicket(box, d, q) {
   }
   const s = snap();
   const cash = Math.max(0, (s ? available(state.account, s) : { cash: {} }).cash[BASE] || 0);
-  const held = Math.max(0, s?.positions[d.symbol]?.qty || 0);
-  if (!held) d.side = 'buy';
+  // Held (bought) or written (sold first): a sale past what's held writes the rest.
+  const pos = s?.positions[d.symbol]?.qty || 0;
+  const held = Math.max(0, pos);
+  const written = Math.max(0, -pos);
   const mult = stockMarkets.OPTION.mult;
   const qty = Number(d.qty);
   const ref = d.type === 'limit' ? Number(d.limit) : marketFill(q.market, q.kind, d.side, q.price);
   const est = qty > 0 && ref > 0 ? stockAccount.estimate({ market: q.market, kind: 'opt', currency: BASE, side: d.side, qty, price: ref, symbol: d.symbol, first: firstTrade(state.account) }) : null;
-  const per = ref > 0 ? ref * mult + stockMarkets.OPTION.fee + Math.round(ref * mult * stockMarkets.OPT_TAX) : 0;
-  const max = d.side === 'sell' ? held : per > 0 ? Math.floor(cash / per) : 0;
+  const costs1 = ref > 0 ? stockMarkets.OPTION.fee + Math.round(ref * mult * stockMarkets.OPT_TAX) : 0;
+  const per = ref > 0 ? ref * mult + costs1 : 0;
+  // Writing one: TAIFEX's margin a contract, of which the premium coming in pays part.
+  const im = ref > 0 ? stockMarkets.optWriteMargin(d.symbol, ref, q.index, q.optMargin) : 0;
+  const perWrite = im - ref * mult + costs1;
+  const write = d.side === 'sell' ? Math.max(0, qty - held) : 0;
+  const writeNeed = est && write > 0 ? Math.max(0, Math.round(write * (im - ref * mult) + est.costs)) : 0;
+  // (Buying back what's written frees its margin.)
+  const freedAll = written * (s?.positions[d.symbol]?.im || 0);
+  const freed = d.side === 'buy' ? Math.min(qty || 0, written) * (s?.positions[d.symbol]?.im || 0) : 0;
+  const max = d.side === 'sell' ? held + (perWrite > 0 ? Math.max(0, Math.floor(cash / perWrite)) : 0) : per > 0 ? Math.max(written, Math.floor((cash + freedAll) / per)) : 0;
   const expiry = expiryOf(d.symbol);
   const unit = unitOf(d.symbol);
   const problems = [];
   if (Date.now() >= expiry) problems.push(t('err_futExpired'));
   if (d.qty && !(Number.isInteger(qty) && qty > 0)) problems.push(t('err_qtyStep'));
-  if (d.side === 'sell' && qty > held) problems.push(t('err_optNoWrite'));
-  if (est && d.side === 'buy' && est.total > cash + 1e-9) problems.push(t('err_funds', { need: money(est.total, BASE), have: money(cash, BASE) }));
-  const presets = [[d.side === 'sell' ? t('optSellAll') : t('max'), max], ['1', 1], ['2', 2], ['5', 5]].filter(([, v], i) => v > 0 && (i === 0 || v <= Math.max(max, 1) || d.side === 'buy'));
+  if (writeNeed > cash + 1e-9) problems.push(t('err_optNoWrite', { need: money(writeNeed, BASE), have: money(cash, BASE) }));
+  if (est && d.side === 'buy' && est.total > cash + freed + 1e-9) problems.push(t('err_funds', { need: money(est.total, BASE), have: money(cash + freed, BASE) }));
+  const allLabel = d.side === 'sell' ? (held ? t('optSellAll') : t('max')) : written ? t('optSellAll') : t('max');
+  const presets = [[allLabel, d.side === 'sell' && held ? held : d.side === 'buy' && written ? written : max], ['1', 1], ['2', 2], ['5', 5]].filter(([, v], i) => v > 0 && (i === 0 || v <= Math.max(max, 1)));
   const lines = est
     ? [
         [t('estPrice'), num(est.price, 1, 0)],
         [t('optPremium'), money(est.gross, BASE)],
         ...(est.commission ? [[t('commission'), money(est.commission, BASE)]] : []),
-        ...(est.tax ? [[t('futTax'), money(est.tax, BASE)]] : [])
+        ...(est.tax ? [[t('futTax'), money(est.tax, BASE)]] : []),
+        ...(write > 0 ? [[t('optWriteMargin', { n: fmtQty(write) }), money(write * im, BASE)], [t('optWriteNeed'), money(writeNeed, BASE)]] : [])
       ]
     : [];
-  const notes = [t('optNote', { mult: money(mult, BASE), date: fmtDate(expiry) }), !isOpen(q) ? t('closedQueue') : ''].filter(Boolean);
+  const notes = [d.side === 'sell' && (write > 0 || written) ? t('optWriteNote') : t('optNote', { mult: money(mult, BASE), date: fmtDate(expiry) }), !isOpen(q) ? t('closedQueue') : ''].filter(Boolean);
+  const buyLabel = written ? t('optBuyClose') : t('optBuy');
+  const sellLabel = held ? t('optSell') : t('optSellOpen');
   const canPlace = est && !problems.length;
   const seg = (items, action, attr, on) => `<div class="q-seg" role="group">${items.map(([v, label]) => `<button type="button" data-action="${action}" data-${attr}="${h(v)}" aria-pressed="${on(v)}">${h(label)}</button>`).join('')}</div>`;
   const totalKey = d.side === 'buy' ? 'optPay' : 'optGet';
@@ -3082,8 +3100,8 @@ function renderOptTicket(box, d, q) {
     `<div class="ticket">
       ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: nameOf(d.symbol, q), big: qPrice(q), sub: `${t('futPoints')} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${num(Math.abs(q.change), 1, 0)} (${pct(q.pct)})`, tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)' })}
       <div class="q-seg side-toggle" role="group">
-        <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t('optBuy'))}</button>
-        <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}" ${held ? '' : 'disabled'}>${h(t('optSell'))}</button>
+        <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(buyLabel)}</button>
+        <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(sellLabel)}</button>
       </div>
       ${seg(['market', 'limit'].map(x => [x, t(`otype_${x}`)]), 'otype', 'otype', v => d.type === v)}
       <div class="ticket-fields">
@@ -3093,6 +3111,7 @@ function renderOptTicket(box, d, q) {
       <div class="q-tags ticket-tags">
         <span class="q-tag">${h(t('cashAvail', { amount: money(cash, BASE) }))}</span>
         ${held ? `<span class="q-tag">${h(t('optHeld', { n: fmtQty(held) }))}</span>` : ''}
+        ${written ? `<span class="q-tag">${h(t('optShortHeld', { n: fmtQty(written) }))}</span>` : ''}
       </div>
       ${
         est
@@ -3104,7 +3123,7 @@ function renderOptTicket(box, d, q) {
       <ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
-      <div class="place-bar q-sheet-foot q-sf">${est ? `<div class="q-sf-sum"><small>${h(t(totalKey))}</small><b class="num">${h(money(est.total, BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(t(d.side === 'buy' ? 'optBuy' : 'optSell'))}</button></div>
+      <div class="place-bar q-sheet-foot q-sf">${est ? `<div class="q-sf-sum"><small>${h(t(totalKey))}</small><b class="num">${h(money(est.total, BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? buyLabel : sellLabel)}</button></div>
     </div>`
   );
 }
@@ -3239,7 +3258,7 @@ function errorText(r) {
     case 'futExpired':
       return t('err_futExpired');
     case 'optNoWrite':
-      return t('err_optNoWrite');
+      return t('err_optNoWrite', { need: money(r.need ?? 0, BASE), have: money(r.have ?? 0, BASE) });
     case 'dayTradeLimit':
       return t('err_dayTradeLimit', { room: money(r.room ?? 0, BASE), limit: money(r.limit ?? 0, BASE) });
     case 'creditLimit':
