@@ -235,7 +235,9 @@ function nameOf(symbol, quote = state.quotes.get(symbol)) {
   }
   if (stockMarkets.isOption?.(symbol)) {
     const o = stockMarkets.optionOf(symbol);
-    return locale === 'zh' ? `${o.zh} ${o.month}月 ${o.strike} ${o.right === 'C' ? '買權' : '賣權'}` : `TXO ${new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(Date.UTC(o.year, o.month - 1, 1))} ${o.strike} ${o.right === 'C' ? 'call' : 'put'}`;
+    // (A weekly by its day: 台指選 10/28週.)
+    const when = o.week ? (locale === 'zh' ? `${shortDate(expiryOf(symbol))}週` : `wk ${shortDate(expiryOf(symbol))}`) : locale === 'zh' ? `${o.month}月` : new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(Date.UTC(o.year, o.month - 1, 1));
+    return locale === 'zh' ? `${o.zh} ${when} ${o.strike} ${o.right === 'C' ? '買權' : '賣權'}` : `TXO ${when} ${o.strike} ${o.right === 'C' ? 'call' : 'put'}`;
   }
   if (stockMarkets.isTwFund?.(symbol)) return fundParts(quote?.name || listingName.get(symbol) || symbol).base;
   return quote?.shortName || quote?.name || listingName.get(symbol) || symbol;
@@ -864,7 +866,7 @@ async function settleOptions() {
   let account = state.account;
   for (const p of due) {
     const o = stockMarkets.optionOf(p.symbol);
-    const final = table?.final?.[`${o.year}${String(o.month).padStart(2, '0')}`];
+    const final = table?.final?.[o.series || `${o.year}${String(o.month).padStart(2, '0')}`];
     const r = stockAccount.applyOptExpiry(account, p.symbol, final, { now });
     if (!r.added.length) continue;
     account = r.account;
@@ -1719,32 +1721,53 @@ function renderMarkets() {
 const LIST_SHOWN = 30;
 const BROWSE_PAGE = 50;
 
-// ---- 選擇權 (TXO): a month's chain, calls and puts by strike ----
-// Strikes every 100 points within OPT_SPAN of the index, at-the-money first in view.
+// ---- 選擇權 (TXO): a series' chain (a weekly or a month), calls and puts by strike ----
+// Strikes every 100 points within OPT_SPAN of the index, and every 50 within
+// OPT_SPAN_50 of it; at-the-money first in view. The weeklies shown are the
+// ones TAIFEX's table lists (read once the chain is open).
 const OPT_SPAN = 1500;
+const OPT_SPAN_50 = 500;
+const optSeries = () => {
+  if (!stockMarkets.optionExpiries) return stockMarkets.optionMonths?.() || [];
+  if (state.optTable === undefined) {
+    state.optTable = null;
+    stockQuotes
+      .fetchFutTable()
+      .then(table => {
+        state.optTable = table;
+        if (state.category === 'opt') renderMarkets();
+      })
+      .catch(() => {});
+  }
+  return stockMarkets.optionExpiries(Date.now(), state.optTable);
+};
 const optMonth = () => {
-  const months = stockMarkets.optionMonths?.() || [];
+  const months = optSeries();
   return months.includes(state.optMonth) ? state.optMonth : months[0];
 };
 function optStrikes() {
   const index = state.quotes.get('^TWII')?.price;
   if (!(index > 0)) return [];
-  const atm = Math.round(index / stockMarkets.OPT_STEP) * stockMarkets.OPT_STEP;
+  const step = stockMarkets.OPT_STEP;
+  const atm = Math.round(index / step) * step;
   const out = [];
-  for (let k = atm - OPT_SPAN; k <= atm + OPT_SPAN; k += stockMarkets.OPT_STEP) out.push(k);
+  for (let k = atm - OPT_SPAN; k <= atm + OPT_SPAN; k += step / 2) if (k % step === 0 || (stockMarkets.OPT_FINE && Math.abs(k - index) <= OPT_SPAN_50)) out.push(k);
   return out;
 }
 const optSymbols = () => (optMonth() ? optStrikes().flatMap(k => ['C', 'P'].map(r => stockMarkets.optionSymbol(optMonth(), r, k))) : []);
 function optChainHtml() {
-  const months = stockMarkets.optionMonths?.() || [];
+  const months = optSeries();
   const month = optMonth();
   const index = state.quotes.get('^TWII')?.price;
-  const seg = `<div class="q-seg opt-months" role="group">${months
-    .map(m => `<button type="button" data-action="opt-month" data-v="${m}" aria-pressed="${m === month}">${h(t('optMonth', { m: Number(m.slice(4)), date: shortDate(expiryOf(stockMarkets.optionSymbol(m, 'C', 10000))) }))}</button>`)
-    .join('')}</div>`;
+  // (Each series by its last day: a weekly 10/28 週三, a month 11月 11/18.)
+  const label = m => {
+    const due = expiryOf(stockMarkets.optionSymbol(m, 'C', 10000));
+    return /[WF]/.test(m) ? t('optWeek', { date: shortDate(due), day: t(m.includes('W') ? 'optWed' : 'optFri') }) : t('optMonth', { m: Number(m.slice(4, 6)), date: shortDate(due) });
+  };
+  const seg = `<div class="q-chips bleed opt-months" role="group">${months.map(m => `<button class="q-chip" type="button" data-action="opt-month" data-v="${m}" aria-pressed="${m === month}">${h(label(m))}</button>`).join('')}</div>`;
   const strikes = optStrikes();
   if (!strikes.length) return `${seg}<section class="q-section list-section">${plainEmpty(t('loadingQuote'))}</section>`;
-  const atm = strikes[Math.floor(strikes.length / 2)];
+  const atm = strikes.reduce((a, k) => (Math.abs(k - index) < Math.abs(a - index) ? k : a), strikes[0]);
   const cell = (k, r) => {
     const sym = stockMarkets.optionSymbol(month, r, k);
     const q = state.quotes.get(sym);
