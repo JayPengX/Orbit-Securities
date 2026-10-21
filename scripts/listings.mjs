@@ -37,8 +37,10 @@ const xlsx = (url, name) =>
   );
 const clean = s => String(s || '').normalize('NFKC').replace(/\s+/g, ' ').trim();
 const out = {};
-// Kinds, a letter each: s stock, e ETF, b bond ETF, n ETN, r REIT, d TDR, p preferred, m emerging board (興櫃), c convertible bond (可轉債).
-const KIND = { stock: 's', etf: 'e', bond: 'b', etn: 'n', reit: 'r', tdr: 'd', pref: 'p', emerging: 'm', cb: 'c' };
+// Kinds, a letter each: s stock, e ETF, b bond ETF, n ETN, r REIT, d TDR, p preferred, m emerging board (興櫃), c convertible bond (可轉債), w warrant (權證),
+// x callable bull/bear contract (牛熊證). A warrant's row has its last
+// trading day too (YYMMDD), in listings-tww.json, apart: some 50,000 of them.
+const KIND = { stock: 's', etf: 'e', bond: 'b', etn: 'n', reit: 'r', tdr: 'd', pref: 'p', emerging: 'm', cb: 'c', warrant: 'w', cbbc: 'x' };
 const add = (market, symbol, name, kind) => (out[market] ||= new Map()).has(symbol) || out[market].set(symbol, [symbol, clean(name), KIND[kind]]);
 
 // Taiwan: TWSE's and TPEx's daily close lists (stocks, ETFs, ETNs, REITs,
@@ -75,6 +77,35 @@ for (let i = 0; i < cbs.length; i += 16) {
   batch.forEach((r, j) => ok[j] && ++withPrice && add('tw', `${r.BondCode}.TWO`, r.ShortName, 'cb'));
 }
 if (withPrice < 50) throw new Error(`Yahoo prices only ${withPrice} convertible bonds`);
+
+// Warrants (權證) and callable bull/bear contracts (牛熊證), TWSE's and
+// TPEx's, still trading: TWSE gives each one's last trading day; TPEx its
+// expiry, the last trading day two weekdays before it.
+const ymd = d => `${d.getUTCFullYear() % 100}`.padStart(2, '0') + `${d.getUTCMonth() + 1}`.padStart(2, '0') + `${d.getUTCDate()}`.padStart(2, '0');
+const today = ymd(new Date(Date.now() + 8 * 3_600_000));
+const warrants = new Map();
+const addWarrant = (symbol, name, last) => {
+  if (last < today || warrants.has(symbol)) return;
+  warrants.set(symbol, [symbol, clean(name), /牛|熊/.test(name) ? KIND.cbbc : KIND.warrant, last]);
+};
+const twseW = json('https://openapi.twse.com.tw/v1/opendata/t187ap37_L', 'twse-w.json');
+if (twseW.length < 10000) throw new Error(`TWSE warrant list too short: ${twseW.length}`);
+for (const r of twseW) {
+  const roc = r['最後交易日'] || '';
+  if (/^\d{7}$/.test(roc)) addWarrant(`${r['權證代號']}.TW`, r['權證簡稱'], `${Number(roc.slice(0, 3)) + 1911 - 2000}${roc.slice(3)}`);
+}
+const tpexW = [...json('https://www.tpex.org.tw/openapi/v1/tpex_warrant_issue', 'tpex-w.json'), ...json('https://www.tpex.org.tw/openapi/v1/tpex_warrant_wcb_issue', 'tpex-wcb.json'), ...json('https://www.tpex.org.tw/openapi/v1/tpex_warrant_wxy_issue', 'tpex-wxy.json')];
+if (tpexW.length < 3000) throw new Error(`TPEx warrant list too short: ${tpexW.length}`);
+for (const r of tpexW) {
+  if (!/^\d{8}$/.test(r.ExpiryDate || '')) continue;
+  const d = new Date(Date.UTC(+r.ExpiryDate.slice(0, 4), +r.ExpiryDate.slice(4, 6) - 1, +r.ExpiryDate.slice(6)));
+  for (let n = 0; n < 2; ) {
+    d.setUTCDate(d.getUTCDate() - 1);
+    if (d.getUTCDay() % 6) n++;
+  }
+  addWarrant(`${r.Code}.TWO`, r.Name, ymd(d));
+}
+out.tww = warrants;
 
 // The US: Nasdaq's symbol directories (Nasdaq, NYSE, NYSE American, NYSE
 // Arca, Cboe), test issues left out. Yahoo writes BRK.B as BRK-B, a

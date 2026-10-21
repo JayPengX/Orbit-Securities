@@ -227,7 +227,7 @@ function nameOf(symbol, quote = state.quotes.get(symbol)) {
   if (METALS[symbol]) return L(METALS[symbol]);
   if (symbol.endsWith('=X') && symbol.length === 8) return `${symbol.slice(0, 3)}/${symbol.slice(3, 6)}`;
   // Hong Kong's by HKEX's Chinese name; the rest of a market's full list by its exchange's name till Yahoo's comes.
-  if (locale === 'zh' && symbol.endsWith('.HK') && listingName.has(symbol)) return listingName.get(symbol);
+  if (locale === 'zh' && (symbol.endsWith('.HK') || isWarrantSym(symbol)) && listingName.has(symbol)) return listingName.get(symbol);
   return quote?.shortName || quote?.name || listingName.get(symbol) || symbol;
 }
 // (A coin by its own ticker: BTC, not BTC-USD.)
@@ -239,7 +239,9 @@ const flagOf = (symbol, q) => {
   if (info?.kind === 'index' || info?.kind === 'future' || info?.kind === 'fx') {
     return '';
   }
-  const id = BONDS[symbol] ? 'US' : MARKETS[info?.market] ? info.market : 'INTL';
+  // (A Taiwan listing with no quote yet: still 台股.)
+  const market = info?.market || (/\.TWO?$/.test(symbol) ? 'TW' : null);
+  const id = BONDS[symbol] ? 'US' : MARKETS[market] ? market : 'INTL';
   return `<span class="mkt-tag">${h(marketLabel(id))}</span>`;
 };
 // A currency's mark on a tile: its country's flag, a picture (no flag emoji, no letters).
@@ -259,7 +261,7 @@ function unitOf(symbol) {
   if (/^[A-Z]{6}=X$/.test(symbol)) return symbol.slice(0, 3);
   const kind = state.quotes.get(symbol)?.kind || catalogInfo(symbol)?.kind;
   if (kind === 'crypto' || /-USD$/.test(symbol)) return symbol.replace(/-USD$/, '');
-  return kind === 'fund' || kind === 'cb' ? t('units') : t('shares');
+  return kind === 'fund' || kind === 'cb' || kind === 'warrant' ? t('units') : t('shares');
 }
 // A rate as a percentage with only the digits it has: 0.1425%, 0.3%.
 const rateText = x => `${num(x * 100, 4, 0)}%`;
@@ -308,7 +310,18 @@ function listSymbols() {
 // Rows are [symbol, name, kind letter].
 const LISTING_OF = { tw: 'tw', twetf: 'tw', bond: 'tw', us: 'us', usetf: 'us', jp: 'jp', hk: 'hk' };
 const LISTING_KIND = { tw: 's', twetf: 'e', bond: 'b', us: 's', usetf: 'e', jp: 's', hk: 's' };
-const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm', 'c'];
+const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm', 'c', 'w', 'x'];
+// Warrants and 牛熊證 (some 50,000) are a list of their own, read when asked
+// for: [symbol, name, kind, last trading day YYMMDD].
+const WARRANT_KINDS = new Set(['w', 'x']);
+const listingOf = (cat, kind) => (LISTING_OF[cat] === 'tw' && WARRANT_KINDS.has(kind) ? 'tww' : LISTING_OF[cat]);
+const isWarrantSym = s => Boolean(stockMarkets.isWarrant?.(s));
+// A warrant's last trading day's 13:30 close, from its list (null till that's read).
+function warrantLast(symbol) {
+  const row = listings.get('tww')?.find(r => r[0] === symbol);
+  const d = row?.[3];
+  return d ? Date.parse(`20${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4, 6)}T13:30:00+08:00`) : null;
+}
 const listings = new Map();
 const listingName = new Map();
 const listingLoads = new Map();
@@ -332,10 +345,10 @@ function loadListing(market) {
   return listingLoads.get(market);
 }
 const browsing = () => state.browse?.cat === state.category && Boolean(LISTING_OF[state.category]);
-const browseRows = () => (listings.get(LISTING_OF[state.category]) || []).filter(r => r[2] === state.browse.kind).map(r => r[0]);
+const browseRows = () => (listings.get(listingOf(state.category, state.browse.kind)) || []).filter(r => r[2] === state.browse.kind).map(r => r[0]);
 // A search in Chinese or Japanese reads Hong Kong's and Japan's lists too
 // (Yahoo has their names in English only); any list already here is read as well.
-const NEEDS_LISTINGS = q => (/[^\x20-\x7e]/.test(q) ? ['hk', 'jp'] : []);
+const NEEDS_LISTINGS = q => [...(/[^\x20-\x7e]/.test(q) ? ['hk', 'jp'] : []), ...(/[購售牛熊]/.test(q) || /^(0[3-8]\d{3}[0-9A-Z]|7\d{4}[0-9A-Z])$/i.test(q) ? ['tww'] : [])];
 function listingHits(q, n = 40) {
   const lower = q.toLowerCase();
   const code = q.toUpperCase();
@@ -746,6 +759,7 @@ async function checkPlans() {
 // Coupons and repayments of the government bonds held.
 function checkBonds() {
   if (!state.account) return;
+  settleWarrants();
   const s = snap();
   for (const symbol of Object.keys(s.held)) {
     // (A Taiwan convertible bond: repaid at face on its maturity.)
@@ -756,6 +770,38 @@ function checkBonds() {
     commit(r.account);
     for (const e of r.added)
       accountNotice('income', e.coupon ? t('toastCoupon', { name: nameOf(symbol), amount: money(e.net, e.currency) }) : t('toastMatured', { name: nameOf(symbol), amount: money(e.total, e.currency) }), { tag: `bond:${symbol}:${e.t}`, hash: 'portfolio' });
+  }
+}
+
+// A warrant held on its last trading day (or found after it) is sold at
+// that day's close, as its expiry settles it: an order for that match, once.
+async function settleWarrants() {
+  const s = snap();
+  const held = Object.keys(s?.held || {}).filter(isWarrantSym);
+  if (!held.length || !stockAccount.applyFills) return;
+  try {
+    await loadListing('tww');
+  } catch {
+    return;
+  }
+  const now = Date.now();
+  let account = state.account;
+  for (const symbol of held) {
+    const last = warrantLast(symbol);
+    const qty = Math.max(0, available(account, replay(account, now)).qty[symbol] || 0);
+    // (From that day's opening; one already placed holds the rest.)
+    if (!last || now < last - 4.5 * 3_600_000 || !(qty > 0)) continue;
+    const quote = state.quotes.get(symbol) || (absorb(await fetchQuotes([symbol]).catch(() => new Map())), state.quotes.get(symbol));
+    if (!quote) continue;
+    const r = place(account, { symbol, side: 'sell', type: 'market', qty, expiry: last }, { quote, rates: state.rates, valuation: valuate(replay(account, now), state.quotes, state.rates), now, id: `expiry:${symbol}:${now}` });
+    if (!r.account) continue;
+    account = r.account;
+    accountNotice('order', t('toastWarrantExpiry', { name: nameOf(symbol), date: fmtDate(last) }), { tag: `expiry:${symbol}:${last}`, hash: 'portfolio' });
+  }
+  if (account !== state.account) {
+    commit(account);
+    askFills(state.account, { now: true }).catch(() => {});
+    render();
   }
 }
 
@@ -929,7 +975,11 @@ function marketRules(q) {
   if (board) parts.push(t('ruleNorthbound', { board: t(`cnBoard_${board}`) }));
   const emerging = stockMarkets.isEmerging?.(q.symbol);
   if (emerging) parts.push(t('ruleEmerging'));
-  else if (q.kind === 'cb') parts.push(t('ruleCb', { date: stockMarkets.cbMaturity?.(q.symbol) ? fmtDate(stockMarkets.cbMaturity(q.symbol)) : '—' }));
+  else if (q.kind === 'warrant') {
+    const last = warrantLast(q.symbol);
+    parts.push(t('ruleWarrant', { date: last ? fmtDate(last) : '—' }));
+    if (!last) loadListing('tww').then(() => state.detail?.symbol === q.symbol && redrawDetail()).catch(() => {});
+  } else if (q.kind === 'cb') parts.push(t('ruleCb', { date: stockMarkets.cbMaturity?.(q.symbol) ? fmtDate(stockMarkets.cbMaturity(q.symbol)) : '—' }));
   else if (orderTypes(q).length === 1) parts.push(t('ruleLimitOnly'));
   if (cashOnly(q) && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleCashOnly'));
   if (q.market === 'TW' && q.kind === 'stock' && !emerging) {
@@ -1553,10 +1603,13 @@ function browseHtml(cat, symbols, cap, more) {
   }
   if (!rows) return `${seg}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
   const counts = {};
-  for (const r of rows) counts[r[2]] = (counts[r[2]] || 0) + 1;
-  const kinds = `<div class="q-chips bleed browse-kinds">${LISTING_KINDS.filter(k => counts[k])
-    .map(k => `<button class="q-chip" type="button" data-action="browse-kind" data-v="${k}" aria-pressed="${state.browse.kind === k}">${h(t(`listKind_${k}`))} <small class="num">${counts[k].toLocaleString()}</small></button>`)
+  for (const r of [...rows, ...(market === 'tw' ? listings.get('tww') || [] : [])]) counts[r[2]] = (counts[r[2]] || 0) + 1;
+  // (台股's warrants: a chip before their list is read, its count after.)
+  const offered = k => counts[k] || (market === 'tw' && WARRANT_KINDS.has(k));
+  const kinds = `<div class="q-chips bleed browse-kinds">${LISTING_KINDS.filter(offered)
+    .map(k => `<button class="q-chip" type="button" data-action="browse-kind" data-v="${k}" aria-pressed="${state.browse.kind === k}">${h(t(`listKind_${k}`))}${counts[k] ? ` <small class="num">${counts[k].toLocaleString()}</small>` : ''}</button>`)
     .join('')}</div>`;
+  if (!listings.has(listingOf(cat.id, state.browse.kind))) return `${seg}${kinds}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
   const list = browseRows();
   const shown = list.slice(0, state.browse.n);
   const left = list.length - shown.length;
@@ -1564,11 +1617,10 @@ function browseHtml(cat, symbols, cap, more) {
 }
 async function openBrowse(kind) {
   const cat = state.category;
-  const market = LISTING_OF[cat];
   state.browse = { cat, kind: kind || LISTING_KIND[cat], n: BROWSE_PAGE };
   renderMarkets();
   try {
-    await loadListing(market);
+    await Promise.all([loadListing(LISTING_OF[cat]), loadListing(listingOf(cat, state.browse.kind))]);
   } catch {
     if (state.browse?.cat === cat) state.browse.failed = true;
     return renderMarkets();
