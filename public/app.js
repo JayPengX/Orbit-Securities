@@ -240,7 +240,14 @@ const flagOf = (symbol, q) => {
   return `<span class="mkt-tag">${h(marketLabel(id))}</span>`;
 };
 // A currency's mark on a tile: its country's flag, a picture (no flag emoji, no letters).
-const curMark = c => `<img class="cur-flag" src="${h(flagUrl(String(c).slice(0, 2)))}" alt="${h(c)}">`;
+// A currency's round flag (circle-flags has the EU's as european_union; its eu.svg
+// is only a link, which a phone shows as a broken image); a flag that won't
+// load becomes the currency's letters in a round tile.
+const FLAG_ALIAS = { EU: 'european_union' };
+const curMark = c => {
+  const cc = String(c).slice(0, 2).toUpperCase();
+  return `<img class="cur-flag" src="${h(flagUrl(FLAG_ALIAS[cc] || cc))}" alt="${h(c)}" onerror="this.outerHTML='<span class=&quot;cur-code&quot;>${h(String(c).slice(0, 3).replace(/[^A-Z]/gi, ''))}</span>'">`;
+};
 const dirClass = x => (x > 1e-12 ? 'up' : x < -1e-12 ? 'down' : 'flat');
 function unitOf(symbol) {
   if (METALS[symbol]) return L({ zh: METALS[symbol].unitZh, en: METALS[symbol].unitEn });

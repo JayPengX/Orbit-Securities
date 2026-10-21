@@ -633,6 +633,7 @@ a.act-row { color: inherit; }
 .q-tile .cur-mark { font: 700 14px/1 var(--q-font-rounded); letter-spacing: 0.02em; }
 .q-tile:has(> .cur-flag), .q-tile.soft:has(> .cur-flag) { background: none; }
 .q-tile .cur-flag { width: 100%; height: 100%; border-radius: 50%; }
+.q-tile .cur-code { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: var(--q-fill-3); color: var(--q-label); font: 700 13px/1 var(--q-font); }
 /* A setting whose control is wide (漲跌顏色): label above, control full width below. */
 .setting-row.stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .setting-row.stack .q-seg { width: 100%; }
