@@ -271,7 +271,8 @@ export function maxBuy({ holdFor, spendable, price, kind, margin = 0, cap = Infi
 //   融資 nor sold short, only what's held sold (a currency pair borrows nothing);
 export const cashOnly = quote => Boolean(quote && mk.isSubBrokered(quote.market)) && quote.kind !== 'fx';
 // - the order types it takes: Hong Kong limit orders only (limitOnly);
-export const orderTypes = quote => (mk.limitOnly(quote?.market, quote?.symbol) ? ['limit'] : ['market', 'limit', 'stop']);
+// (A Taiwan fund is bought or redeemed at its day's NAV: no price of one's own.)
+export const orderTypes = quote => (quote?.market === 'TWFUND' ? ['market'] : mk.limitOnly(quote?.market, quote?.symbol) ? ['limit'] : ['market', 'limit', 'stop']);
 // - a US stock or ETF's session now (usSession: 'pre', 'regular', 'post' or
 //   null when shut), undefined for anything else;
 const US_LISTED = new Set(['stock', 'etf']);

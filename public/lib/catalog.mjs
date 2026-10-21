@@ -154,10 +154,15 @@ const OTHER = [
   ['VALE', '淡水河谷 ADR', 'Vale ADR'], ['MELI', 'MercadoLibre', 'MercadoLibre'], ['NU', 'Nu Holdings', 'Nu Holdings']
 ];
 
+// Taiwan's best-known funds of its own fund houses (境內基金, SITCA's
+// 基金統編 + .TWF); the 全部 list has every one.
 const FUNDS = [
-  ['VFIAX', 'Vanguard 500 指數基金', 'Vanguard 500 Index Admiral'], ['VTSAX', 'Vanguard 全市場指數基金', 'Vanguard Total Stock Market Admiral'],
-  ['VTIAX', 'Vanguard 國際股票指數基金', 'Vanguard Total International Admiral'], ['VBTLX', 'Vanguard 整體債券指數基金', 'Vanguard Total Bond Market Admiral'],
-  ['FXAIX', '富達 500 指數基金', 'Fidelity 500 Index'], ['VWELX', 'Vanguard 威靈頓基金', 'Vanguard Wellington']
+  ['18480065.TWF', '安聯台灣科技基金', 'Allianz Taiwan Technology', 'fund'], ['92002244.TWF', '統一黑馬基金', 'Uni-President Black Horse', 'fund'],
+  ['97984293A.TWF', '群益馬拉松基金', 'Capital Marathon', 'fund'], ['19330754A.TWF', '野村優質基金', 'Nomura Quality (accumulating)', 'fund'],
+  ['17604124A.TWF', '安聯台灣大壩基金', 'Allianz Taiwan Big Cap', 'fund'], ['21759676A.TWF', '復華全方位基金', 'Fuh Hwa All-Round', 'fund'],
+  ['73990253.TWF', '統一奔騰基金', 'Uni-President Ben Teng', 'fund'], ['01032162.TWF', '摩根台灣增長基金', 'JPMorgan Taiwan Growth', 'fund'],
+  ['15733973A.TWF', '富蘭克林華美第一富基金', 'Franklin Templeton SinoAm First Rich', 'fund'], ['18036846.TWF', '摩根平衡基金', 'JPMorgan Balanced', 'fund'],
+  ['20081331.TWF', '元大萬泰貨幣市場基金', 'Yuanta Wan Tai Money Market', 'fund'], ['18034853.TWF', '國泰台灣貨幣市場基金', 'Cathay Taiwan Money Market', 'fund']
 ];
 
 const CRYPTO = [
@@ -212,7 +217,7 @@ export const CATEGORIES = [
   { id: 'hk', zh: '港股・陸股', en: 'HK & China', icon: '🇭🇰', items: HK_CN },
   { id: 'kr', zh: '韓股', en: 'Korea', icon: '🇰🇷', items: KR },
   { id: 'eu', zh: '歐股', en: 'Europe', icon: '🇪🇺', items: EU },
-  { id: 'fund', zh: '共同基金', en: 'Mutual funds', icon: '🗂️', items: FUNDS },
+  { id: 'fund', zh: '基金', en: 'Funds', icon: '🗂️', items: FUNDS },
   { id: 'other', zh: '其他市場', en: 'More markets', icon: '🌏', items: OTHER },
   { id: 'index', zh: '指數', en: 'Indexes', icon: '📈', items: INDEXES }
 ];

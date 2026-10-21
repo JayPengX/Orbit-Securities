@@ -228,10 +228,21 @@ function nameOf(symbol, quote = state.quotes.get(symbol)) {
   if (symbol.endsWith('=X') && symbol.length === 8) return `${symbol.slice(0, 3)}/${symbol.slice(3, 6)}`;
   // Hong Kong's by HKEX's Chinese name; the rest of a market's full list by its exchange's name till Yahoo's comes.
   if (locale === 'zh' && (symbol.endsWith('.HK') || isWarrantSym(symbol)) && listingName.has(symbol)) return listingName.get(symbol);
+  if (stockMarkets.isTwFund?.(symbol)) return fundParts(quote?.name || listingName.get(symbol) || symbol).base;
   return quote?.shortName || quote?.name || listingName.get(symbol) || symbol;
 }
 // (A coin by its own ticker: BTC, not BTC-USD.)
-const bareSymbol = s => (METALS[s] ? s : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1'));
+// A Taiwan fund's name and its share class (A類型、美元、後收…): SITCA
+// names each class in full, so a row shows the fund and its class below.
+function fundParts(name) {
+  const at = name.lastIndexOf('基金');
+  if (at < 0) return { base: name, cls: '' };
+  const cls = name.slice(at + 2).split(/[-－()（）\s]+/).filter(Boolean).join('・');
+  return { base: name.slice(0, at + 2), cls };
+}
+// (A Taiwan fund by its class, else its house (its logo shows that): its 統編 means nothing to a reader.)
+const fundLine = s => fundParts(state.quotes.get(s)?.name || listingName.get(s) || '').cls || (fundHouseOf(s) ? `${fundHouseOf(s)}投信` : s.slice(0, -4));
+const bareSymbol = s => (METALS[s] ? s : stockMarkets.isTwFund?.(s) ? fundLine(s) : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1'));
 const kindLabel = kind => t(`kind_${kind}`);
 const marketLabel = id => L(MARKETS[id] || MARKETS.INTL);
 const flagOf = (symbol, q) => {
@@ -308,9 +319,11 @@ function listSymbols() {
 // Every security each market lists (scripts/listings.mjs): fetched the first
 // time its 全部 list is opened or a search needs it, never at start.
 // Rows are [symbol, name, kind letter].
-const LISTING_OF = { tw: 'tw', twetf: 'tw', bond: 'tw', us: 'us', usetf: 'us', jp: 'jp', hk: 'hk' };
-const LISTING_KIND = { tw: 's', twetf: 'e', bond: 'b', us: 's', usetf: 'e', jp: 's', hk: 's' };
-const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm', 'c', 'w', 'x'];
+const LISTING_OF = { tw: 'tw', twetf: 'tw', bond: 'tw', us: 'us', usetf: 'us', jp: 'jp', hk: 'hk', fund: 'fund' };
+const LISTING_KIND = { tw: 's', twetf: 'e', bond: 'b', us: 's', usetf: 'e', jp: 's', hk: 's', fund: 'q' };
+// (Taiwan's funds by SITCA's type: equity, bond, balanced, multi-asset, fund of
+// funds, index, money market, other; their rows carry the fund house too.)
+const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm', 'c', 'w', 'x', 'q', 'y', 'l', 'u', 'o', 'i', 'k', 'z'];
 // Warrants and 牛熊證 (some 50,000) are a list of their own, read when asked
 // for: [symbol, name, kind, last trading day YYMMDD].
 const WARRANT_KINDS = new Set(['w', 'x']);
@@ -324,6 +337,7 @@ function warrantLast(symbol) {
 }
 const listings = new Map();
 const listingName = new Map();
+const fundHouse = new Map();
 const listingLoads = new Map();
 function loadListing(market) {
   if (!listingLoads.has(market)) {
@@ -333,7 +347,10 @@ function loadListing(market) {
         .then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
         .then(rows => {
           listings.set(market, rows);
-          for (const [sym, name] of rows) listingName.set(sym, name);
+          for (const [sym, name, , house] of rows) {
+            listingName.set(sym, name);
+            if (market === 'fund' && house) fundHouse.set(sym, house);
+          }
           return rows;
         })
         .catch(error => {
@@ -346,9 +363,9 @@ function loadListing(market) {
 }
 const browsing = () => state.browse?.cat === state.category && Boolean(LISTING_OF[state.category]);
 const browseRows = () => (listings.get(listingOf(state.category, state.browse.kind)) || []).filter(r => r[2] === state.browse.kind).map(r => r[0]);
-// A search in Chinese or Japanese reads Hong Kong's and Japan's lists too
+// A search in Chinese or Japanese reads Hong Kong's, Japan's and the funds' lists too
 // (Yahoo has their names in English only); any list already here is read as well.
-const NEEDS_LISTINGS = q => [...(/[^\x20-\x7e]/.test(q) ? ['hk', 'jp'] : []), ...(/[購售牛熊]/.test(q) || /^(0[3-8]\d{3}[0-9A-Z]|7\d{4}[0-9A-Z])$/i.test(q) ? ['tww'] : [])];
+const NEEDS_LISTINGS = q => [...(/[^\x20-\x7e]/.test(q) ? ['hk', 'jp', 'fund'] : []), ...(/[購售牛熊]/.test(q) || /^(0[3-8]\d{3}[0-9A-Z]|7\d{4}[0-9A-Z])$/i.test(q) ? ['tww'] : [])];
 function listingHits(q, n = 40) {
   const lower = q.toLowerCase();
   const code = q.toUpperCase();
@@ -980,6 +997,7 @@ function marketRules(q) {
     parts.push(t('ruleWarrant', { date: last ? fmtDate(last) : '—' }));
     if (!last) loadListing('tww').then(() => state.detail?.symbol === q.symbol && redrawDetail()).catch(() => {});
   } else if (q.kind === 'cb') parts.push(t('ruleCb', { date: stockMarkets.cbMaturity?.(q.symbol) ? fmtDate(stockMarkets.cbMaturity(q.symbol)) : '—' }));
+  else if (q.market === 'TWFUND') parts.push(t('ruleFund', { cutoff: stockMarkets.FUND_CUTOFF || '15:30', fee: '1%' }));
   else if (orderTypes(q).length === 1) parts.push(t('ruleLimitOnly'));
   if (cashOnly(q) && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleCashOnly'));
   if (q.market === 'TW' && q.kind === 'stock' && !emerging) {
@@ -988,7 +1006,7 @@ function marketRules(q) {
     if (!until) parts.push(t('ruleDayTrade'));
     else if (Date.now() < until) parts.push(t('ruleDayTradeUntil', { date: fmtDate(until - 1) }));
   }
-  if (q.kind !== 'crypto' && q.kind !== 'fx') parts.push(t('ruleDayOrder'));
+  if (q.kind !== 'crypto' && q.kind !== 'fx' && q.market !== 'TWFUND') parts.push(t('ruleDayOrder'));
   return parts.join(' · ');
 }
 
@@ -1057,8 +1075,20 @@ const twSymbol = symbol => /\.TWO?$/.test(symbol);
 // Roblox's wide wordmark, Uber's 2016 square) or wrong (abrdn's for a Fidelity
 // fund): drawn here, from the current logos.
 const OWN_ICONS = { '2912.TW': 'logos/7-eleven.svg', RBLX: 'logos/roblox.svg', UBER: 'logos/uber.svg', FXAIX: 'logos/fidelity.svg', MCD: brandIcon('MCD') };
+// A Taiwan fund wears its fund house's group logo (元大投信 元大金's).
+const FUND_HOUSE_LOGO = {
+  中國信託: '2891.TW', 元大: '2885.TW', 兆豐: '2886.TW', 凱基: '2883.TW', 台中銀: '2812.TW', 台新: '2887.TW', 合庫: '5880.TW', 國泰: '2882.TW',
+  大華銀: 'U11.SI', 大都會: 'MET', 安聯: 'ALV.DE', 宏利: 'MFC', 富蘭克林華美: 'BEN', 富達: 'FXAIX', 富邦: '2881.TW', 德銀遠東: 'DWS.DE', 摩根: 'JPM',
+  施羅德: 'SDR.L', 景順: 'IVZ', 東方匯理: 'AMUN.PA', 永豐: '2890.TW', 滙豐: 'HSBA.L', 瀚亞: 'PUK', 玉山: '2884.TW', 瑞銀: 'UBSG.SW', 第一金: '2892.TW',
+  統一: '2855.TW', 群益: '6005.TW', 聯博: 'AB', 聯邦: '2838.TW', 華南永昌: '2880.TW', 貝萊德: 'BLK', 野村: 'NMR'
+};
+const fundHouseOf = symbol => fundHouse.get(symbol) || state.quotes.get(symbol)?.exchange?.replace(/投信$/, '') || null;
 function logoChoices(symbol, kind) {
   if (BONDS[symbol]) return [];
+  if (stockMarkets.isTwFund?.(symbol)) {
+    const parent = FUND_HOUSE_LOGO[fundHouseOf(symbol)];
+    return parent ? logoChoices(parent, 'stock') : [];
+  }
   if (OWN_ICONS[symbol]) return [{ urls: [OWN_ICONS[symbol]], fit: 'icon' }];
   const tv = tvLogos(symbol);
   return [
@@ -1613,7 +1643,7 @@ function browseHtml(cat, symbols, cap, more) {
   const list = browseRows();
   const shown = list.slice(0, state.browse.n);
   const left = list.length - shown.length;
-  return `${seg}${kinds}<section class="q-section list-section"><div class="q-rowcard quotes">${shown.map(s => quoteRow(s)).join('') || plainEmpty(t('nothingHere'))}${left > 0 ? `<button class="list-more" type="button" data-action="browse-more">${h(t('browseMore', { n: Math.min(left, BROWSE_PAGE), left: left.toLocaleString() }))}</button>` : ''}</div><p class="foot-note">${h(t('browseNote'))}</p></section>`;
+  return `${seg}${kinds}<section class="q-section list-section"><div class="q-rowcard quotes">${shown.map(s => quoteRow(s)).join('') || plainEmpty(t('nothingHere'))}${left > 0 ? `<button class="list-more" type="button" data-action="browse-more">${h(t('browseMore', { n: Math.min(left, BROWSE_PAGE), left: left.toLocaleString() }))}</button>` : ''}</div><p class="foot-note">${h(market === 'fund' ? t('browseNoteFund') : t('browseNote'))}</p></section>`;
 }
 async function openBrowse(kind) {
   const cat = state.category;
@@ -1757,7 +1787,7 @@ const QUOTE_FRESH_MS = 25_000;
 const ABOUT_KINDS = new Set(['stock', 'etf', 'bond', 'fund']);
 async function loadAbout(symbol) {
   const q = state.quotes.get(symbol);
-  if (!q || !ABOUT_KINDS.has(q.kind) || BONDS[symbol]) return;
+  if (!q || !ABOUT_KINDS.has(q.kind) || BONDS[symbol] || q.market === 'TWFUND') return;
   const have = state.about.get(symbol);
   if (have && (have.loading || Date.now() - have.at < 30 * 60_000)) return;
   state.about.set(symbol, { loading: true, at: Date.now() });
@@ -1854,13 +1884,15 @@ function renderDetail() {
   const info = catalogInfo(d.symbol);
   const starred = watched(state.account).includes(d.symbol);
   const kind = q?.kind || info?.kind;
-  const sub = [q?.market ? marketLabel(q.market) : q?.exchange, kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
+  // (A Taiwan fund under its house, unless its title is that already.)
+  const house = q?.market === 'TWFUND' ? q.exchange : '';
+  const sub = [house ? (bareSymbol(d.symbol) === house ? '' : house) : q?.market ? marketLabel(q.market) : q?.exchange, kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
   const tradable = q && isTradable(q.kind);
   const tags = q
     ? [
         atLimit(q) ? `<span class="q-tag solid ${atLimit(q)}">${h(atLimit(q) === 'up' ? t('limitUpTag') : t('limitDownTag'))}</span>` : '',
         alertTag(d.symbol),
-        delayOf(q.market) ? `<span class="q-tag orange" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
+        q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : delayOf(q.market) ? `<span class="q-tag orange" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
       ].join('')
     : '';
   const upDown = q ? (q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)') : '';
@@ -2036,9 +2068,14 @@ function factsHtml(q) {
   const rows = [
     [t('prevClose'), fmtPrice(q.prev, q.currency)],
     ...(priceLimits(q) ? [[t('limitPrices'), `${fmtPrice(priceLimits(q).up, q.currency)} / ${fmtPrice(priceLimits(q).down, q.currency)}`]] : []),
-    [t('dayRange'), q.dayLow != null ? `${fmtPrice(q.dayLow, q.currency)} – ${fmtPrice(q.dayHigh, q.currency)}` : '—'],
-    [t('range52'), q.low52 != null ? `${fmtPrice(q.low52, q.currency)} – ${fmtPrice(q.high52, q.currency)}` : '—'],
-    [t('volume'), q.volume ? compact(q.volume) : '—'],
+    // (A fund has a NAV a day: no range or volume.)
+    ...(q.market === 'TWFUND'
+      ? []
+      : [
+          [t('dayRange'), q.dayLow != null ? `${fmtPrice(q.dayLow, q.currency)} – ${fmtPrice(q.dayHigh, q.currency)}` : '—'],
+          [t('range52'), q.low52 != null ? `${fmtPrice(q.low52, q.currency)} – ${fmtPrice(q.high52, q.currency)}` : '—'],
+          [t('volume'), q.volume ? compact(q.volume) : '—']
+        ]),
     [t('currency'), `${q.currency} · ${L(currencyInfo(q.currency))}`],
     [t('market'), marketLabel(q.market)],
     ...(q.session && q.kind !== 'crypto' ? [[t('hours'), hoursLine(q)]] : []),
@@ -2296,7 +2333,7 @@ const RATINGS = ['strong_buy', 'buy', 'hold', 'underperform', 'sell'];
 const compactMoney = (x, cur) => `${currencyInfo(cur).symbol || `${cur} `}${compact(x)}`;
 
 function aboutHtml(symbol, q) {
-  if (!ABOUT_KINDS.has(q.kind) || BONDS[symbol]) return '';
+  if (!ABOUT_KINDS.has(q.kind) || BONDS[symbol] || q.market === 'TWFUND') return '';
   const a = state.about.get(symbol);
   const fund = q.kind !== 'stock';
   const icon = fund ? tileHtml(ico('grid'), TINT.indigo, 'sm') : tileHtml(ico('chart'), TINT.blue, 'sm');
@@ -2699,7 +2736,7 @@ function renderTicket() {
     split ? t(afterLines.length ? 'lotSplitNoteAfter' : 'lotSplitNote', { board: fmtQty(split.board), odd: fmtQty(split.odd) }) : '',
     topUp?.enough ? t('autoFxLine', { pay: money(topUp.need, BASE), get: money(topUp.get, q.currency) }) : '',
     credit && est ? t('creditNote', { rate: pct(loanRateAt(q.currency), { digits: 2, sign: false }) }) : '',
-    !open && !afterLines.length && !(extOk && d.ext) ? (q.kind === 'metal' ? t('closedMetal') : t('closedQueue')) : '',
+    q.market === 'TWFUND' ? t('fundNavNote', { date: fmtDate(stockMarkets.fundCutoff(Date.now())) }) : !open && !afterLines.length && !(extOk && d.ext) ? (q.kind === 'metal' ? t('closedMetal') : t('closedQueue')) : '',
     qty > 0 && isOddLot(q.market, q.kind, qty) && !afterLines.length ? t(open && !oddLotOpen(Date.now()) ? 'oddLotWait' : 'oddLotNote', { time: oddLotFirst() }) : '',
     d.side === 'sell' && heldMargin(d.symbol) > 0 ? t('sellSplit', { cash: fmtQty(Math.max(0, shares - heldMargin(d.symbol))), margin: fmtQty(heldMargin(d.symbol)), unit }) : ''
   ].filter(Boolean);
@@ -2882,6 +2919,8 @@ function errorText(r) {
       return t('err_dayTradeNeeded', { have: fmtQty(r.have ?? 0) });
     case 'noDayTrade':
       return t('err_noDayTrade', { have: fmtQty(r.have ?? 0) });
+    case 'navOnly':
+      return t('err_navOnly');
     case 'dayTradeLimit':
       return t('err_dayTradeLimit', { room: money(r.room ?? 0, BASE), limit: money(r.limit ?? 0, BASE) });
     case 'creditLimit':
