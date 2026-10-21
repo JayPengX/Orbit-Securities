@@ -30,10 +30,10 @@ test('every key the page asks for exists', () => {
     af_: ['all', 'trades', 'fx', 'income', 'loans', 'cash'],
     margin_: ['ok', 'call', 'liquidate'],
     tab_: ['home', 'markets', 'portfolio', 'fx', 'history'],
-    err_: ['funds', 'shares', 'qty', 'qtyStep', 'limit', 'stop', 'noQuote', 'notTradable', 'noRate', 'side', 'fx', 'tooSmall', 'amount', 'capacity', 'margin', 'noLoan', 'shortMargin', 'noValuation', 'planAmount', 'planDay', 'alertPrice', 'tick', 'priceLimit', 'unsettled', 'dayTradeLimit', 'split', 'cashOnly', 'limitOnly', 'northboundBoard', 'extLimit', 'planMarket', 'planMin'],
+    err_: ['funds', 'shares', 'qty', 'qtyStep', 'limit', 'stop', 'noQuote', 'notTradable', 'noRate', 'side', 'fx', 'tooSmall', 'amount', 'capacity', 'margin', 'noLoan', 'shortMargin', 'noValuation', 'planAmount', 'planDay', 'alertPrice', 'tick', 'priceLimit', 'unsettled', 'dayTradeLimit', 'split', 'cashOnly', 'limitOnly', 'northboundBoard', 'noDayTrade', 'extLimit', 'planMarket', 'planMin'],
     session_: ['regular', 'pre', 'post'],
     cnBoard_: ['star', 'chinext'],
-    listKind_: ['s', 'e', 'b', 'n', 'r', 'd', 'p']
+    listKind_: ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm']
   };
   for (const [prefix, list] of Object.entries(families)) for (const k of list) used.add(prefix + k);
   for (const m of app.matchAll(/para\)|\['(g_[a-z]+\d)'/g)) if (m[1]) used.add(m[1]);

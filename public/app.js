@@ -308,7 +308,7 @@ function listSymbols() {
 // Rows are [symbol, name, kind letter].
 const LISTING_OF = { tw: 'tw', twetf: 'tw', bond: 'tw', us: 'us', usetf: 'us', jp: 'jp', hk: 'hk' };
 const LISTING_KIND = { tw: 's', twetf: 'e', bond: 'b', us: 's', usetf: 'e', jp: 's', hk: 's' };
-const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p'];
+const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm'];
 const listings = new Map();
 const listingName = new Map();
 const listingLoads = new Map();
@@ -925,9 +925,11 @@ function marketRules(q) {
   if (q.market === 'CN') parts.push(t('ruleCn'));
   const board = northboundBlock(q);
   if (board) parts.push(t('ruleNorthbound', { board: t(`cnBoard_${board}`) }));
-  if (orderTypes(q).length === 1) parts.push(t('ruleLimitOnly'));
+  const emerging = stockMarkets.isEmerging?.(q.symbol);
+  if (emerging) parts.push(t('ruleEmerging'));
+  else if (orderTypes(q).length === 1) parts.push(t('ruleLimitOnly'));
   if (cashOnly(q) && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleCashOnly'));
-  if (q.market === 'TW' && q.kind === 'stock') {
+  if (q.market === 'TW' && q.kind === 'stock' && !emerging) {
     // 0.15% to the date the law sets (the kit's DAY_TRADE_TAX_UNTIL), then the full tax.
     const until = stockMarkets.DAY_TRADE_TAX_UNTIL;
     if (!until) parts.push(t('ruleDayTrade'));
@@ -2533,7 +2535,7 @@ function ticketInfo() {
   const dayRoom = twDayShort && d.side === 'sell' ? dayTradeLeft(state.account, valuation()?.netWorth ?? 0, now) : null;
   // (Borrowing shares needs the credit account; in Taiwan a day trade sold first doesn't.)
   // (Never abroad: 複委託 is cash only.)
-  if (d.side === 'sell' && isShortable(q.kind) && !cashOnly(q) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
+  if (d.side === 'sell' && isShortable(q.kind, q.symbol) && !cashOnly(q) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
     room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: quotaPrice(q, d, now), kind: q.kind, credit: shortCredit(state.account, q.market, now), cash, dayLeft: dayRoom?.left ?? null, dayUnit: dayTradePrice(q, d, now) * state.rates[q.currency], held: shares, market: q.market });
   return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
 }
@@ -2599,7 +2601,7 @@ function renderTicket() {
       ]
     : [];
   const problems = [];
-  if (shorting && !isShortable(q.kind)) problems.push(t('notEnoughShares', { have: fmtQty(shares) }));
+  if (shorting && !isShortable(q.kind, q.symbol)) problems.push(t('notEnoughShares', { have: fmtQty(shares) }));
   else if (shorting && cashOnly(q)) problems.push(t('err_cashOnlyHave', { have: fmtQty(shares) }));
   else if (shorting && !twCredit && !twDayShort && (q.market === 'TW' || (q.kind !== 'fx' && !creditAccount(state.account, Date.now()).open))) problems.push(t('err_creditNeeded'));
   else if (shorting && qty > shares + shortRoom + 1e-9) problems.push(t('shortTooBig', { max: fmtQty(shares + shortRoom) }));
@@ -2654,7 +2656,7 @@ function renderTicket() {
   const seg = (items, action, attr, on) => `<div class="q-seg" role="group">${items.map(([v, label]) => `<button type="button" data-action="${action}" data-${attr}="${h(v)}" aria-pressed="${on(v)}">${h(label)}</button>`).join('')}</div>`;
   // Rule notes: only what applies to this order now.
   const notes = [
-    shorting && isShortable(q.kind) && !problems.length
+    shorting && isShortable(q.kind, q.symbol) && !problems.length
       ? (q.market !== 'TW' ? t('shortNote', { qty: fmtQty(qty - shares), unit, fee: rateText(SHORT_FEE) }) : twCredit ? t('shortNoteTw', { qty: fmtQty(qty - shares), unit, deposit: money(lotsDeposit(q.market, q.kind, shares, qty - shares, quotaPrice(q, d)), q.currency) }) : t('dayShortNote', { qty: fmtQty(qty - shares), unit })) +
         (!twCredit && q.market === 'TW' && dayRoom ? ` ${t('dayTradeLeft', { left: money(dayRoom.left, BASE), limit: money(dayRoom.limit, BASE) })}` : '')
       : '',
@@ -2845,6 +2847,8 @@ function errorText(r) {
       return t('err_shortMargin', { max: fmtQty(r.max) });
     case 'dayTradeNeeded':
       return t('err_dayTradeNeeded', { have: fmtQty(r.have ?? 0) });
+    case 'noDayTrade':
+      return t('err_noDayTrade', { have: fmtQty(r.have ?? 0) });
     case 'dayTradeLimit':
       return t('err_dayTradeLimit', { room: money(r.room ?? 0, BASE), limit: money(r.limit ?? 0, BASE) });
     case 'creditLimit':

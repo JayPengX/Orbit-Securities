@@ -36,8 +36,8 @@ const xlsx = (url, name) =>
   );
 const clean = s => String(s || '').normalize('NFKC').replace(/\s+/g, ' ').trim();
 const out = {};
-// Kinds, a letter each: s stock, e ETF, b bond ETF, n ETN, r REIT, d TDR, p preferred.
-const KIND = { stock: 's', etf: 'e', bond: 'b', etn: 'n', reit: 'r', tdr: 'd', pref: 'p' };
+// Kinds, a letter each: s stock, e ETF, b bond ETF, n ETN, r REIT, d TDR, p preferred, m emerging board (興櫃).
+const KIND = { stock: 's', etf: 'e', bond: 'b', etn: 'n', reit: 'r', tdr: 'd', pref: 'p', emerging: 'm' };
 const add = (market, symbol, name, kind) => (out[market] ||= new Map()).has(symbol) || out[market].set(symbol, [symbol, clean(name), KIND[kind]]);
 
 // Taiwan: TWSE's and TPEx's daily close lists (stocks, ETFs, ETNs, REITs,
@@ -49,6 +49,10 @@ const tpex = json('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close
 if (twse.length < 500 || tpex.length < 300) throw new Error(`Taiwan lists too short: ${twse.length}, ${tpex.length}`);
 for (const r of twse) if (twKind(r.Code)) add('tw', `${r.Code}.TW`, r.Name, twKind(r.Code));
 for (const r of tpex) if (twKind(r.SecuritiesCompanyCode)) add('tw', `${r.SecuritiesCompanyCode}.TWO`, r.CompanyName, twKind(r.SecuritiesCompanyCode));
+// TPEx's emerging board (興櫃): not yet listed, traded by negotiation.
+const esb = json('https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics', 'esb.json');
+if (esb.length < 200) throw new Error(`emerging board list too short: ${esb.length}`);
+for (const r of esb) if (/^\d{4}$/.test(r.SecuritiesCompanyCode)) add('tw', `${r.SecuritiesCompanyCode}.TWO`, r.CompanyName, 'emerging');
 
 // The US: Nasdaq's symbol directories (Nasdaq, NYSE, NYSE American, NYSE
 // Arca, Cboe), test issues left out. Yahoo writes BRK.B as BRK-B, a
