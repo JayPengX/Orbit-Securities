@@ -2104,7 +2104,7 @@ function renderDetail() {
   const sub =
     kind === 'fut' || kind === 'opt'
       ? `${kindLabel(kind)} · ${futLastDay(d.symbol)}`
-      : [house ? (bareSymbol(d.symbol) === house ? '' : house) : q?.market ? marketLabel(q.market) : q?.exchange, kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
+      : [house ? (bareSymbol(d.symbol) === house ? '' : house) : q?.market ? marketLabel(q.market) : q?.exchange, kind === 'stock' && stockMarkets.isEmerging?.(d.symbol) ? t('tagEmerging') : kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
   const tradable = q && isTradable(q.kind);
   const tags = q
     ? [
@@ -2351,7 +2351,8 @@ function factsHtml(q) {
   // width, and one too long for even that each of its parts (` · `) a line
   // of its own, never wrapped (a currency, "TWD · Taiwan dollar", one line).
   // A short fact left alone at the end of its run (before a wide one, or last) takes the row: no hole.
-  const isWide = v => String(v).length > 22;
+  // (Measured as shown: a Chinese character is two letters wide.)
+  const isWide = v => [...String(v)].reduce((w, ch) => w + (ch.codePointAt(0) > 0x2e80 ? 2 : 1), 0) > 22;
   let run = 0;
   const lone = rows.map(([, v], i) => {
     if (isWide(v)) return (run = 0), false;
