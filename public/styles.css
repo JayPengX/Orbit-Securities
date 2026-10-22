@@ -648,7 +648,8 @@ a.act-row { color: inherit; }
 #home-body .q-section-head h2 { flex: 0 0 auto; white-space: nowrap; }
 #home-body .q-section-head .q-tag { margin-left: auto; }
 .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
-.tool-sheet .tool-page .q-btn.primary:not(.small) { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 1; min-height: 50px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14); }
+/* A tool's main button stays in reach as a band docked to the sheet's foot (the sheet's own colour around it), never a button floating over the fields. */
+.tool-sheet .tool-page .q-btn.primary:not(.small) { position: sticky; bottom: calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)); z-index: 1; min-height: 50px; box-shadow: 0 0 0 12px var(--q-sheet), 0 calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)) 0 12px var(--q-sheet); }
 
 :is(.q-chips, .chip-row, .tool-page, .ticket) .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .q-stats .q-stat strong { font: var(--q-t-headline); font-weight: 700; overflow: visible; text-overflow: clip; white-space: nowrap; }
