@@ -1438,11 +1438,17 @@ function renderHome() {
         moreAction: 'data-action="goto" data-tab="portfolio"'
       })
     : '';
+  // 自選股: under the holdings, one slim strip (name and today's move); gone while empty
+  // (Jay 2026-10-22: people look at their holdings far more than their stars).
   const watch = state.account ? watched(state.account) : [];
-  const watchlist = state.account
-    ? sectionHtml(t('homeWatch'), watch.length ? `<div class="q-rowcard">${watch.slice(0, 6).map(s => stockRow(s)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.orange, title: t('emptyWatchTitle'), body: t('emptyWatchBody'), go: t('emptyWatchGo'), attrs: 'data-action="goto" data-tab="markets"' }), {
-        count: watch.length || '',
-        more: watch.length > 6 ? t('seeAll') : '',
+  const watchChip = s => {
+    const q = state.quotes.get(s);
+    return `<button class="q-rail-card watch-chip q-press" type="button" data-action="open" data-symbol="${h(s)}">${symbolBadge(s, q)}<span class="watch-name">${h(nameOf(s, q))}</span>${pctTag(q)}</button>`;
+  };
+  const watchlist = watch.length
+    ? sectionHtml(t('homeWatch'), `<div class="q-rail small watch-rail">${watch.slice(0, 12).map(watchChip).join('')}</div>`, {
+        count: watch.length,
+        more: t('seeAll'),
         moreAction: 'data-action="open-watch"',
         cls: 'home-watch'
       })
@@ -1472,8 +1478,8 @@ function renderHome() {
     `${hero}
     ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip() })}
     ${quick}
-    ${watchlist}
     ${holdings}
+    ${watchlist}
     ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'home-movers' })}
     ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.indigo, title: t('forYouNone'), body: t('forYouNoneSub'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
     ${ipoHtml()}

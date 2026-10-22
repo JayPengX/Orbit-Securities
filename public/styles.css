@@ -582,6 +582,12 @@ a.act-row { color: inherit; }
 #home-body .q-section-head { padding-bottom: 12px; }
 /* A holding: its picture at 48, name, size, worth, the day's line. */
 .hold-rail { --q-rail-w: 168px; }
+/* 自選股 on 首頁: one slim row of chips (picture, name, move). */
+.watch-rail { --q-rail-w: 156px; }
+.watch-chip { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 2px; padding: 10px 12px; border: 0; border-radius: 16px; font: inherit; text-align: left; }
+.watch-chip .sym-badge { grid-row: 1 / 3; width: 36px; height: 36px; border-radius: 10px; }
+.watch-name { overflow: hidden; font: 600 15px/20px var(--q-font); white-space: nowrap; text-overflow: ellipsis; }
+.watch-chip .q-tag { justify-self: start; }
 .hold-card { display: grid; gap: 4px; align-content: start; border: 0; font: inherit; text-align: left; }
 .hold-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
 .hold-card .sym-badge, .rec-card .sym-badge { width: 48px; height: 48px; }
@@ -722,11 +728,11 @@ html .q-logo.disc img { transform: scale(1.02); }
   /* A tab in two columns: a section spans both unless it's a half; halves pair up in order (dense). */
   #home-body, #portfolio-body, #fx-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; column-gap: 28px; align-items: start; }
   #home-body > *, #portfolio-body > *, #fx-body > * { grid-column: 1 / -1; min-width: 0; }
-  #home-body > .home-watch, #fx-body > .fx-hero { grid-column: 1; }
+  #fx-body > .fx-hero { grid-column: 1; }
   /* 資產: the chart beside the cash and the rest; the holdings across under them. */
   #portfolio-body > .pf-hero { grid-column: 1; grid-row: span 2; }
   #portfolio-body > .callout-card { order: -1; }
-  #home-body > .home-movers, #portfolio-body > .pf-cash, #portfolio-body > .pf-more, #fx-body > .fx-rates { grid-column: 2; }
+  #portfolio-body > .pf-cash, #portfolio-body > .pf-more, #fx-body > .fx-rates { grid-column: 2; }
   #portfolio-body > .pf-hero, #fx-body > .fx-hero { margin-top: 0; }
   #portfolio-body > .pf-cash, #fx-body > .fx-rates { margin-top: 0; }
   /* 市場: today's risers beside its fallers. */
