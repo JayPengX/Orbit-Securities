@@ -2104,7 +2104,7 @@ function renderDetail() {
   const sub =
     kind === 'fut' || kind === 'opt'
       ? `${kindLabel(kind)} · ${futLastDay(d.symbol)}`
-      : [house ? (bareSymbol(d.symbol) === house ? '' : house) : q?.market ? marketLabel(q.market) : q?.exchange, kind === 'stock' && stockMarkets.isEmerging?.(d.symbol) ? t('tagEmerging') : kind ? kindLabel(kind) : ''].filter(Boolean).join(' · ');
+      : [house ? (bareSymbol(d.symbol) === house ? '' : house) : q?.market ? marketLabel(q.market) : q?.exchange, kind === 'stock' && stockMarkets.isEmerging?.(d.symbol) ? t('tagEmerging') : kind ? kindLabel(kind) : ''].filter((x, i, all) => x && all.indexOf(x) === i).join(' · ');
   const tradable = q && isTradable(q.kind);
   const tags = q
     ? [
@@ -2114,11 +2114,13 @@ function renderDetail() {
       ].join('')
     : '';
   const opt = stockMarkets.isOption?.(d.symbol);
+  // A government bond by its name (美國公債 2 年 4.5%), its due date over the price; never its id.
+  const due = BONDS[d.symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(d.symbol, q)) : null;
   const upDown = q ? (q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)') : '';
   const hero = q
     ? sheetHeroHtml({
         badge: heroLogo(d.symbol, q || info),
-        eyebrow: opt ? optSeriesName(d.symbol) : nameOf(d.symbol, q),
+        eyebrow: opt ? optSeriesName(d.symbol) : due ? due[2] : nameOf(d.symbol, q),
         big: qPrice(q),
         sub: `${qUnit(q)}${METALS[d.symbol] ? ` / ${unitOf(d.symbol)}` : ''} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${qAmt(q, Math.abs(q.change))} (${pct(q.pct)})`,
         tint: upDown,
@@ -2127,7 +2129,7 @@ function renderDetail() {
       })
     : '';
   // (A future or an option by its name, never its TAIFEX code; an option's series under its contract.)
-  const title = opt ? optContract(d.symbol) : stockMarkets.isFuture?.(d.symbol) ? nameOf(d.symbol, q) : bareSymbol(d.symbol);
+  const title = opt ? optContract(d.symbol) : due ? due[1] : stockMarkets.isFuture?.(d.symbol) ? nameOf(d.symbol, q) : bareSymbol(d.symbol);
   const optSub = opt ? (stockMarkets.optionOf(d.symbol).week ? `${kindLabel('opt')} · ${optSeriesName(d.symbol)}` : `${optSeriesName(d.symbol)} · ${futLastDay(d.symbol)}`) : '';
   setHead($('detail'), h(title), optSub || sub);
   $('detail')?.querySelector('.q-sheet-head .star')?.classList.toggle('on', starred);
@@ -2313,10 +2315,10 @@ function cbFacts(q) {
 }
 
 function factsHtml(q) {
-  if (BONDS[q.symbol] && q.bond) {
-    return `<dl class="facts-grid">${bondFacts(q).map(([k, v]) => `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`).join('')}</dl>`;
-  }
-  const rows = [
+  return factsGrid(BONDS[q.symbol] && q.bond ? bondFacts(q) : stockFacts(q));
+}
+function stockFacts(q) {
+  return [
     [t('prevClose'), qAmt(q, q.prev)],
     ...(priceLimits(q) ? [[t('limitPrices'), `${fmtPrice(priceLimits(q).up, q.currency)} / ${fmtPrice(priceLimits(q).down, q.currency)}`]] : []),
     // (A fund has a NAV a day: no range or volume.)
@@ -2347,12 +2349,14 @@ function factsHtml(q) {
     ...(isTradable(q.kind) ? [[t('rulesFact'), marketRules(q)]] : []),
     ...(state.rates[q.currency] && q.currency !== BASE ? [[t('inTwd'), `${money(q.price * state.rates[q.currency], BASE, { digits: q.price * state.rates[q.currency] < 100 ? 2 : 0 })} ${t('perUnit', { unit: unitOf(q.symbol) })}`]] : [])
   ];
+}
+function factsGrid(rows) {
   // Short facts two a row; a long one (hours, holidays, costs) the row's
   // width, and one too long for even that each of its parts (` · `) a line
   // of its own, never wrapped (a currency, "TWD · Taiwan dollar", one line).
   // A short fact left alone at the end of its run (before a wide one, or last) takes the row: no hole.
   // (Measured as shown: a Chinese character is two letters wide.)
-  const isWide = v => [...String(v)].reduce((w, ch) => w + (ch.codePointAt(0) > 0x2e80 ? 2 : 1), 0) > 22;
+  const isWide = v => [...String(v)].reduce((w, ch) => w + (ch.codePointAt(0) > 0x2e80 ? 2 : 1), 0) > 16;
   let run = 0;
   const lone = rows.map(([, v], i) => {
     if (isWide(v)) return (run = 0), false;
@@ -2360,7 +2364,7 @@ function factsHtml(q) {
     return run % 2 === 1 && (i === rows.length - 1 || isWide(rows[i + 1][1]));
   });
   return `<dl class="facts-grid">${rows
-    .map(([k, v], i) => (isWide(v) || lone[i] ? `<div class="wide"><dt>${h(k)}</dt><dd>${(String(v).length > 34 ? String(v).split(' · ') : [String(v)]).map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : String(v).includes(' – ') ? `<div class="range"><dt>${h(k)}</dt><dd>${String(v).split(' – ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} –` : x)}</span>`).join(' ')}</dd></div>` : `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`))
+    .map(([k, v], i) => (isWide(v) || lone[i] ? `<div class="wide"><dt>${h(k)}</dt><dd>${(String(v).length > 34 ? String(v).split(' · ') : [String(v)]).map(x => `<span>${h(x)}</span>`).join('')}</dd></div>` : String(v).includes(' – ') ? `<div class="range"><dt>${h(k)}</dt><dd>${String(v).split(' – ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} –` : x)}</span>`).join(' ')}</dd></div>` : `<div><dt>${h(k)}</dt><dd class="q-fit">${h(v)}</dd></div>`))
     .join('')}</dl>`;
 }
 
