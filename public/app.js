@@ -1338,13 +1338,6 @@ const kindOrCat = id => {
   const cat = CATEGORIES.find(c => c.id === id);
   return cat ? L(cat) : t(`kind_${id}`);
 };
-// What a new order can spend now: each wallet's cash less what open orders
-// hold (unsettled sale proceeds count: a broker lets them buy), in NT$. Not
-// what could be borrowed against the holdings (a loan is its own step).
-function buyingPower(v) {
-  const free = available(state.account, snap()).cash;
-  return Math.max(0, v.cash.reduce((sum, c) => sum + (c.amount > 0 ? Math.max(0, free[c.currency] ?? c.amount) * (c.twd / c.amount) : 0), 0));
-}
 // The account's day change, named for its day: 今日 while a market held
 // trades today, else that last day (週五 on a weekend; a date past a week).
 function dayWord(v, now = Date.now()) {
@@ -1407,16 +1400,6 @@ function eventRows(v) {
     if (days) rows.push(row(ico('calendar'), TINT.gray, t('evHoliday', { m: t(`openMkt_${id}`) }), days, 'data-action="goto" data-tab="markets"'));
   }
   return rows.slice(0, 5);
-}
-
-// A trade, short: the picture, the side and size, the money and the day.
-function fillRow(e) {
-  const buy = e.side === 'buy';
-  return `<button class="q-ritem quote stock-row" type="button" data-action="open" data-symbol="${h(e.symbol)}">
-    ${symbolBadge(e.symbol, state.quotes.get(e.symbol))}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(e.symbol, state.quotes.get(e.symbol)))}</span><small class="num">${h(t(buy ? 'buy' : 'sell'))} ${h(fmtQty(e.qty))} ${h(unitOf(e.symbol))}</small></span>
-    <span class="q-ritem-end"><strong class="num">${h(money(e.total, e.currency || BASE))}</strong><small class="num">${h(shortDate(e.t))}</small></span>
-  </button>`;
 }
 
 function renderHome() {
@@ -3011,7 +2994,7 @@ function futTicket(d, q) {
   return { s, cash, held, f, im, mm, qty, ref, closable, opening, est, need, max, expiry };
 }
 function renderFutTicket(box, d, q) {
-  const { cash, held, f, im, mm, qty, ref, closable, opening, est, need, max, expiry } = futTicket(d, q);
+  const { cash, held, f, im, mm, qty, closable, opening, est, need, max, expiry } = futTicket(d, q);
   const unit = unitOf(d.symbol);
   const problems = [];
   if (Date.now() >= expiry) problems.push(t('err_futExpired'));
@@ -3260,7 +3243,6 @@ function placeWithFx(need, from = BASE) {
   toast(t('autoFxDone', { pay: money(r.event.amount, r.event.from), get: money(r.event.received, r.event.to) }), 'good');
   placeFromTicket();
 }
-
 
 function errorText(r) {
   switch (r.error) {
@@ -4282,7 +4264,6 @@ async function doExchange() {
   f.amount = '';
   render();
 }
-
 
 // 補繳: cash paid against the loans, as much as the call needs (or what there is).
 async function payCall(amount) {
