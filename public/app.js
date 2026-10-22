@@ -5730,6 +5730,10 @@ async function boot() {
     state.account = local;
     state.accountReady = true;
     render();
+    // With the prices kept too, it opens on them now: the Pass's sign-in and
+    // merge are two round trips (1-2 s on a phone's link); what another
+    // device changed is merged in place when it comes.
+    if (state.fromCache) $('loading').hidden = true;
   }
   const first = await starting;
   state.wallet = first.wallet || q.wallet;
