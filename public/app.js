@@ -1771,11 +1771,11 @@ function browseHtml(cat, symbols, cap, more) {
   const market = LISTING_OF[cat.id];
   const rows = listings.get(market);
   const all = browsing();
-  const seg = `<div class="q-seg browse-seg" role="group"><button type="button" data-action="browse" data-v="" aria-pressed="${!all}">${h(t('browsePicks'))}</button><button type="button" data-action="browse" data-v="all" aria-pressed="${all}">${h(rows ? t('browseAllN', { n: rows.length.toLocaleString() }) : t('browseAll'))}</button></div>`;
+  const browse = seg([['', t('browsePicks')], ['all', rows ? t('browseAllN', { n: rows.length.toLocaleString() }) : t('browseAll')]], 'browse', 'v', v => v === (all ? 'all' : ''), 'browse-seg');
   if (!all) {
-    return `${seg}${sectionHtml(L(cat), `<div class="q-rowcard quotes">${symbols.slice(0, cap).map(s => quoteRow(s)).join('')}${more > 0 ? `<button class="list-more" type="button" data-action="list-all">${h(t('listAll', { n: symbols.length }))}</button>` : ''}</div>`, { cls: 'list-section' })}`;
+    return `${browse}${sectionHtml(L(cat), `<div class="q-rowcard quotes">${symbols.slice(0, cap).map(s => quoteRow(s)).join('')}${more > 0 ? `<button class="list-more" type="button" data-action="list-all">${h(t('listAll', { n: symbols.length }))}</button>` : ''}</div>`, { cls: 'list-section' })}`;
   }
-  if (!rows) return `${seg}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
+  if (!rows) return `${browse}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
   const counts = {};
   for (const r of [...rows, ...(market === 'tw' ? listings.get('tww') || [] : [])]) counts[r[2]] = (counts[r[2]] || 0) + 1;
   // (台股's warrants: a chip before their list is read, its count after.)
@@ -1783,11 +1783,11 @@ function browseHtml(cat, symbols, cap, more) {
   const kinds = `<div class="q-chips bleed browse-kinds">${LISTING_KINDS.filter(offered)
     .map(k => `<button class="q-chip" type="button" data-action="browse-kind" data-v="${k}" aria-pressed="${state.browse.kind === k}">${h(t(`listKind_${k}`))}${counts[k] ? ` <small class="num">${counts[k].toLocaleString()}</small>` : ''}</button>`)
     .join('')}</div>`;
-  if (!listings.has(listingOf(cat.id, state.browse.kind))) return `${seg}${kinds}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
+  if (!listings.has(listingOf(cat.id, state.browse.kind))) return `${browse}${kinds}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
   const list = browseRows();
   const shown = list.slice(0, state.browse.n);
   const left = list.length - shown.length;
-  return `${seg}${kinds}<section class="q-section list-section"><div class="q-rowcard quotes">${shown.map(s => quoteRow(s)).join('') || plainEmpty(t('nothingHere'))}${left > 0 ? `<button class="list-more" type="button" data-action="browse-more">${h(t('browseMore', { n: Math.min(left, BROWSE_PAGE), left: left.toLocaleString() }))}</button>` : ''}</div><p class="foot-note">${h(market === 'fund' ? t('browseNoteFund') : t('browseNote'))}</p></section>`;
+  return `${browse}${kinds}<section class="q-section list-section"><div class="q-rowcard quotes">${shown.map(s => quoteRow(s)).join('') || plainEmpty(t('nothingHere'))}${left > 0 ? `<button class="list-more" type="button" data-action="browse-more">${h(t('browseMore', { n: Math.min(left, BROWSE_PAGE), left: left.toLocaleString() }))}</button>` : ''}</div><p class="foot-note">${h(market === 'fund' ? t('browseNoteFund') : t('browseNote'))}</p></section>`;
 }
 async function openBrowse(kind) {
   const cat = state.category;
@@ -1812,7 +1812,7 @@ function moverGroups() {
   return { groups, group };
 }
 const moverSeg = (groups, group) =>
-  groups.length > 1 ? `<div class="q-seg mover-groups" role="group">${groups.map(g => `<button type="button" data-action="mover-group" data-v="${g}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : '';
+  groups.length > 1 ? seg(groups.map(g => [g, t(`moverGroup_${g}`)]), 'mover-group', 'v', g => g === group, 'mover-groups') : '';
 
 // 今日漲跌 a market at a time: the one trading now unless another was picked;
 // named for their day (a closed market's moves are its last day's: 週五 on a weekend).
@@ -2624,7 +2624,7 @@ function financialsHtml(f, rc) {
   const growth = first.revenue > 0 ? last.revenue / first.revenue - 1 : null;
   return `<div class="about-fin">
     <div class="card-head"><h3 class="about-h">${h(t('finTitle'))} <small>(${h(rc)})</small></h3>
-      ${f.quarterly.length ? `<div class="q-seg small" role="group"><button type="button" data-action="about-period" data-v="year" aria-pressed="${!quarterly}">${h(t('finYear'))}</button><button type="button" data-action="about-period" data-v="quarter" aria-pressed="${Boolean(quarterly)}">${h(t('finQuarter'))}</button></div>` : ''}
+      ${f.quarterly.length ? seg([['year', t('finYear')], ['quarter', t('finQuarter')]], 'about-period', 'v', v => v === (quarterly ? 'quarter' : 'year'), 'small') : ''}
     </div>
     <ul class="legend-inline"><li><i class="sw fin-rev"></i>${h(t('finRevenue'))}</li><li><i class="sw fin-earn"></i>${h(t('finEarnings'))}</li></ul>
     <svg class="chart-svg fin-chart" viewBox="0 0 ${W} ${H}" role="img"><line class="grid" x1="${pad.l}" x2="${W - pad.r}" y1="${Y(0)}" y2="${Y(0)}"/>${bars}</svg>
@@ -2794,6 +2794,8 @@ function closeTrade() {
   (globalThis.quadraCloseSheet || (x => x.close()))(dialog);
 }
 
+// A segmented choice drawn as HTML: data-action and data-<attr> on each button, on(v) the one on.
+const seg = (items, action, attr, on, cls = '') => kitUI.segHtml(items, items.find(([v]) => on(v))?.[0], { pressed: true, cls, attr: v => `data-action="${action}" data-${attr}="${h(v)}"` });
 function renderTicket() {
   const box = $('trade-body');
   const d = state.detail;
@@ -2892,7 +2894,6 @@ function renderTicket() {
   const halt = haltOf(q);
   const canPlace = est && !problems.length && !(short > 0) && marginOk;
   const rate = state.rates[q.currency];
-  const seg = (items, action, attr, on) => `<div class="q-seg" role="group">${items.map(([v, label]) => `<button type="button" data-action="${action}" data-${attr}="${h(v)}" aria-pressed="${on(v)}">${h(label)}</button>`).join('')}</div>`;
   // Rule notes: only what applies to this order now.
   const notes = [
     shorting && isShortable(q.kind, q.symbol) && !problems.length
@@ -3016,7 +3017,6 @@ function renderFutTicket(box, d, q) {
     !isOpen(q) ? t('closedQueue') : ''
   ].filter(Boolean);
   const canPlace = est && !problems.length;
-  const seg = (items, action, attr, on) => `<div class="q-seg" role="group">${items.map(([v, label]) => `<button type="button" data-action="${action}" data-${attr}="${h(v)}" aria-pressed="${on(v)}">${h(label)}</button>`).join('')}</div>`;
   morph(
     box,
     `<div class="ticket">
@@ -3099,7 +3099,6 @@ function renderOptTicket(box, d, q) {
   const buyLabel = written ? t('optBuyClose') : t('optBuy');
   const sellLabel = held ? t('optSell') : t('optSellOpen');
   const canPlace = est && !problems.length;
-  const seg = (items, action, attr, on) => `<div class="q-seg" role="group">${items.map(([v, label]) => `<button type="button" data-action="${action}" data-${attr}="${h(v)}" aria-pressed="${on(v)}">${h(label)}</button>`).join('')}</div>`;
   const totalKey = d.side === 'buy' ? 'optPay' : 'optGet';
   morph(
     box,
