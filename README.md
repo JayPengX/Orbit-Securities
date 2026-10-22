@@ -70,7 +70,7 @@ Live: https://jaypengx.github.io/Quadra-Securities/
     sold, 1 bought today, a third at 0.15%), never on odd lots; what's
     sold first within the day's 當沖額度 (twice net worth);
   - 定期定額 of shares and ETFs in Taiwan and the US only (the kit's
-    `planAllowed`; funds, crypto and gold anywhere); a US one from US$10
+    `planAllowed`; funds, crypto and gold anywhere; never futures, options, warrants or convertibles); a US one from US$10
     a buy in NT$ (`planMinTWD`), bought in fractional shares to 0.0001
     and sold down to them; from NT$100 on any day 1-31 (a
     shorter month's last day); a Taiwan stock or ETF bought as an odd-lot

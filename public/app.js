@@ -235,12 +235,21 @@ function nameOf(symbol, quote = state.quotes.get(symbol)) {
   }
   if (stockMarkets.isOption?.(symbol)) {
     const o = stockMarkets.optionOf(symbol);
-    // (A weekly by its day: 台指選 10/28週.)
-    const when = o.week ? (locale === 'zh' ? `${shortDate(expiryOf(symbol))}週` : `wk ${shortDate(expiryOf(symbol))}`) : locale === 'zh' ? `${o.month}月` : new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(Date.UTC(o.year, o.month - 1, 1));
-    return locale === 'zh' ? `${o.zh} ${when} ${o.strike} ${o.right === 'C' ? '買權' : '賣權'}` : `TXO ${when} ${o.strike} ${o.right === 'C' ? 'call' : 'put'}`;
+    return locale === 'zh' ? `${optSeriesName(symbol)} ${o.strike} ${o.right === 'C' ? '買權' : '賣權'}` : `${optSeriesName(symbol)} ${o.strike} ${o.right === 'C' ? 'call' : 'put'}`;
   }
   if (stockMarkets.isTwFund?.(symbol)) return fundParts(quote?.name || listingName.get(symbol) || symbol).base;
   return quote?.shortName || quote?.name || listingName.get(symbol) || symbol;
+}
+// An option's series (台指選 10/28週, a weekly by its day; 台指選 11月) and
+// its contract alone (46,050 買權).
+function optSeriesName(symbol) {
+  const o = stockMarkets.optionOf(symbol);
+  const when = o.week ? (locale === 'zh' ? `${shortDate(expiryOf(symbol))}週` : `wk ${shortDate(expiryOf(symbol))}`) : locale === 'zh' ? `${o.month}月` : new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(Date.UTC(o.year, o.month - 1, 1));
+  return locale === 'zh' ? `${o.zh} ${when}` : `TXO ${when}`;
+}
+function optContract(symbol) {
+  const o = stockMarkets.optionOf(symbol);
+  return `${num(o.strike, 0, 0)} ${t(o.right === 'C' ? 'optCall' : 'optPut')}`;
 }
 // (A coin by its own ticker: BTC, not BTC-USD.)
 // A Taiwan fund's name and its share class (A類型、美元、後收…): SITCA
@@ -284,7 +293,7 @@ const qPrice = q => qAmt(q, q.price);
 const qUnit = q => (ptsOf(q.kind) ? t('futPoints') : q.currency);
 const isTaifex = s => Boolean(stockMarkets.isFuture?.(s) || stockMarkets.isOption?.(s));
 const expiryOf = s => (stockMarkets.isOption?.(s) ? stockMarkets.optionExpiry(s) : stockMarkets.futureExpiry(s));
-const futLastDay = symbol => t('futLastDay', { date: fmtDate(expiryOf(symbol)) });
+const futLastDay = symbol => t('futLastDay', { date: shortDate(expiryOf(symbol)) });
 const dirClass = x => (x > 1e-12 ? 'up' : x < -1e-12 ? 'down' : 'flat');
 function unitOf(symbol) {
   if (METALS[symbol]) return L({ zh: METALS[symbol].unitZh, en: METALS[symbol].unitEn });
@@ -1222,7 +1231,7 @@ const saveLogos = () => {
     } catch {}
   }, 1000);
 };
-const SYM_MARK = { stock: 'bank', etf: 'grid', bond: 'bank', fund: 'wallet', crypto: 'coin', metal: 'coin', index: 'chart', future: 'chart', fx: 'exchange' };
+const SYM_MARK = { stock: 'bank', etf: 'grid', bond: 'bank', fund: 'wallet', crypto: 'coin', metal: 'coin', index: 'chart', fut: 'chart', opt: 'target', warrant: 'ticket', cb: 'shield', fx: 'exchange' };
 function symbolBadge(symbol, q) {
   const kind = q?.kind || catalogInfo(symbol)?.kind || 'stock';
   const zh = twSymbol(symbol) ? catalogInfo(symbol)?.zh || twZhName(symbol) : null;
@@ -1725,6 +1734,7 @@ const optSeries = () => {
       .then(table => {
         state.optTable = table;
         if (state.category === 'opt') renderMarkets();
+        if ($('trade')?.open) renderTicket();
       })
       .catch(() => {});
   }
@@ -1734,13 +1744,17 @@ const optMonth = () => {
   const months = optSeries();
   return months.includes(state.optMonth) ? state.optMonth : months[0];
 };
-function optStrikes() {
+// (Only the strikes TAIFEX's table lists for the series once it's read: a
+// strike it doesn't list has no price, and was a row of dashes.)
+function optStrikes(series = optMonth()) {
   const index = state.quotes.get('^TWII')?.price;
   if (!(index > 0)) return [];
   const step = stockMarkets.OPT_STEP;
   const atm = Math.round(index / step) * step;
+  const listed = state.optTable?.opt?.[series];
+  const has = k => !listed || listed.C?.[k] > 0 || listed.P?.[k] > 0;
   const out = [];
-  for (let k = atm - OPT_SPAN; k <= atm + OPT_SPAN; k += step / 2) if (k % step === 0 || (stockMarkets.OPT_FINE && Math.abs(k - index) <= OPT_SPAN_50)) out.push(k);
+  for (let k = atm - OPT_SPAN; k <= atm + OPT_SPAN; k += step / 2) if ((k % step === 0 || (stockMarkets.OPT_FINE && Math.abs(k - index) <= OPT_SPAN_50)) && has(k)) out.push(k);
   return out;
 }
 const optSymbols = () => (optMonth() ? optStrikes().flatMap(k => ['C', 'P'].map(r => stockMarkets.optionSymbol(optMonth(), r, k))) : []);
@@ -1760,7 +1774,9 @@ function optChainHtml() {
   const cell = (k, r) => {
     const sym = stockMarkets.optionSymbol(month, r, k);
     const q = state.quotes.get(sym);
-    const itm = r === 'C' ? k < index : k > index;
+    // (In the money against the futures it's priced on, as its ticket says; the index till it's read.)
+    const at = Number.isFinite(q?.underlying) ? q.underlying : index;
+    const itm = r === 'C' ? k < at : k > at;
     return `<button class="opt-cell${itm ? ' itm' : ''}" type="button" data-action="open" data-symbol="${h(sym)}"><b class="num" data-q-live="opt:${h(sym)}">${q ? qPrice(q) : '—'}</b>${q ? `<small class="num ${dirClass(q.change)}">${q.change > 0 ? '+' : q.change < 0 ? '−' : ''}${num(Math.abs(q.change), 1, 0)}</small>` : ''}</button>`;
   };
   const rows = strikes.map(k => `<div class="opt-row${k === atm ? ' atm' : ''}">${cell(k, 'C')}<span class="opt-k num">${num(k, 0, 0)}</span>${cell(k, 'P')}</div>`).join('');
@@ -2048,11 +2064,12 @@ function renderDetail() {
         q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : delayOf(q.market) ? `<span class="q-tag orange" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
       ].join('')
     : '';
+  const opt = stockMarkets.isOption?.(d.symbol);
   const upDown = q ? (q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)') : '';
   const hero = q
     ? sheetHeroHtml({
         badge: heroLogo(d.symbol, q || info),
-        eyebrow: nameOf(d.symbol, q),
+        eyebrow: opt ? optSeriesName(d.symbol) : nameOf(d.symbol, q),
         big: qPrice(q),
         sub: `${qUnit(q)}${METALS[d.symbol] ? ` / ${unitOf(d.symbol)}` : ''} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${qAmt(q, Math.abs(q.change))} (${pct(q.pct)})`,
         tint: upDown,
@@ -2060,7 +2077,10 @@ function renderDetail() {
         bigAttr: `data-q-live="big:${h(d.symbol)}"`
       })
     : '';
-  setHead($('detail'), h(bareSymbol(d.symbol)), sub);
+  // (A future or an option by its name, never its TAIFEX code; an option's series under its contract.)
+  const title = opt ? optContract(d.symbol) : stockMarkets.isFuture?.(d.symbol) ? nameOf(d.symbol, q) : bareSymbol(d.symbol);
+  const optSub = opt ? (stockMarkets.optionOf(d.symbol).week ? `${kindLabel('opt')} · ${optSeriesName(d.symbol)}` : `${optSeriesName(d.symbol)} · ${futLastDay(d.symbol)}`) : '';
+  setHead($('detail'), h(title), optSub || sub);
   $('detail')?.querySelector('.q-sheet-head .star')?.classList.toggle('on', starred);
   morph(
     $('detail-body'),
@@ -2076,7 +2096,7 @@ function renderDetail() {
         : `${plainEmpty(t('loadingQuote'))}`)
     }
     <section class="chart-area">
-      <div class="range-bar" role="group">${['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max']
+      <div class="range-bar" role="group" style="--n:${rangesOf(kind).length}">${rangesOf(kind)
         .map(r => `<button type="button" data-action="range" data-range="${r}" aria-pressed="${d.range === r}">${h(t(`range_${r}`))}</button>`)
         .join('')}</div>
       <div class="chart-top">
@@ -2101,6 +2121,9 @@ function renderDetail() {
   renderChart();
   if (tradable && $('trade')?.open) renderTicket();
 }
+// A chart's ranges: a TAIFEX contract lives months, not years (an option's
+// history is only an estimate along the index).
+const rangesOf = kind => (kind === 'opt' ? ['1d', '5d', '1mo'] : kind === 'fut' ? ['1d', '5d', '1mo', '6mo'] : ['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max']);
 const dayLineOf = d => {
   const line = d.range === '1d' ? state.quotes.get(d.symbol)?.line : null;
   return line?.length > 1 ? line : null;
@@ -2170,6 +2193,11 @@ function renderChart() {
 const MA_PERIODS = [5, 20, 60];
 
 function feeSummary(q) {
+  // A future or an option: the broker's fee a contract and the 期交稅.
+  if (q.kind === 'fut' || q.kind === 'opt') {
+    const fee = q.kind === 'opt' ? stockMarkets.OPTION.fee : stockMarkets.futureOf(q.symbol).fee;
+    return t('feeTaifex', { fee: money(fee, BASE), tax: rateText(q.kind === 'opt' ? stockMarkets.OPT_TAX : stockMarkets.FUT_TAX) });
+  }
   const m = MARKETS[q.market] || MARKETS.INTL;
   const parts = [];
   const cur = m.currency || q.currency;
@@ -2242,7 +2270,7 @@ function factsHtml(q) {
           [t('volume'), q.volume ? compact(q.volume) : '—']
         ]),
     [t('currency'), `${q.currency} · ${L(currencyInfo(q.currency))}`],
-    [t('market'), marketLabel(q.market)],
+    [t('market'), q.market === 'TAIFEX' ? t('taifexName') : marketLabel(q.market)],
     ...(q.session && q.kind !== 'crypto' ? [[t('hours'), hoursLine(q)]] : []),
     ...(q.session && holidayLine(q) ? [[t('holidaysNext'), holidayLine(q)]] : []),
     ...(isTradable(q.kind) ? [[t('costs'), feeSummary(q)]] : []),
@@ -2808,7 +2836,8 @@ function renderTicket() {
   if (!box || !d || !$('trade')?.open) return;
   const q0 = state.quotes.get(d.symbol);
   const head = '';
-  setHead($('trade'), `${h(t(d.side === 'buy' ? 'buy' : 'sell'))} ${h(nameOf(d.symbol, q0))}`);
+  // (An option by its contract: its series is on the card below.)
+  setHead($('trade'), `${h(t(d.side === 'buy' ? 'buy' : 'sell'))} ${h(stockMarkets.isOption?.(d.symbol) ? optContract(d.symbol) : nameOf(d.symbol, q0))}`);
   if (!state.account || !q0) {
     morph(box, `${head}<div class="empty"><div class="spinner"></div></div>`);
     return;
@@ -2835,7 +2864,8 @@ function renderTicket() {
   // Board-lot markets: sizes in whole lots.
   const lot = lotSize(q.market, q.symbol, q.kind);
   if (lot > 1) {
-    const lots = n => [t('lotsN', { n }), n * lot];
+    // (Taiwan's lot is a 張: a warrant's 1,000 units.)
+    const lots = n => [t(q.market === 'TW' ? 'lotsTw' : 'lotsN', { n }), n * lot];
     presets.splice(0, presets.length, ...(d.side === 'sell' ? [[t('all'), roundQty(shares, q.kind)], lots(1)] : [[t('max'), Math.floor(max / lot) * lot], lots(1), lots(5), lots(10)]));
   }
   const lines = est
@@ -3012,13 +3042,13 @@ function renderFutTicket(box, d, q) {
     ? [
         [t('estPrice'), num(est.price, 0, 0)],
         [t('futValue'), money(est.price * f.mult * qty, BASE)],
-        ...(opening ? [[t('futMarginLine', { n: fmtQty(opening) }), money(opening * im, BASE)]] : []),
+        ...(opening ? [[t('futMarginLine', { n: fmtQty(opening) }), money(opening * im, BASE)], [t('futMmLine'), money(opening * mm, BASE)]] : []),
         ...(est.commission ? [[t('commission'), money(est.commission, BASE)]] : []),
         ...(est.tax ? [[t('futTax'), money(est.tax, BASE)]] : [])
       ]
     : [];
+  // (The contract's terms are tags; a note only for what this order does.)
   const notes = [
-    t('futNote', { mult: money(f.mult, BASE), im: money(im, BASE), mm: money(mm, BASE), date: fmtDate(expiry) }),
     closable && qty > 0 ? t(qty > closable ? 'futFlipNote' : 'futCloseNote', { n: fmtQty(Math.min(qty, closable)), more: fmtQty(Math.max(0, qty - closable)) }) : '',
     !isOpen(q) ? t('closedQueue') : ''
   ].filter(Boolean);
@@ -3028,8 +3058,8 @@ function renderFutTicket(box, d, q) {
     `<div class="ticket">
       ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: bareSymbol(d.symbol), big: qPrice(q), sub: `${t('futPoints')} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${num(Math.abs(q.change), 0, 0)} (${pct(q.pct)})`, tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)' })}
       <div class="q-seg side-toggle" role="group">
-        <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t(held < 0 ? 'futBuyClose' : 'futLong'))}</button>
-        <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(t(held > 0 ? 'futSellClose' : 'futShort'))}</button>
+        <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(futSide('buy', held))}</button>
+        <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(futSide('sell', held))}</button>
       </div>
       ${seg(['market', 'limit'].map(x => [x, t(`otype_${x}`)]), 'otype', 'otype', v => d.type === v)}
       <div class="ticket-fields">
@@ -3038,26 +3068,30 @@ function renderFutTicket(box, d, q) {
       </div>
       <div class="q-tags ticket-tags">
         <span class="q-tag">${h(t('cashAvail', { amount: money(cash, BASE) }))}</span>
+        <span class="q-tag">${h(t('optDueTag', { date: shortDate(expiry) }))}</span>
+        <span class="q-tag">${h(t('perPoint', { mult: money(f.mult, BASE) }))}</span>
         ${held ? `<span class="q-tag">${h(t(held > 0 ? 'futHeldLong' : 'futHeldShort', { n: fmtQty(Math.abs(held)) }))}</span>` : ''}
       </div>
       ${
         est
           ? `<dl class="preview">${lines.map(([k, v]) => `<div><dt>${h(k)}</dt><dd class="num">${h(v)}</dd></div>`).join('')}
-          <div class="preview-total"><dt>${h(t('futNeed'))}</dt><dd class="num"><strong>${h(money(need, BASE))}</strong></dd></div></dl>`
+          <div class="preview-total"><dt>${h(t('futNeed'))}</dt><dd class="num"><strong>${h(money(need, BASE))}</strong></dd></div>
+          <div class="preview-have ${need > cash + 1e-9 ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, BASE))}</dd></div></dl>`
           : ''
       }
       ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
-      <ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>
+      ${notes.length ? `<ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
-      <div class="place-bar q-sheet-foot q-sf">${est ? `<div class="q-sf-sum"><small>${h(t('futNeed'))}</small><b class="num">${h(money(need, BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(t(d.side === 'buy' ? (held < 0 ? 'futBuyClose' : 'futLong') : held > 0 ? 'futSellClose' : 'futShort'))}</button></div>
+      <div class="place-bar q-sheet-foot q-sf">${est ? `<div class="q-sf-sum"><small>${h(t('futNeed'))}</small><b class="num">${h(money(need, BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(futSide(d.side, held))}</button></div>
     </div>`
   );
 }
 
-// An option's ticket (選擇權): contracts (口), bought paid in full (the
-// premium, NT$50 a point) or sold back; writing one isn't offered.
-function renderOptTicket(box, d, q) {
+// An option's ticket figures (選擇權): contracts (口) bought paid in full
+// (the premium, NT$50 a point), or sold: what's held closed first, the rest
+// written on TAIFEX's margin.
+function optTicket(d, q) {
   if (!['market', 'limit'].includes(d.type)) {
     d.type = 'market';
     d.limit = String(q.price);
@@ -3083,7 +3117,67 @@ function renderOptTicket(box, d, q) {
   const freedAll = written * (s?.positions[d.symbol]?.im || 0);
   const freed = d.side === 'buy' ? Math.min(qty || 0, written) * (s?.positions[d.symbol]?.im || 0) : 0;
   const max = d.side === 'sell' ? held + (perWrite > 0 ? Math.max(0, Math.floor(cash / perWrite)) : 0) : per > 0 ? Math.max(written, Math.floor((cash + freedAll) / per)) : 0;
-  const expiry = expiryOf(d.symbol);
+  const side = d.side === 'buy' ? t(written ? 'optBuyClose' : 'optBuy') : t(held ? 'optSell' : 'optSellOpen');
+  // The figure the order turns on: paid, received, or (writing) the margin it needs.
+  const sum = !est ? null : write > 0 ? [t('optWriteNeed'), writeNeed] : [t(d.side === 'buy' ? 'optPay' : 'optGet'), est.total];
+  return { cash, held, written, mult, qty, ref, est, im, write, writeNeed, freed, max, side, sum, expiry: expiryOf(d.symbol) };
+}
+// A future's side as its ticket names it: opening, or closing what's held.
+const futSide = (side, held) => t(side === 'buy' ? (held < 0 ? 'futBuyClose' : 'futLong') : held > 0 ? 'futSellClose' : 'futShort');
+// The option's own row on its ticket: 買權 / 賣權, and its strike a step
+// either way (the strikes the chain lists for its series).
+function optContractHtml(d) {
+  const o = stockMarkets.optionOf(d.symbol);
+  const other = r => stockMarkets.optionSymbol(o.series, r, o.strike);
+  const strikes = optStrikes(o.series);
+  const lower = strikes.filter(k => k < o.strike).at(-1);
+  const higher = strikes.find(k => k > o.strike);
+  const step = (k, label, aria) => `<button class="q-press" type="button" ${k ? `data-action="opt-to" data-symbol="${h(stockMarkets.optionSymbol(o.series, o.right, k))}"` : 'disabled'} aria-label="${h(aria)}">${label}</button>`;
+  return `<div class="opt-contract">
+    ${seg([[other('C'), t('optCall')], [other('P'), t('optPut')]], 'opt-to', 'symbol', v => v === d.symbol, 'opt-right')}
+    <div class="opt-step" role="group">${step(lower, '−', t('optLower'))}<span><small>${h(t('optStrike'))}</small><b class="num">${h(num(o.strike, 0, 0))}</b></span>${step(higher, '+', t('optHigher'))}</div>
+  </div>`;
+}
+// (The contracts a tap away read ahead, once each: a switch shows its price at once.)
+const optAsked = new Set();
+function optNeighbours(symbol) {
+  const o = stockMarkets.optionOf(symbol);
+  const strikes = optStrikes(o.series);
+  const near = [strikes.filter(k => k < o.strike).at(-1), o.strike, strikes.find(k => k > o.strike)].filter(Boolean);
+  const want = near.flatMap(k => ['C', 'P'].map(r => stockMarkets.optionSymbol(o.series, r, k))).filter(x => !state.quotes.has(x) && !optAsked.has(x));
+  if (!want.length) return;
+  want.forEach(x => optAsked.add(x));
+  fetchQuotes(want)
+    .then(quotes => {
+      absorb(quotes);
+      if ($('trade')?.open) renderTicket();
+    })
+    .catch(() => {});
+}
+// Another contract from the option's ticket (its other right, the next
+// strike): the sheet and the ticket move to it, side and size kept.
+async function retargetOption(symbol) {
+  const d = state.detail;
+  if (!d || d.symbol === symbol || !stockMarkets.isOption?.(symbol)) return;
+  const q0 = state.quotes.get(symbol);
+  Object.assign(d, { symbol, chart: null, chartError: false, msg: null, held: Boolean(snap()?.positions[symbol]), limit: startPrice(q0), stop: startPrice(q0) });
+  track(symbolKeys(symbol), 1);
+  renderDetail();
+  loadChart();
+  if (q0?.got > Date.now() - QUOTE_FRESH_MS) return;
+  try {
+    absorb(await fetchQuotes([symbol]));
+  } catch {}
+  if (state.detail?.symbol !== symbol) return;
+  if (!d.limit) d.limit = d.stop = startPrice(state.quotes.get(symbol));
+  renderDetail();
+  if (d.range === '1d' && !d.chart) loadChart();
+}
+// An option's ticket: the stock ticket's layout, with the contract's own row.
+function renderOptTicket(box, d, q) {
+  const { cash, held, written, mult, qty, est, im, write, writeNeed, freed, max, side, sum, expiry } = optTicket(d, q);
+  optSeries();
+  optNeighbours(d.symbol);
   const unit = unitOf(d.symbol);
   const problems = [];
   if (Date.now() >= expiry) problems.push(t('err_futExpired'));
@@ -3091,28 +3185,31 @@ function renderOptTicket(box, d, q) {
   if (writeNeed > cash + 1e-9) problems.push(t('err_optNoWrite', { need: money(writeNeed, BASE), have: money(cash, BASE) }));
   if (est && d.side === 'buy' && est.total > cash + freed + 1e-9) problems.push(t('err_funds', { need: money(est.total, BASE), have: money(cash + freed, BASE) }));
   const allLabel = d.side === 'sell' ? (held ? t('optSellAll') : t('max')) : written ? t('optSellAll') : t('max');
-  const presets = [[allLabel, d.side === 'sell' && held ? held : d.side === 'buy' && written ? written : max], ['1', 1], ['2', 2], ['5', 5]].filter(([, v], i) => v > 0 && (i === 0 || v <= Math.max(max, 1)));
+  // (Always 1, 2 and 5 beside 全部 / 最多: an even row, a size too big said below it.)
+  const presets = [[allLabel, d.side === 'sell' && held ? held : d.side === 'buy' && written ? written : max], ['1', 1], ['2', 2], ['5', 5]].filter(([, v]) => v > 0);
   const lines = est
     ? [
         [t('estPrice'), num(est.price, 1, 0)],
         [t('optPremium'), money(est.gross, BASE)],
         ...(est.commission ? [[t('commission'), money(est.commission, BASE)]] : []),
         ...(est.tax ? [[t('futTax'), money(est.tax, BASE)]] : []),
-        ...(write > 0 ? [[t('optWriteMargin', { n: fmtQty(write) }), money(write * im, BASE)], [t('optWriteNeed'), money(writeNeed, BASE)]] : [])
+        ...(write > 0 ? [[t('optWriteMargin', { n: fmtQty(write) }), money(write * im, BASE)]] : [])
       ]
     : [];
-  const notes = [d.side === 'sell' && (write > 0 || written) ? t('optWriteNote') : t('optNote', { mult: money(mult, BASE), date: fmtDate(expiry) }), !isOpen(q) ? t('closedQueue') : ''].filter(Boolean);
-  const buyLabel = written ? t('optBuyClose') : t('optBuy');
-  const sellLabel = held ? t('optSell') : t('optSellOpen');
+  // In or out of the money, against the futures it's priced on (its 內含價值).
+  const gap = Number.isFinite(q.underlying) ? (q.right === 'C' ? 1 : -1) * (q.underlying - q.strike) : null;
+  const money1 = gap == null ? '' : Math.abs(gap) < 1 ? t('optAtm') : t(gap > 0 ? 'optItm' : 'optOtm', { n: num(Math.abs(gap), 0, 0) });
+  const notes = [d.side === 'sell' && (write > 0 || written) ? t('optWriteNote') : t('optBuyNote'), !isOpen(q) ? t('closedQueue') : ''].filter(Boolean);
   const canPlace = est && !problems.length;
-  const totalKey = d.side === 'buy' ? 'optPay' : 'optGet';
+  const dir = q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)';
   morph(
     box,
     `<div class="ticket">
-      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: nameOf(d.symbol, q), big: qPrice(q), sub: `${t('futPoints')} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${num(Math.abs(q.change), 1, 0)} (${pct(q.pct)})`, tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)' })}
+      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: optSeriesName(d.symbol), big: qPrice(q), sub: `${t('futPoints')} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${num(Math.abs(q.change), 1, 0)} (${pct(q.pct)})`, tint: dir })}
+      ${optContractHtml(d)}
       <div class="q-seg side-toggle" role="group">
-        <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(buyLabel)}</button>
-        <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(sellLabel)}</button>
+        <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t(written ? 'optBuyClose' : 'optBuy'))}</button>
+        <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(t(held ? 'optSell' : 'optSellOpen'))}</button>
       </div>
       ${seg(['market', 'limit'].map(x => [x, t(`otype_${x}`)]), 'otype', 'otype', v => d.type === v)}
       <div class="ticket-fields">
@@ -3121,20 +3218,24 @@ function renderOptTicket(box, d, q) {
       </div>
       <div class="q-tags ticket-tags">
         <span class="q-tag">${h(t('cashAvail', { amount: money(cash, BASE) }))}</span>
+        ${money1 ? `<span class="q-tag">${h(money1)}</span>` : ''}
+        <span class="q-tag">${h(t('optDueTag', { date: shortDate(expiry) }))}</span>
+        <span class="q-tag">${h(t('perPoint', { mult: money(mult, BASE) }))}</span>
         ${held ? `<span class="q-tag">${h(t('optHeld', { n: fmtQty(held) }))}</span>` : ''}
         ${written ? `<span class="q-tag">${h(t('optShortHeld', { n: fmtQty(written) }))}</span>` : ''}
       </div>
       ${
         est
           ? `<dl class="preview">${lines.map(([k, v]) => `<div><dt>${h(k)}</dt><dd class="num">${h(v)}</dd></div>`).join('')}
-          <div class="preview-total"><dt>${h(t(totalKey))}</dt><dd class="num"><strong>${h(money(est.total, BASE))}</strong></dd></div></dl>`
+          <div class="preview-total"><dt>${h(sum[0])}</dt><dd class="num"><strong>${h(money(sum[1], BASE))}</strong></dd></div>
+          ${d.side === 'buy' || write > 0 ? `<div class="preview-have ${problems.length ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, BASE))}</dd></div>` : ''}</dl>`
           : ''
       }
       ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
       <ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
-      <div class="place-bar q-sheet-foot q-sf">${est ? `<div class="q-sf-sum"><small>${h(t(totalKey))}</small><b class="num">${h(money(est.total, BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? buyLabel : sellLabel)}</button></div>
+      <div class="place-bar q-sheet-foot q-sf">${sum ? `<div class="q-sf-sum"><small>${h(sum[0])}</small><b class="num">${h(money(sum[1], BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(side)}</button></div>
     </div>`
   );
 }
@@ -3220,6 +3321,7 @@ async function atFreshPrice(place) {
 function confirmOrder() {
   const d = state.detail;
   if (!d) return Promise.resolve(false);
+  if (isTaifex(d.symbol)) return confirmContracts(d);
   const { q, est, qty, credit, lent } = ticketInfo();
   if (!q || !(qty > 0)) return Promise.resolve(false);
   const total = est ? money(est.total, q.currency) : '';
@@ -3230,6 +3332,25 @@ function confirmOrder() {
     title: t(d.side === 'buy' ? 'orderAskBuy' : 'orderAskSell', { name: nameOf(d.symbol, q) }),
     body: [credit && est ? t('orderAskBodyCredit', { qty: fmtQty(qty), total, lent: money(lent, q.currency), own: money(est.total - lent, q.currency) }) : t(!total ? 'orderAskQty' : d.side === 'buy' ? 'orderAskBody' : 'orderAskBodySell', { qty: fmtQty(qty), total }), split ? t('orderAskSplit', { board: fmtQty(split.board), odd: fmtQty(split.odd) }) : ''].filter(Boolean).join(' '),
     ok: t(d.side === 'buy' ? 'placeBuy' : 'placeSell'),
+    cancel: t('orderAskCancel')
+  });
+}
+// A future's or option's order asks in contracts (口) and the figure it turns
+// on: what's paid or received, or the margin it holds.
+function confirmContracts(d) {
+  const q = state.quotes.get(d.symbol);
+  const qty = Number(d.qty);
+  if (!q || !(qty > 0)) return Promise.resolve(false);
+  const opt = q.kind === 'opt';
+  const f = opt ? optTicket(d, q) : futTicket(d, q);
+  const side = opt ? f.side : futSide(d.side, f.held);
+  const [what, total] = opt ? f.sum || [t('optPay'), 0] : [t('futNeed'), f.need];
+  return askKit({
+    lang: locale,
+    icon: d.side === 'buy' ? '📈' : '📉',
+    title: t('orderAskSide', { side, name: opt ? optContract(d.symbol) : nameOf(d.symbol, q) }),
+    body: `${opt ? `${optSeriesName(d.symbol)} · ` : ''}${t('orderAskContracts', { qty: fmtQty(qty), what, total: money(total, BASE) })}`,
+    ok: side,
     cancel: t('orderAskCancel')
   });
 }
@@ -5253,6 +5374,9 @@ document.addEventListener('click', async event => {
       d.msg = null;
       renderTicket();
       break;
+    case 'opt-to':
+      retargetOption(el.dataset.symbol);
+      break;
     case 'place':
       confirmOrder().then(ok => ok && atFreshPrice(placeFromTicket));
       break;
@@ -5680,7 +5804,7 @@ topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 
 // Big numbers shrink (to 60% at most) to stay on one line (the kit's fitNumbers).
 // (And a fact or an order's hint, a line each.)
-const FIT_SELECTOR = '.q-hc-big, .q-stat strong, .big-price, .idx-card > strong, .rec-foot strong, .q-ritem-end > strong, .fx-result, .verdict strong, .facts-grid dd span, .about-fin .about-h';
+const FIT_SELECTOR = '.q-sf-sum b, .q-hc-big, .q-stat strong, .big-price, .idx-card > strong, .rec-foot strong, .q-ritem-end > strong, .fx-result, .verdict strong, .facts-grid dd span, .about-fin .about-h';
 // (The kit's watchFit: new, so a phone on an older kit just isn't fitted after a redraw.)
 kitQuadra.watchFit(FIT_SELECTOR);
 
