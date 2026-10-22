@@ -1,3 +1,3 @@
-// Quadra Securities' savings: the shared kit's (stock-savings.mjs), one copy for
+// Orbit Securities' savings: the shared kit's (stock-savings.mjs), one copy for
 // Securities and the Worker that checks its account (Shared-Proxy stock-check.js).
 export * from '#kit/stock-savings.mjs';

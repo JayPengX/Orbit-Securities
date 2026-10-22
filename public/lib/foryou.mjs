@@ -1,6 +1,6 @@
 // For you: what to look at next, from what the person holds, watches, opens
-// and trades, ranked by the shared engine (quadra.mjs's rank: decaying
-// affinity across every Quadra app, diversity, a little exploration).
+// and trades, ranked by the shared engine (orbit.mjs's rank: decaying
+// affinity across every Orbit app, diversity, a little exploration).
 //
 // Candidates are the catalog's tradable things. Each carries the keys it's
 // about (its symbol, list, kind, market) and a quality from the market
@@ -14,7 +14,7 @@
 import { CATEGORIES, catalogInfo } from './catalog.mjs';
 import { isTradable, localDayOf } from './markets.mjs';
 import { isTradingDay } from './holidays.mjs';
-import { rank } from '#kit/quadra.mjs';
+import { rank } from '#kit/orbit.mjs';
 
 // The well-known names, a prior for new accounts.
 export const POPULAR = ['2330.TW', '0050.TW', '0056.TW', '00878.TW', '2317.TW', '2454.TW', 'NVDA', 'AAPL', 'MSFT', 'TSLA', 'VOO', 'QQQ', 'VT', 'SCHD', 'BTC-USD', 'ETH-USD', 'XAU', 'TLT', '006208.TW', '00919.TW', 'AMZN', 'GOOGL', 'META', 'TSM'];

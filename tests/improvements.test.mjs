@@ -152,14 +152,14 @@ test('currency pairs trade in their second currency, long or short, for a spread
   assert.equal(replay(short.account, at + 1).positions['EURUSD=X'].qty, -10_000);
 });
 
-test('monthly pay: NT$5,000 on the 1st, until Quadra pays it into the pool itself', async () => {
+test('monthly pay: NT$5,000 on the 1st, until Orbit pays it into the pool itself', async () => {
   const { incomeAmount, applyIncome, nextPayday, startIncome } = await import('../public/lib/account.mjs');
   assert.equal(incomeAmount(1_000_000), 5000);
   const created = Date.parse('2026-06-10T15:00:00+08:00');
   assert.equal(nextPayday(created), Date.parse('2026-07-01T00:00:00+08:00'));
   const a = newAccount(1_000_000, created, 'inc');
   assert.equal(applyIncome(a, created + DAY).added.length, 0);
-  // From 2026-10 Quadra pays the month (Shared-Proxy's eco.js), not Securities.
+  // From 2026-10 Orbit pays the month (Shared-Proxy's eco.js), not Securities.
   const r = applyIncome(a, Date.parse('2026-12-15T09:00:00+08:00'));
   assert.deepEqual(r.added.map(e => [e.id, e.amount]), [['pay:2026-07', 5000], ['pay:2026-08', 5000], ['pay:2026-09', 5000]]);
   assert.equal(applyIncome(r.account, Date.parse('2026-12-15T09:00:00+08:00')).added.length, 0);

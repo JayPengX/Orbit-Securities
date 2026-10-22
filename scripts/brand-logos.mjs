@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { CATEGORIES } from '../public/lib/catalog.mjs';
 
-const UA = 'QuadraSecurities/1.0 (https://github.com/jaypengx/Quadra-Securities)';
+const UA = 'OrbitSecurities/1.0 (https://github.com/jaypengx/Orbit-Securities)';
 const curl = args => {
   for (let tries = 0; ; tries++) {
     const out = execFileSync('curl', ['-s', '-A', UA, ...args], { maxBuffer: 64 << 20 }).toString();

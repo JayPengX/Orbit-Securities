@@ -1,5 +1,5 @@
 {
-  "name": "Quadra Securities",
+  "name": "Orbit Securities",
   "short_name": "Securities",
   "description": "用虛擬的新台幣投資全世界的股票、ETF、債券、加密貨幣和黃金：真實報價、真實手續費、換匯與融資。",
   "lang": "zh-Hant-TW",
@@ -35,5 +35,5 @@
       "purpose": "any"
     }
   ],
-  "id": "/Quadra-Securities/"
+  "id": "/Orbit-Securities/"
 }

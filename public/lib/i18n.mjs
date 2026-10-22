@@ -1,7 +1,7 @@
 // Traditional Chinese and English. The browser's language decides.
 export const STRINGS = {
   zh: {
-    appName: 'Quadra Securities',
+    appName: 'Orbit Securities',
     forYou: '為你推薦',
     moversUp: '今日漲幅',
     moversUpOn: '{day}漲幅', moversDownOn: '{day}跌幅',
@@ -437,7 +437,7 @@ export const STRINGS = {
     callWaySell: '賣出持股：',
     callWaySellSub: '賣出融資股票時，賣得的錢會先還那筆融資；也可以賣其他持股再用現金補繳。',
     callWayPledge: '補提擔保品：',
-    callWayPledgeSub: 'Quadra 以整戶計算，帳上其他股票和現金已經算進擔保，不用另外辦。',
+    callWayPledgeSub: 'Orbit 以整戶計算，帳上其他股票和現金已經算進擔保，不用另外辦。',
     callPay: '補繳 {v}',
     callSellGo: '賣出 {name}',
     callPayShort: '可用現金只有 {v}：補繳後維持率約 {ratio}，還不夠的部分要賣股票。',
@@ -836,7 +836,7 @@ export const STRINGS = {
     spreadNote: '預估成交 {price}（最新 {last}）。要確定價格請用限價單。'
   },
   en: {
-    appName: 'Quadra Securities',
+    appName: 'Orbit Securities',
     forYou: 'For you',
     moversUp: 'Top gainers',
     moversUpOn: 'Top gainers · {day}', moversDownOn: 'Top losers · {day}',
@@ -1272,7 +1272,7 @@ export const STRINGS = {
     callWaySell: 'Sell:',
     callWaySellSub: 'selling a margin holding repays its loan first; or sell something else and pay with the cash.',
     callWayPledge: 'Pledge more:',
-    callWayPledgeSub: 'Quadra counts the whole account, so your other holdings and cash already count.',
+    callWayPledgeSub: 'Orbit counts the whole account, so your other holdings and cash already count.',
     callPay: 'Pay {v}',
     callSellGo: 'Sell {name}',
     callPayShort: 'Only {v} of cash is free: about {ratio} after paying it; the rest needs a sale.',
@@ -1672,10 +1672,10 @@ export const STRINGS = {
   }
 };
 
-// The language chosen in any Quadra app (kit quadra.mjs detectLang, 'quadra.lang'), else the phone's.
+// The language chosen in any Orbit app (kit orbit.mjs detectLang, 'orbit.lang'), else the phone's.
 export function detectLocale() {
   try {
-    const saved = globalThis.localStorage?.getItem('quadra.lang');
+    const saved = globalThis.localStorage?.getItem('orbit.lang');
     if (saved === 'zh' || saved === 'en') return saved;
   } catch {}
   const languages = navigator.languages?.length ? navigator.languages : [navigator.language || ''];

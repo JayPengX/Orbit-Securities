@@ -52,9 +52,9 @@ test('the old margin-buy flag is gone (it was always null, and its 融資買進 
   assert.ok(!zh.has('marginBuy') && !en.has('marginBuy'));
 });
 
-test('the language saved in any Quadra app wins over the phone', () => {
+test('the language saved in any Orbit app wins over the phone', () => {
   const before = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
-  const store = v => Object.defineProperty(globalThis, 'localStorage', { value: { getItem: k => (k === 'quadra.lang' ? v : null) }, configurable: true });
+  const store = v => Object.defineProperty(globalThis, 'localStorage', { value: { getItem: k => (k === 'orbit.lang' ? v : null) }, configurable: true });
   try {
     store('en');
     assert.equal(detectLocale(), 'en');

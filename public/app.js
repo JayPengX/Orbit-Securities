@@ -1,4 +1,4 @@
-// Quadra Securities: rendering and wiring. The rules live in lib/ (account.mjs for
+// Orbit Securities: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import {
   newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
@@ -27,15 +27,15 @@ import { detectLocale, makeT } from './lib/i18n.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
-  APPS, appUrl, describeEntry, installGate, watchUpdates, quadraSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, nextPayday as quadraPayday, affinityPatch, workerJson,
+  APPS, appUrl, describeEntry, installGate, watchUpdates, orbitSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, nextPayday as orbitPayday, affinityPatch, workerJson,
   keepOffline, onlineOnly, proxyJson, worthOf, WEALTH_RANKS, moneySides, poolBalance, errorText as passError
-} from '#kit/quadra.mjs';
+} from '#kit/orbit.mjs';
 import { LOAN, RELIEF, PAY_WEEK, activeLoan, loanOwed, payoffAmount, canBorrow, loanOffer, maxFor, dueCount, reliefCheck, openStakes, schedule, totalApr } from '#kit/loan.mjs';
 import { STOCK, roundTrip, overdraftYear, overdraftPaid } from './lib/truth.mjs';
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as kitUI from '#kit/ui.mjs';
-import * as kitQuadra from '#kit/quadra.mjs';
+import * as kitOrbit from '#kit/orbit.mjs';
 import * as stockAccount from './lib/account.mjs';
 // (Read through the module, with a fallback, for what an older kit lacks.)
 import * as stockCredit from './lib/credit.mjs';
@@ -104,7 +104,7 @@ const state = {
   settings: loadSettings(),
   // Which folding cards are open (they survive redraws).
   openFolds: new Set(),
-  // The Quadra Pass session (quadra.mjs) and its wallet: the one money pool.
+  // The Orbit Pass session (orbit.mjs) and its wallet: the one money pool.
   sync: { busy: false, error: null, at: 0 },
   wallet: null,
   // Company numbers and news per symbol, fetched when its sheet opens.
@@ -157,7 +157,7 @@ function applySettings() {
   document.body.dataset.updown = state.settings.updown;
 }
 
-// The account is kept with the Quadra Pass (synced); this device keeps a
+// The account is kept with the Orbit Pass (synced); this device keeps a
 // copy under the pass so the app opens at once, and offline.
 const accountKey = () => `${STORE.account}:${q.pass}`;
 async function loadAccount() {
@@ -727,7 +727,7 @@ const pricesLive = () => state.loaded && !state.fromCache;
 function alertText(a) {
   return t(a.op === 'above' ? 'alertHitAbove' : 'alertHitBelow', { name: nameOf(a.symbol), price: fmtPrice(a.hit?.price ?? a.price, state.quotes.get(a.symbol)?.currency) });
 }
-// The kit's notices (quadra.mjs): a banner while the app is on screen, a
+// The kit's notices (orbit.mjs): a banner while the app is on screen, a
 // system notice when it isn't (once turned on in the account sheet).
 function alertFired(a, { late = false } = {}) {
   notify(q, { title: alertText(a), body: [t('alertNoticeBody'), late ? dateTime(a.hit.t) : ''].filter(Boolean).join(' · '), tag: `alert:${a.id}:${a.hit?.t || ''}`, hash: 'portfolio', kind: 'alert' });
@@ -2916,7 +2916,7 @@ function openTrade(side) {
 function closeTrade() {
   const dialog = $('trade');
   if (!dialog?.open) return;
-  (globalThis.quadraCloseSheet || (x => x.close()))(dialog);
+  (globalThis.orbitCloseSheet || (x => x.close()))(dialog);
 }
 
 // A segmented choice drawn as HTML: data-action and data-<attr> on each button, on(v) the one on.
@@ -3532,7 +3532,7 @@ function errorText(r) {
 
 // ---- Portfolio tab ----------------------------------------------------------------------
 
-// NT$ cash below zero: the Quadra pool is overdrawn (1% a month, charged by
+// NT$ cash below zero: the Orbit pool is overdrawn (1% a month, charged by
 // the Worker). What it takes to cover it, and the sales that would.
 const overdrawnBy = v => Math.max(0, -(v.cash.find(c => c.currency === BASE)?.amount ?? 0));
 // What the open sell orders of holdings would bring in (NT$, at today's
@@ -3601,7 +3601,7 @@ function renderPortfolio() {
 }
 
 // Cash: each currency's wallet (what's spendable; held for orders and still
-// settling as tags), the loans, and the next pay. The NT$ wallet is the Quadra balance itself.
+// settling as tags), the loans, and the next pay. The NT$ wallet is the Orbit balance itself.
 function cashHtml(v) {
   const avail = available(state.account, snap());
   const unsettledNow = unsettled(state.account);
@@ -3609,7 +3609,7 @@ function cashHtml(v) {
   const heldFor = c => Math.max(0, c.amount - (avail.cash[c.currency] ?? c.amount));
   const heldTWD = v.cash.reduce((sum, c) => sum + (c.amount ? (heldFor(c) / c.amount) * c.twd : 0), 0);
   const rows = v.cash.map(c => walletRow(c, heldFor(c), unsettledNow[c.currency] || 0, settleAt[c.currency])).join('');
-  const pay = `<div class="q-ritem">${tileHtml(ico('calendar'), TINT.green)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('weeklyPay'))}</span><small>${h(shortDate(quadraPayday(Date.now())))}</small></span><span class="q-ritem-end"><strong class="num">+${h(money(paydayFor(state.wallet), BASE))}</strong></span></div>`;
+  const pay = `<div class="q-ritem">${tileHtml(ico('calendar'), TINT.green)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('weeklyPay'))}</span><small>${h(shortDate(orbitPayday(Date.now())))}</small></span><span class="q-ritem-end"><strong class="num">+${h(money(paydayFor(state.wallet), BASE))}</strong></span></div>`;
   return sectionHtml(t('cash'), `<div class="q-rowcard wallets">${rows}${v.loans.map(loanWalletRow).join('')}${pay}</div>`, {
     side: `<strong class="sec-value num">${h(money(v.cashTWD - heldTWD, BASE))}</strong>`,
     cls: 'pf-cash'
@@ -4172,7 +4172,7 @@ function bankHtml() {
     const payoff = payoffAmount(loan, now);
     main = `<div class="q-stats">
         ${loan.bad ? fact(t('bankGarnish'), money(Math.round(PAY_WEEK * LOAN.garnish), BASE)) : fact(t('bankEach'), money(loan.installment, BASE))}
-        ${fact(t('bankNext'), shortDate(quadraPayday(now)))}
+        ${fact(t('bankNext'), shortDate(orbitPayday(now)))}
       </div>
       ${loan.bad ? '' : `<div class="q-tags"><span class="q-tag num">${h(t('bankPaidN', { paid: loan.paid, weeks: loan.weeks }))}</span></div>`}
       ${loan.bad ? `<p class="warn">${h(t('bankBadWarn'))}</p>` : late ? `<p class="warn">${h(t('bankLateWarn', { n: late, max: LOAN.missesToDefault }))}</p>` : ''}
@@ -4290,7 +4290,7 @@ function truthHtml() {
   const w = passWallet();
   const s = moneySides(w);
   const g = s.gov;
-  const playPre = s.quadra + s.fees;
+  const playPre = s.orbit + s.fees;
   const dir = x => (x > 0 ? 'up-ink' : x < 0 ? 'down-ink' : '');
   const sides = [
     factRow(t('sideGod'), money(s.given, BASE), [t('sideGodStart', { v: money(s.gave.start, BASE) }), t('sideGodPay', { v: money(s.gave.pay, BASE) }), s.gave.rank ? t('sideGodRank', { v: money(s.gave.rank, BASE) }) : '', s.gave.other ? t('sideGodOther', { v: money(s.gave.other, BASE) }) : ''].filter(Boolean).join(' · ')),
@@ -4884,7 +4884,7 @@ function activityRow(e) {
 }
 
 // Where a record takes you when tapped: its stock's page, the exchange (the
-// two currencies set), the loans, the portfolio, or the Quadra app the money
+// two currencies set), the loans, the portfolio, or the Orbit app the money
 // came from (signed in).
 function activityTarget(e) {
   const button = attrs => ['button', `type="button" ${attrs}`];
@@ -4903,7 +4903,7 @@ const ACTIVITY_FILTERS = {
   income: e => ['div', 'split', 'interest', 'td', 'tdend', 'lend', 'recall', 'lendpay'].includes(e.type),
   loans: e => e.type === 'borrow' || e.type === 'repay' || e.type === 'link',
   cash: e => e.type === 'deposit' && !ACTIVITY_FILTERS.apps(e),
-  // Money moved by the other Quadra apps (bets, the pay): one line per
+  // Money moved by the other Orbit apps (bets, the pay): one line per
   // app and day under 全部, each record here (one app at a time, or all).
   apps: e => e.type === 'deposit' && Boolean(e.pool) && Boolean(APPS[e.app]) && e.app !== 'stock'
 };
@@ -5151,16 +5151,16 @@ function fold(tile, title, body, open = false, id = title, side = '') {
   const isOpen = state.openFolds.has(id) || (open && !state.openFolds.has(`closed:${id}`));
   return `<details class="fold" data-fold="${h(id)}"${isOpen ? ' open' : ''}><summary class="q-ritem">${tile}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span></span>${side}<i class="fold-chev" aria-hidden="true"></i></summary><div class="fold-body">${body}</div></details>`;
 }
-// ---- The Quadra Pass: the account lives with it ------------------------------------------
+// ---- The Orbit Pass: the account lives with it ------------------------------------------
 //
-// Signing in is required (quadra.mjs shows the sign-in screen). The account
-// is this app's data on the pass; the pass's wallet is the one Quadra money
+// Signing in is required (orbit.mjs shows the sign-in screen). The account
+// is this app's data on the pass; the pass's wallet is the one Orbit money
 // pool, which this account's NT$ cash shows: the other apps' money (Play's
-// bets and winnings, Quadra's own pay)
+// bets and winnings, Orbit's own pay)
 // arrives as pool deposits, and this account's own NT$ goes back to the
 // wallet as its figure.
 
-const q = quadraSession('stock', { lang: locale });
+const q = orbitSession('stock', { lang: locale });
 
 // The first time this pass opens Securities: an account of its own, funded
 // by the pool.
@@ -5242,7 +5242,7 @@ async function mergeRemote(remote, { pull = false, applied = () => {} } = {}) {
   // Made or lost by market (once prices are in), for the admin page's totals.
   const pl = v && !v.missingRates.length ? resultByMarket(sAll, v) : prev?.pl;
   const plMoved = !!pl && (!prev?.pl || Object.keys({ ...pl, ...prev.pl }).some(k => Math.abs((pl[k] || 0) - (prev.pl[k] || 0)) >= Math.max(1_000, Math.abs(pl[k] || 0) * 0.02)));
-  // Taxes paid (whole NT$) for the Quadra Pass's 真相 › 政府: 證交稅 and other
+  // Taxes paid (whole NT$) for the Orbit Pass's 真相 › 政府: 證交稅 and other
   // trade taxes, tax withheld on dividends and interest (a foreign
   // government's too), and 二代健保's supplementary premium.
   const gov = { trade: Math.round(sAll.paid.tax), withheld: Math.round(sAll.paid.withheld), nhi: Math.round(sAll.paid.nhi) };
@@ -5264,7 +5264,7 @@ async function mergeRemote(remote, { pull = false, applied = () => {} } = {}) {
   state.sync.at = Date.now();
 }
 
-// What the person does here, for every app's recommendations (quadra.mjs).
+// What the person does here, for every app's recommendations (orbit.mjs).
 function track(keys = [], weight = 1) {
   if (keys.length) recordAffinity('stock', keys, weight);
 }
@@ -5353,7 +5353,7 @@ function openTool(kind) {
 }
 function closeTool() {
   const dialog = $('tool');
-  if (dialog?.open) (globalThis.quadraCloseSheet || (x => x.close()))(dialog);
+  if (dialog?.open) (globalThis.orbitCloseSheet || (x => x.close()))(dialog);
 }
 function renderTool() {
   const box = $('tool-body');
@@ -5511,7 +5511,7 @@ function renderStatic() {
 }
 // ---- Events ---------------------------------------------------------------------------------
 
-// Links to the other Quadra apps arrive signed in (quadra.mjs's go).
+// Links to the other Orbit apps arrive signed in (orbit.mjs's go).
 // A stock row of the kit's (a role=button, not a <button>): Enter and Space open it as a tap does.
 document.addEventListener('keydown', event => {
   const row = event.target.closest?.('.q-stock[data-action="open"]');
@@ -6115,14 +6115,14 @@ window.addEventListener('hashchange', () => {
   const tab = location.hash.slice(1);
   if (TABS.includes(tab) && tab !== state.tab) showTab(tab);
 });
-// The same top-right in every Quadra app: help, refresh, then the account.
+// The same top-right in every Orbit app: help, refresh, then the account.
 topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 
 // Big numbers shrink (to 60% at most) to stay on one line (the kit's fitNumbers).
 // (And a fact or an order's hint, a line each.)
 const FIT_SELECTOR = '.q-sf-sum b, .q-hc-big, .q-stat strong, .big-price, .idx-card > strong, .rec-foot strong, .q-ritem-end > strong, .fx-result, .verdict strong, .facts-grid dd span, .about-fin .about-h';
 // (The kit's watchFit: new, so a phone on an older kit just isn't fitted after a redraw.)
-kitQuadra.watchFit(FIT_SELECTOR);
+kitOrbit.watchFit(FIT_SELECTOR);
 
 // Redraw charts when the width changes (not when a phone's address bar hides).
 let lastWidth = window.innerWidth;
@@ -6237,7 +6237,7 @@ setInterval(() => {
   if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds).then(() => Promise.all([loadIpo(), loadAlerts()]).then(() => state.tab === 'home' && renderHome()));
 }, QUOTE_REFRESH_MS);
 // What the other apps did (bets, the pay) arrives with the wallet
-// (quadra.mjs checks it every minute); the account itself every few.
+// (orbit.mjs checks it every minute); the account itself every few.
 setInterval(() => {
   // (With no account yet too: one opened offline is made by the first sync.)
   if (document.visibilityState === 'visible' && q.active) syncNow();
