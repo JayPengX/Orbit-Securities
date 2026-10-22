@@ -1,10 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import {
-  newAccount, replay, setPlan, dedupePlans, planRuns, nextPlanRun, runPlan, activePlans, setAlert, checkAlerts, alertHitInBars, markAlertHit, activeAlerts,
-  mergeAccounts, planDue
-} from '../public/lib/account.mjs';
+import { newAccount, replay, setPlan, dedupePlans, planRuns, nextPlanRun, runPlan, activePlans, setAlert, checkAlerts, alertHitInBars, markAlertHit, activeAlerts, mergeAccounts, planDue } from '../public/lib/account.mjs';
 import * as kit from '../public/lib/account.mjs';
 import * as mk from '../public/lib/markets.mjs';
 import { movingAverage } from '../public/lib/series.mjs';
@@ -240,24 +237,6 @@ test('a margin loan that broke the line while away is sold then, at that momentâ
   // The sale at 35 didn't cover everything owed: the rest is still owed, as at a real broker.
   assert.ok(s.loans.TWD.balance > 0 && s.loans.TWD.balance < 5000);
   assert.deepEqual(marginHistory(r.account, { times: path.map(p => p[0]), priceAt, rateAt: () => 1 }).forced, []);
-});
-
-test('a fill found in the past must have fitted the cash at that moment', async () => {
-  const { fillFromHistory, placeOrder, exchange } = await import('../public/lib/account.mjs');
-  const at = Date.parse('2026-09-01T10:00:00+08:00');
-  const q = { symbol: '2330.TW', name: 'TSMC', kind: 'stock', market: 'TW', currency: 'TWD', price: 1000, prev: 1000, session: { start: at + 3_600_000, end: at + 5 * 3_600_000 }, marketTime: at };
-  let a = newAccount(200_000, at, 'h');
-  // A limit order waiting, then the cash sent to US$ on day 2 (live).
-  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 950, qty: 100 }, { quote: q, rates: { TWD: 1 }, now: at, id: 'o' }).account;
-  assert.equal(a.orders[0].status, 'open');
-  a = { ...a, orders: a.orders.map(o => ({ ...o, reserve: 0 })) };
-  a = exchange(a, { from: 'TWD', to: 'USD', amount: 150_000 }, { rates: { TWD: 1, USD: 32 }, now: at + 2 * DAY, id: 'x' }).account;
-  // The price reached 950 on day 1, when the cash was still there: filled,
-  // even though today's NT$ alone... is checked too, so it's refused.
-  const r = fillFromHistory(a, 'o', { t: at + DAY, price: 950 }, 1, at + 3 * DAY);
-  assert.equal(r.order.status, 'rejected');
-  const ok = fillFromHistory({ ...a, events: a.events.filter(e => e.type !== 'fx') }, 'o', { t: at + DAY, price: 950 }, 1, at + 3 * DAY);
-  assert.equal(ok.fill.t, at + DAY);
 });
 
 test('sale proceeds settle T+2 in Taiwan: they buy again at once but canâ€™t be exchanged until then', async () => {

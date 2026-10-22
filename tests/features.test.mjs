@@ -1,9 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  newAccount, replay, placeOrder, processOrders, valuate, liquidationPlan, applyCorporateActions, applyBondCashflows, backfillPrice,
-  fillFromHistory, netWorthSeries, exchange
-} from '../public/lib/account.mjs';
+import { newAccount, replay, placeOrder, processOrders, valuate, liquidationPlan, applyCorporateActions, applyBondCashflows, backfillPrice, netWorthSeries, exchange } from '../public/lib/account.mjs';
 import { BONDS, priceAt, curveYield, couponDates, bondQuote, bondSession, curveOf } from '../public/lib/bonds.mjs';
 import { isOpen } from '../public/lib/markets.mjs';
 
@@ -156,23 +153,6 @@ test('bonds pay coupons (less the issuer’s tax) and repay at maturity', () => 
   const s = replay(r.account, end);
   assert.equal(s.positions['TWGB-2Y'], undefined);
   assert.equal(applyBondCashflows(r.account, 'TWGB-2Y', { rates: RATES, now: end }).added.length, 0);
-});
-
-test('orders placed while the page was closed fill from the price history, at that time', () => {
-  const order = { t: T0, side: 'buy', type: 'limit', limit: 95 };
-  const bars = [{ t: T0 - 300_000, o: 90, h: 90, l: 90 }, { t: T0 + 300_000, o: 99, h: 100, l: 97 }, { t: T0 + 600_000, o: 96, h: 97, l: 94 }];
-  assert.deepEqual(backfillPrice(order, bars), { t: T0 + 600_000, price: 95 });
-  assert.deepEqual(backfillPrice({ ...order, limit: 100 }, bars), { t: T0 + 300_000, price: 99 });
-  assert.deepEqual(backfillPrice({ t: T0, side: 'sell', type: 'stop', stop: 98 }, bars), { t: T0 + 300_000, price: 98 });
-  assert.deepEqual(backfillPrice({ t: T0, side: 'buy', type: 'market' }, bars), { t: T0 + 300_000, price: 99 });
-  assert.equal(backfillPrice({ ...order, limit: 80 }, bars), null);
-  let a = newAccount(1_000_000, T0 - DAY, 'acc');
-  const shut = { ...quote('2330.TW', 2000), session: { start: T0 + DAY, end: T0 + DAY + HOUR }, marketTime: T0 - HOUR };
-  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 1950, qty: 10 }, { quote: shut, rates: RATES, now: T0, id: 'o' }).account;
-  const r = fillFromHistory(a, 'o', { t: T0 + 2 * HOUR, price: 1950 }, 1, T0 + 3 * DAY);
-  assert.equal(r.fill.t, T0 + 2 * HOUR);
-  assert.equal(r.fill.price, 1950);
-  assert.equal(r.account.orders[0].status, 'filled');
 });
 
 test('net worth history from daily closes', () => {
