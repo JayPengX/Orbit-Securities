@@ -1110,7 +1110,7 @@ function marketRules(q) {
     parts.push(t('ruleWarrant', { date: last ? fmtDate(last) : '—' }));
     if (!last) loadListing('tww').then(() => state.detail?.symbol === q.symbol && redrawDetail()).catch(() => {});
   } else if (q.kind === 'cb') parts.push(t('ruleCb', { date: stockMarkets.cbMaturity?.(q.symbol) ? fmtDate(stockMarkets.cbMaturity(q.symbol)) : '—' }));
-  else if (q.market === 'TWFUND') parts.push(t('ruleFund', { cutoff: stockMarkets.FUND_CUTOFF || '15:30', fee: '1%' }));
+  else if (q.market === 'TWFUND') parts.push(t('ruleFund', { cutoff: stockMarkets.FUND_CUTOFF || '15:30', fee: rateText(stockMarkets.FUND_FEE ?? 0.01) }));
   else if (orderTypes(q).length === 1) parts.push(t('ruleLimitOnly'));
   if (cashOnly(q) && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleCashOnly'));
   if (q.market === 'TW' && q.kind === 'stock' && !emerging) {
@@ -2238,6 +2238,8 @@ function feeSummary(q) {
     const fee = q.kind === 'opt' ? stockMarkets.OPTION.fee : stockMarkets.futureOf(q.symbol).fee;
     return t('feeTaifex', { fee: money(fee, BASE), tax: rateText(q.kind === 'opt' ? stockMarkets.OPT_TAX : stockMarkets.FUT_TAX) });
   }
+  // A fund: the platform's 申購手續費 on the amount, free to redeem (the kit's FUND_FEE).
+  if (q.market === 'TWFUND') return t('feeFund', { fee: rateText(stockMarkets.FUND_FEE ?? 0.01) });
   const m = MARKETS[q.market] || MARKETS.INTL;
   const parts = [];
   const cur = m.currency || q.currency;
@@ -3558,7 +3560,7 @@ function cashHtml(v) {
   const heldFor = c => Math.max(0, c.amount - (avail.cash[c.currency] ?? c.amount));
   const heldTWD = v.cash.reduce((sum, c) => sum + (c.amount ? (heldFor(c) / c.amount) * c.twd : 0), 0);
   const rows = v.cash.map(c => walletRow(c, heldFor(c), unsettledNow[c.currency] || 0, settleAt[c.currency])).join('');
-  const pay = `<div class="q-ritem">${tileHtml(ico('calendar'), TINT.green)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('weeklyPay'))}</span><small>${h(fmtDate(quadraPayday(Date.now())))}</small></span><span class="q-ritem-value num">+${h(money(paydayFor(state.wallet), BASE))}</span></div>`;
+  const pay = `<div class="q-ritem">${tileHtml(ico('calendar'), TINT.green)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('weeklyPay'))}</span><small>${h(shortDate(quadraPayday(Date.now())))}</small></span><span class="q-ritem-end"><strong class="num">+${h(money(paydayFor(state.wallet), BASE))}</strong></span></div>`;
   return sectionHtml(t('cash'), `<div class="q-rowcard wallets">${rows}${v.loans.map(loanWalletRow).join('')}${pay}</div>`, {
     side: `<strong class="sec-value num">${h(money(v.cashTWD - heldTWD, BASE))}</strong>`,
     cls: 'pf-cash'
@@ -3577,7 +3579,7 @@ function moreHtml(v) {
     `<button class="q-ritem chevron" type="button" data-action="tool" data-tool="${tool}">${tileHtml(glyph, color)}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span>${small ? `<small>${h(small)}</small>` : ''}</span>${value}</button>`;
   const rows = [
     row('alloc', ico('grid'), TINT.indigo, t('allocation'), '', top ? `${top[0]} ${pct(top[1], { digits: 0, sign: false })}` : ''),
-    inc.total || soon.length ? row('income', ico('coin'), TINT.orange, t('incomeTitle'), inc.last12 >= 0.5 || !soon.length ? `<span class="q-ritem-value num">${h(money(inc.last12, BASE))}</span>` : `<span class="q-ritem-value num up-ink">+${h(money(soon.reduce((a, x) => a + x.net, 0), BASE))}</span>`, soon.length ? t('incomeNext', { date: shortDate(soon[0].t), v: money(soon[0].net, BASE) }) : t('income12')) : '',
+    inc.total || soon.length ? row('income', ico('coin'), TINT.orange, t('incomeTitle'), inc.last12 >= 0.5 || !soon.length ? `<span class="q-ritem-end"><strong class="num">${h(money(inc.last12, BASE))}</strong></span>` : `<span class="q-ritem-end"><strong class="num">+${h(money(soon.reduce((a, x) => a + x.net, 0), BASE))}</strong></span>`, soon.length ? t('incomeNextOn', { date: shortDate(soon[0].t) }) : t('income12')) : '',
     plans.length || plansEnded().length ? row('plans', ico('calendar'), TINT.teal, t('plansTitle'), `<span class="q-tag">${plans.length}</span>`) : '',
     alerts.length || alertsShown().length ? row('alerts', ico('bell'), TINT.red, t('alertsTitle'), `<span class="q-tag">${alerts.length}</span>`) : '',
     open ? `<button class="q-ritem chevron" type="button" data-action="hview-go" data-view="orders">${tileHtml(ico('list'), TINT.blue)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('openOrders'))}</span></span><span class="q-tag orange">${open}</span></button>` : ''
@@ -3797,7 +3799,7 @@ function positionRow(p, sort = 'value') {
   const end = `<strong class="num ${dirClass(x)}">${h(money(x, BASE, { sign: true }))}</strong><span class="q-tag chg-tag ${dirClass(x)} num">${h(pct(xPct))}</span>`;
   return `<button class="q-ritem position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(p.symbol, q))}</span><small class="num">${keepParts(`${qty} · ${t('marketValue')} ${compactMoney(p.valueTWD, BASE)}`)}</small>${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(p.symbol, q))}</span><small class="num q-fit">${h(`${qty} · ${t('marketValue')} ${compactMoney(p.valueTWD, BASE)}`)}</small>${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
     <span class="q-ritem-end">${end}</span>
   </button>`;
 }
@@ -3807,14 +3809,16 @@ function walletRow(c, reserved = 0, settling = 0, settleAt = 0) {
   const info = currencyInfo(c.currency);
   if (reserved > 1e-9 && c.amount) c = { ...c, amount: c.amount - reserved, twd: c.twd * (1 - reserved / c.amount) };
   const twd = c.currency === BASE;
-  const small = twd ? t('cashMonthly', { amount: money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE) }) : L(info);
-  const tags = [
-    reserved > 1e-9 ? `<span class="q-tag orange">${h(t('reserved', { amount: money(reserved, c.currency) }))}</span>` : '',
-    settling > 1e-9 ? `<span class="q-tag blue">${h(t('settling', { amount: money(settling, c.currency) }))}${settleAt ? ` · ${h(t('settleBy', { date: shortDate(settleAt) }))}` : ''}</span>` : ''
-  ].join('');
+  // One short line under the name: what's settling (and when), else what's held for orders, else the month's interest.
+  const small =
+    settling > 1e-9
+      ? `<span class="blue-ink">${h(t('settlingShort', { amount: money(settling, c.currency), date: settleAt ? shortDate(settleAt) : '' }).trim())}</span>`
+      : reserved > 1e-9
+        ? `<span class="orange-ink">${h(t('reservedShort', { amount: money(reserved, c.currency) }))}</span>`
+        : h(twd ? t('cashMonthly', { amount: money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE) }) : c.currency);
   return `<button class="q-ritem chevron wallet" type="button" data-action="fx-from" data-cur="${h(c.currency)}">
     ${tileHtml(curMark(c.currency), TINT.teal, 'soft flag')}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(c.currency)}</span><small class="num">${h(small)}</small>${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(L(info))}</span><small class="num q-fit">${small}</small></span>
     <span class="q-ritem-end"><strong class="num${c.amount < 0 ? ' down-ink' : ''}">${h(money(c.amount, c.currency))}</strong>${twd ? '' : `<small class="num">≈ ${h(money(c.twd, BASE))}</small>`}</span>
   </button>`;
 }

@@ -580,7 +580,9 @@ a.act-row { color: inherit; }
 /* IPO rows: the price line and the tags stay on one row each (a tag that does not fit is dropped whole). */
 .ipo-item .q-ritem-text small.num { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ipo-item .q-tags { height: 22px; overflow: hidden; } /* one row: a tag that does not fit is dropped whole */
-.wallet .q-ritem-text > small.num { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.wallet .q-ritem-text > small.num, .position-row .q-ritem-text > small.num { white-space: nowrap; overflow-wrap: normal; }
+.blue-ink { color: var(--q-blue, #0a84ff); }
+.orange-ink { color: var(--q-orange, #ff9f0a); }
 
 /* ==== Round 3: 首頁 as Apple Stocks (shelves of real data) ==== */
 .home-hero { gap: 6px; }
