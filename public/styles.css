@@ -677,6 +677,10 @@ a.act-row { color: inherit; }
 .tool-sheet .q-sheet-hero { margin: 4px 0 14px; }
 /* A disabled main button reads as off (grey), not as a dim accent. */
 .q-btn.primary:disabled { opacity: 1; background: var(--q-fill-3); color: var(--q-label-2); box-shadow: none; }
+/* 信貸's terms: four equal buttons across; a sheet's figures, then their list or tags, a step apart. */
+.q-seg.bank-terms { display: flex; width: 100%; }
+.q-seg.bank-terms > button { flex: 1; white-space: nowrap; }
+.tool-page .q-stats + :is(.q-rowcard, .q-tags) { margin-top: 10px; }
 /* Picker tiles (定存 terms, 信用 limits): equal columns, the picked one filled. */
 .term-grid, .tier-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .term-grid .term, .tier-grid .tier { display: grid; justify-items: center; align-content: center; gap: 1px; min-width: 0; min-height: 64px; padding: 8px 2px; border: 0; border-radius: 14px; background: var(--q-surface); color: var(--q-label); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }

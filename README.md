@@ -3,7 +3,8 @@
 A Taiwan broker on play money, with real prices and a real broker's rules:
 Taiwan's and the world's stocks, ETFs and funds; forex, bonds, crypto and
 gold; margin, shorts and Taiwan credit trading; time deposits, securities
-lending and 新股申購. Its NT$ cash is the one Quadra pool.
+lending and 新股申購. Its NT$ cash is the account's money: the weekly pay,
+loans, relief and level rewards all land here.
 
 Live: https://jaypengx.github.io/Quadra-Securities/
 
@@ -21,7 +22,11 @@ Live: https://jaypengx.github.io/Quadra-Securities/
     a time. Home's tiles open the same places.
   - **資產:** net worth over time, allocation, positions, cash in every
     currency, income.
-  - **資金:** exchange, the rates board, margin loans.
+  - **資金:** exchange, the rates board, margin loans; then 你的帳戶: 信貸
+    and 急難紓困 (the kit's `loan.mjs` rules, asked through the Pass session),
+    財富等級, and 真相 (where the money came from, the government's side,
+    what trading costs: `lib/truth.mjs`). The Quadra Pass holds no money:
+    all of it is shown here.
   - **紀錄:** activity, orders, stats (against 0050, VOO, BTC and gold).
 - **The detail sheet:** charts (line or candles, MA5/20/60), the facts,
   your position, the ticket (market, limit, stop; quick sizes; a cost
