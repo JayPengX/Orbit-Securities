@@ -1729,14 +1729,18 @@ const optSeries = () => {
   if (!stockMarkets.optionExpiries) return stockMarkets.optionMonths?.() || [];
   if (state.optTable === undefined) {
     state.optTable = null;
+    // (A table without options' prices, or none, is asked for again in 30 s:
+    // the weeklies and the prices come from it.)
+    const again = () => setTimeout(() => (state.optTable = undefined), 30_000);
     stockQuotes
       .fetchFutTable()
       .then(table => {
         state.optTable = table;
+        if (!Object.keys(table?.opt || {}).length) again();
         if (state.category === 'opt') renderMarkets();
         if ($('trade')?.open) renderTicket();
       })
-      .catch(() => {});
+      .catch(again);
   }
   return stockMarkets.optionExpiries(Date.now(), state.optTable);
 };
@@ -1769,8 +1773,19 @@ function optChainHtml() {
   };
   const seg = `<div class="q-chips bleed opt-months" role="group">${months.map(m => `<button class="q-chip" type="button" data-action="opt-month" data-v="${m}" aria-pressed="${m === month}">${h(label(m))}</button>`).join('')}</div>`;
   const strikes = optStrikes();
-  if (!strikes.length) return `${seg}<section class="q-section list-section">${plainEmpty(t('loadingQuote'))}</section>`;
-  const atm = strikes.reduce((a, k) => (Math.abs(k - index) < Math.abs(a - index) ? k : a), strikes[0]);
+  // Only strikes with a price on either side: never a row of dashes (none yet: the note, till they come).
+  const priced = k => ['C', 'P'].some(r => state.quotes.has(stockMarkets.optionSymbol(month, r, k)));
+  const shown = strikes.filter(priced);
+  if (!shown.length) return `${seg}<section class="q-section list-section">${plainEmpty(t('loadingQuote'))}</section>`;
+  const atm = shown.reduce((a, k) => (Math.abs(k - index) < Math.abs(a - index) ? k : a), shown[0]);
+  // At-the-money in the middle of the screen when a series first shows.
+  if (state.optCentred !== month) {
+    state.optCentred = month;
+    requestAnimationFrame(() => {
+      const row = document.querySelector('.opt-row.atm');
+      if (row) window.scrollTo({ top: Math.max(0, row.getBoundingClientRect().top + window.scrollY - (window.innerHeight - row.offsetHeight) / 2), behavior: 'instant' });
+    });
+  }
   const cell = (k, r) => {
     const sym = stockMarkets.optionSymbol(month, r, k);
     const q = state.quotes.get(sym);
@@ -1779,7 +1794,7 @@ function optChainHtml() {
     const itm = r === 'C' ? k < at : k > at;
     return `<button class="opt-cell${itm ? ' itm' : ''}" type="button" data-action="open" data-symbol="${h(sym)}"><b class="num" data-q-live="opt:${h(sym)}">${q ? qPrice(q) : '—'}</b>${q ? `<small class="num ${dirClass(q.change)}">${q.change > 0 ? '+' : q.change < 0 ? '−' : ''}${num(Math.abs(q.change), 1, 0)}</small>` : ''}</button>`;
   };
-  const rows = strikes.map(k => `<div class="opt-row${k === atm ? ' atm' : ''}">${cell(k, 'C')}<span class="opt-k num">${num(k, 0, 0)}</span>${cell(k, 'P')}</div>`).join('');
+  const rows = shown.map(k => `<div class="opt-row${k === atm ? ' atm' : ''}">${cell(k, 'C')}<span class="opt-k num">${num(k, 0, 0)}</span>${cell(k, 'P')}</div>`).join('');
   return `${seg}${sectionHtml(
     t('optChainTitle', { index: num(index, 0, 0) }),
     `<div class="opt-chain q-rowcard"><div class="opt-row opt-head"><span>${h(t('optCall'))}</span><span>${h(t('optStrike'))}</span><span>${h(t('optPut'))}</span></div>${rows}</div><p class="foot-note">${h(t('optChainNote'))}</p>`,
@@ -5272,6 +5287,7 @@ document.addEventListener('click', async event => {
       break;
     case 'cat':
       state.category = el.dataset.id || null;
+      state.optCentred = null;
       state.query = '';
       $('search').value = '';
       renderMarkets();
