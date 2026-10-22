@@ -344,9 +344,15 @@ function coreSymbols() {
     for (const p of activePlans(state.account)) set.add(p.symbol);
     for (const a of activeAlerts(state.account)) set.add(a.symbol);
   }
-  if (state.detail) set.add(state.detail.symbol);
+  if (state.detail) for (const sym of [state.detail.symbol, ...cbStockSyms(state.detail.symbol)]) set.add(sym);
   return set;
 }
+// A convertible bond's company's shares (上市 or 上櫃: whichever has a price).
+const cbStockSyms = symbol => {
+  const code = stockMarkets.cbTerms?.(symbol)?.stock;
+  return code ? [`${code}.TW`, `${code}.TWO`] : [];
+};
+const cbStockQuote = symbol => cbStockSyms(symbol).map(s => state.quotes.get(s)).find(x => x?.price > 0) || null;
 
 function listSymbols() {
   const sub = state.category ? subOf(state.category) : null;
@@ -1943,7 +1949,8 @@ async function openDetail(symbol) {
   const held = snap()?.positions[symbol];
   state.detail = {
     symbol,
-    range: '1d',
+    // (A fund, a NAV a day, opens on its year.)
+    range: kindOf(symbol, q0) === 'fund' ? '1y' : '1d',
     chart: null,
     chartError: false,
     side: 'buy',
@@ -1974,9 +1981,11 @@ async function openDetail(symbol) {
   // a quote read in the last 25 seconds (the list's) isn't read again.
   loadChart();
   loadAbout(symbol);
-  const fresh = q0?.got > Date.now() - QUOTE_FRESH_MS;
+  // (A convertible bond's shares too, for its 轉換價值.)
+  const also = cbStockSyms(symbol).filter(s => !state.quotes.has(s));
+  const fresh = q0?.got > Date.now() - QUOTE_FRESH_MS && !also.length;
   try {
-    if (!fresh) absorb(await fetchQuotes([symbol]));
+    if (!fresh) absorb(await fetchQuotes([symbol, ...also]));
     const q = state.quotes.get(symbol);
     if (q) await ensureRates([q.currency]);
     if (q && state.detail?.symbol === symbol && !state.detail.limit) state.detail.limit = state.detail.stop = startPrice(q);
@@ -2163,7 +2172,8 @@ function renderDetail() {
 }
 // A chart's ranges: a TAIFEX contract lives months, not years (an option's
 // history is only an estimate along the index).
-const rangesOf = kind => (kind === 'opt' ? ['1d', '5d', '1mo'] : kind === 'fut' ? ['1d', '5d', '1mo', '6mo'] : ['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max']);
+// (A fund has one NAV a day: no day or week; it opens on its year.)
+const rangesOf = kind => (kind === 'opt' ? ['1d', '5d', '1mo'] : kind === 'fut' ? ['1d', '5d', '1mo', '6mo'] : kind === 'fund' ? ['1mo', '6mo', 'ytd', '1y', '5y', 'max'] : ['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max']);
 const dayLineOf = d => {
   const line = d.range === '1d' ? state.quotes.get(d.symbol)?.line : null;
   return line?.length > 1 ? line : null;
@@ -2285,6 +2295,23 @@ function bondFacts(q) {
   ];
 }
 
+// A convertible bond against its shares, as a broker's CB page: the shares'
+// price, the 轉換價格 (at issue), what the bond is worth converted (轉換價值,
+// a 100 face's shares at today's price), its premium over that, and the put.
+function cbFacts(q) {
+  const terms = q.kind === 'cb' ? stockMarkets.cbTerms?.(q.symbol) : null;
+  if (!terms) return [];
+  const sq = cbStockQuote(q.symbol);
+  const parity = sq && terms.conversion ? (100 * sq.price) / terms.conversion : null;
+  return [
+    ...(sq ? [[t('cbStock'), nameOf(sq.symbol, sq)], [t('cbStockPrice'), fmtPrice(sq.price, 'TWD')]] : []),
+    ...(terms.conversion ? [[t('cbConversion'), fmtPrice(terms.conversion, 'TWD')]] : []),
+    ...(parity ? [[t('cbParity'), num(parity, 2, 2)], [t('cbPremium'), pct(q.price / parity - 1, { digits: 1 })]] : []),
+    [t('maturity'), fmtDate(terms.maturity)],
+    ...(terms.put && terms.put > Date.now() ? [[t('cbPutDay'), fmtDate(terms.put)], [t('cbPutPrice'), num(terms.putPrice, 2, 2)]] : [])
+  ];
+}
+
 function factsHtml(q) {
   if (BONDS[q.symbol] && q.bond) {
     return `<dl class="facts-grid">${bondFacts(q).map(([k, v]) => `<div><dt>${h(k)}</dt><dd>${h(v)}</dd></div>`).join('')}</dl>`;
@@ -2304,6 +2331,7 @@ function factsHtml(q) {
           [t('futExpiryFact'), fmtDate(expiryOf(q.symbol))]
         ]
       : []),
+    ...cbFacts(q),
     ...(q.market === 'TWFUND' || q.kind === 'fut' || q.kind === 'opt'
       ? []
       : [
