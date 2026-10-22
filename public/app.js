@@ -4282,26 +4282,23 @@ function ranksHtml() {
   }).join('')}</div><p class="foot-note">${h(t('ranksSub'))}</p>`;
 }
 
-// 真相 (a sheet): where the money came from (the system, Play while it
-// still moves money, interest and fees, the government, the account's own
-// result: together its worth), the government's side tax by tax, and what
+// 真相 (a sheet): where the money came from (the system, interest and fees,
+// the government, the account's own result: together its worth), the government's side tax by tax, and what
 // trading really costs.
 function truthHtml() {
   const w = passWallet();
   const s = moneySides(w);
   const g = s.gov;
-  const playPre = s.orbit + s.fees;
   const dir = x => (x > 0 ? 'up-ink' : x < 0 ? 'down-ink' : '');
   const sides = [
     factRow(t('sideGod'), money(s.given, BASE), [t('sideGodStart', { v: money(s.gave.start, BASE) }), t('sideGodPay', { v: money(s.gave.pay, BASE) }), s.gave.rank ? t('sideGodRank', { v: money(s.gave.rank, BASE) }) : '', s.gave.other ? t('sideGodOther', { v: money(s.gave.other, BASE) }) : ''].filter(Boolean).join(' · ')),
-    Math.round(playPre) ? factRow(t('sidePlay'), money(playPre, BASE, { sign: true }), t('sidePlaySub'), dir(playPre)) : '',
     Math.round(s.fees) ? factRow(t('sideFees'), money(-s.fees, BASE, { sign: true }), t('sideFeesSub'), 'down-ink') : '',
     factRow(t('sideGov'), money(g.net, BASE, { sign: true }), t('sideGovSub', { paid: money(g.paidTotal, BASE), got: money(g.gotTotal, BASE) }), dir(g.net)),
     factRow(t('sideYou'), money(s.own, BASE, { sign: true }), t('sideYouSub'), dir(s.own))
   ].join('');
   const govSub = { under: money(RELIEF.under, BASE), amount: money(RELIEF.amount, BASE), weeks: RELIEF.everyWeeks, year: RELIEF.perYear };
   const govRows = [
-    ...['trade', 'withheld', 'nhi', 'sports', 'lottery'].filter(k => k in g.paid && (g.paid[k] || !['sports', 'lottery'].includes(k))).map(k => factRow(t(`gov_${k}`), g.paid[k] ? `−${money(g.paid[k], BASE)}` : money(0, BASE), t(`govSub_${k}`, govSub), g.paid[k] ? 'down-ink' : '')),
+    ...Object.keys(g.paid).map(k => factRow(t(`gov_${k}`), g.paid[k] ? `−${money(g.paid[k], BASE)}` : money(0, BASE), t(`govSub_${k}`, govSub), g.paid[k] ? 'down-ink' : '')),
     ...Object.entries(g.got).map(([k, v]) => factRow(t(`gov_${k}`), v ? `+${money(v, BASE)}` : money(0, BASE), t(`govSub_${k}`, govSub), v ? 'up-ink' : ''))
   ].join('');
   const trip = roundTrip(100_000);
@@ -4728,15 +4725,9 @@ const ICON_PATHS = {
   alert: 'M12 4 2.5 20h19L12 4zM12 10v4M12 17v.5',
   in: 'M12 4v12M6 10l6 6 6-6M5 20h14',
   hand: 'M4 14l4-4 3 3 3-3 6 6M4 20h16',
-  play: 'M7 5v14l11-7-11-7z',
-  trophy: 'M8 4h8v5a4 4 0 0 1-8 0V4zM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M10 14h4v3h-4zM8 20h8',
-  book: 'M5 5.5A2.5 2.5 0 0 1 7.5 3H19v14.5H7.5A2.5 2.5 0 0 0 5 20zM5 20a1.5 1.5 0 0 0 1.5 1.5H19v-4M9.5 7.5h6M9.5 11h4',
-  planet: 'M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM3 15c-1.5 2.5 3 3 9 1s10-5.5 9-8c-.4-1-2-1.3-4-1'
 };
 const svgIcon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON_PATHS[name]}"/></svg>`;
 const actTile = (name, color) => tileHtml(svgIcon(name), color);
-const APP_LOOK = { odds: ['play', TINT.orange], match: ['trophy', TINT.green], vocab: ['book', TINT.purple], orbit: ['planet', TINT.indigo] };
-const appTile = app => actTile(...(APP_LOOK[app] || ['swap', TINT.gray]));
 // A stock's record: its picture, with 買 / 賣 / 息 on its corner.
 const symLead = (symbol, q, mark = '', cls = '') => `<span class="act-sym">${symbolBadge(symbol, q)}${mark ? `<i class="act-side ${cls}">${h(mark)}</i>` : ''}</span>`;
 
@@ -4794,7 +4785,7 @@ function activityRow(e) {
       }
       break;
     case 'deposit':
-      lead = e.pool ? appTile(e.app) : actTile('in', TINT.blue);
+      lead = actTile(e.pool ? 'swap' : 'in', e.pool ? TINT.gray : TINT.blue);
       // A pooled entry: what it was as the title, the app it came from beside its time (its tile says so too).
       if (e.pool) [meta, title] = (([from, ...what]) => [[from], what.join(' · ') || from])(describeEntry(e, locale).split(' · '));
       else title = e.id === 'deposit:start' || e.start ? t('openedWith') : e.income ? t('payday') : e.game ? t('gameIncome', { game: t(`sg_${e.game}`) }) : t('deposited');
@@ -4902,18 +4893,8 @@ const ACTIVITY_FILTERS = {
   fx: e => e.type === 'fx',
   income: e => ['div', 'split', 'interest', 'td', 'tdend', 'lend', 'recall', 'lendpay'].includes(e.type),
   loans: e => e.type === 'borrow' || e.type === 'repay' || e.type === 'link',
-  cash: e => e.type === 'deposit' && !ACTIVITY_FILTERS.apps(e),
-  // Money moved by the other Orbit apps (bets, the pay): one line per
-  // app and day under 全部, each record here (one app at a time, or all).
-  apps: e => e.type === 'deposit' && Boolean(e.pool) && Boolean(APPS[e.app]) && e.app !== 'stock'
+  cash: e => e.type === 'deposit'
 };
-// A day's records from one other app, as one line.
-function appDayRow(app, list) {
-  const sum = list.reduce((a, e) => a + (e.amount || 0), 0);
-  return `<button type="button" class="q-ritem chevron act-row" data-action="afilter" data-f="apps" data-app="${h(app)}">
-    ${appTile(app)}<span class="q-ritem-text"><span class="q-ritem-title">${h(APPS[app]?.short || app)}</span><small>${h(t(list.length === 1 ? 'appRecord' : 'appRecords', { n: list.length }))}</small></span>
-    <span class="q-ritem-end"><strong class="num ${sum < 0 ? 'down-ink' : ''}">${sum < 0 ? '' : '+'}${h(money(sum, BASE))}</strong></span></button>`;
-}
 
 function renderHistory() {
   const box = $('history-body');
@@ -4937,35 +4918,20 @@ function renderHistory() {
     return;
   }
   const f = ACTIVITY_FILTERS[state.activityFilter] ? state.activityFilter : 'all';
-  const app = f === 'apps' ? state.activityApp || '' : '';
-  const all = [...state.account.events].sort((a, b) => b.t - a.t);
-  const apps = [...new Set(all.filter(ACTIVITY_FILTERS.apps).map(e => e.app))].filter(Boolean);
-  const events = all.filter(ACTIVITY_FILTERS[f]).filter(e => !app || e.app === app);
-  // Under 全部, the other apps' records fold into a line per app and day
-  // (and don't count against the rows shown).
-  const own = f === 'all' ? events.filter(e => !ACTIVITY_FILTERS.apps(e)) : events;
+  const own = [...state.account.events].sort((a, b) => b.t - a.t).filter(ACTIVITY_FILTERS[f]);
   const shown = own.slice(0, state.activityShown);
-  const until = shown.length < own.length ? shown.at(-1).t : -Infinity;
   const groups = new Map();
-  const group = day => (groups.has(day) ? groups.get(day) : groups.set(day, { rows: [], apps: new Map() }).get(day));
-  for (const e of shown) group(taipeiDay(e.t)).rows.push(e);
-  if (f === 'all')
-    for (const e of events.filter(x => ACTIVITY_FILTERS.apps(x) && x.t >= until)) {
-      const g = group(taipeiDay(e.t));
-      if (!g.apps.has(e.app)) g.apps.set(e.app, []);
-      g.apps.get(e.app).push(e);
-    }
+  for (const e of shown) {
+    const day = taipeiDay(e.t);
+    if (!groups.has(day)) groups.set(day, []);
+    groups.get(day).push(e);
+  }
   const days = [...groups].sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  const appChips =
-    f === 'apps' && apps.length > 1
-      ? `<div class="q-chips bleed">${['', ...apps].map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="apps" data-app="${h(k)}" aria-pressed="${app === k}">${h(k ? APPS[k]?.short || k : t('af_all'))}</button>`).join('')}</div>`
-      : '';
   morph(
     box,
     `${head}
-    <div class="q-chips bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" data-app="" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
-    ${appChips}
-    ${days.length ? days.map(([day, g]) => `<p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.rows.map(activityRow).join('')}${[...g.apps].map(([a, list]) => appDayRow(a, list)).join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
+    <div class="q-chips bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
+    ${days.length ? days.map(([day, g]) => `<p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.map(activityRow).join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
     ${own.length > shown.length ? `<button class="q-btn small tinted more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`
   );
 }
@@ -5155,9 +5121,8 @@ function fold(tile, title, body, open = false, id = title, side = '') {
 //
 // Signing in is required (orbit.mjs shows the sign-in screen). The account
 // is this app's data on the pass; the pass's wallet is the one Orbit money
-// pool, which this account's NT$ cash shows: the other apps' money (Play's
-// bets and winnings, Orbit's own pay)
-// arrives as pool deposits, and this account's own NT$ goes back to the
+// pool, which this account's NT$ cash shows: the money the Worker moves
+// (the pay, 信貸, 紓困, overdraft interest) arrives as pool deposits, and this account's own NT$ goes back to the
 // wallet as its figure.
 
 const q = orbitSession('stock', { lang: locale });
@@ -5224,7 +5189,7 @@ async function mergeRemote(remote, { pull = false, applied = () => {} } = {}) {
   //
   // Below zero when Securities has spent money from the pool (a fill, an
   // exchange) or holds it for an open order (掛單): that's taken off the pool,
-  // so Play can't spend it again.
+  // so it's never counted twice.
   const sAll = replay(account);
   const figure = Math.round(ownCash(account, sAll) * 100) / 100;
   // Everything else Securities is worth, for the account's worth across apps
@@ -5856,7 +5821,6 @@ document.addEventListener('click', async event => {
       break;
     case 'afilter':
       state.activityFilter = el.dataset.f;
-      state.activityApp = el.dataset.app || '';
       state.activityShown = 60;
       renderHistory();
       break;
@@ -6148,10 +6112,10 @@ loadQuotes();
 renderStatic();
 q.on('wallet', wallet => {
   state.wallet = wallet;
-  // Money the other apps moved arrives in this account's NT$ cash.
+  // Money the Worker moved arrives in this account's NT$ cash.
   if (state.account) {
     const pooled = applyPool(state.account, wallet);
-    // Quietly: what Play or another app spent or paid is in 紀錄, never a pop-up on opening (Jay 2026-10-21).
+    // Quietly: the pay, a loan's installment and the like are in 紀錄, never a pop-up on opening (Jay 2026-10-21).
     if (pooled.account !== state.account) commit(pooled.account);
   }
   renderStatus();

@@ -110,8 +110,7 @@ Live: https://jaypengx.github.io/Orbit-Securities/
 - Like a real broker, not a teaching tool: no "simulated" or "practice"
   wording.
 - Up is red in Chinese, green in English (switchable).
-- Earns like a broker (about 0.3% of turnover). That gap with Play is
-  deliberate.
+- Earns like a broker (about 0.3% of turnover).
 - 新股申購 uses TWSE's real list, drawn by the proxy at TWSE's rate.
 - 處置 and 注意 stocks (TWSE's lists, via the proxy) are tagged on holdings and the quote, with the 處置 rules on the ticket (lib/alerts.mjs).
 - Non-US government bonds use reference curves (no free live source).

@@ -40,7 +40,7 @@ test('cover plan: the fewest, largest sales that clear an overdraft', () => {
 import { applyPool, valuate as valuateAcct } from '../public/lib/account.mjs';
 test('the economy reset lands as a negative pooled deposit: cash can go below zero', () => {
   const a = newAccount(0, Date.UTC(2026, 8, 1));
-  const wallet = { entries: [{ id: 'eco:start', t: Date.UTC(2026, 8, 1), app: 'eco', kind: 'start', amount: 110_000 }, { id: 'eco:rebase:v3', t: Date.UTC(2026, 8, 29), app: 'eco', kind: 'rebase', amount: -80_000 }, { id: 'odds:x', t: Date.UTC(2026, 8, 29), app: 'odds', kind: 'stake', amount: -50_000 }] };
+  const wallet = { entries: [{ id: 'eco:start', t: Date.UTC(2026, 8, 1), app: 'eco', kind: 'start', amount: 110_000 }, { id: 'eco:rebase:v3', t: Date.UTC(2026, 8, 29), app: 'eco', kind: 'rebase', amount: -80_000 }, { id: 'eco:od:2026-09', t: Date.UTC(2026, 8, 29), app: 'eco', kind: 'od', amount: -50_000 }] };
   const { account } = applyPool(a, wallet);
   const s = replay(account, Date.UTC(2026, 9, 1));
   assert.equal(s.cash.TWD, -20_000);

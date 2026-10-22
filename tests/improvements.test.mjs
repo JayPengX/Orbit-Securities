@@ -347,7 +347,7 @@ test('what Securities holds for a 掛單 or has spent comes off the pool: its ow
   a = r.account;
   const held = 30_000 - available(a, replay(a, now)).cash.TWD;
   assert.ok(held > 10_000, `${held}`);
-  // The pool sees it: 30,000 in, its part −held, so 30,000 − held left for Play.
+  // The pool sees it: 30,000 in, its part −held, so 30,000 − held left.
   assert.equal(ownCash(a, replay(a, now), now), -Math.round(held * 100) / 100);
 });
 
