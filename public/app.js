@@ -10,7 +10,7 @@ import {
 import { BONDS } from './lib/bonds.mjs';
 import { nextTradingStart, upcomingHolidays, localDay } from './lib/holidays.mjs';
 import { fetchQuotes, fetchChart, fetchBars, fetchCorporateActions, fetchFundamentals, searchSymbols, fxSymbol } from './lib/quotes.mjs';
-import { CATEGORIES, OVERVIEW, TRACKERS, catalogInfo, searchCatalog } from './lib/catalog.mjs';
+import { CATEGORIES, MARKET_INDEXES, OVERVIEW, PRODUCTS, SUBS, TRACKERS, catalogInfo, searchCatalog, subPicks } from './lib/catalog.mjs';
 import { brandIcon, brandLogo } from './lib/brands.mjs';
 import { tvLogos } from './lib/tvlogos.mjs';
 import { TV_ROUND } from './lib/tvround.mjs';
@@ -77,10 +77,10 @@ const state = {
   loaded: false,
   error: null,
   updated: 0,
-  // The 市場 tab's list (null: browsing, today's movers and the lists).
+  // The 市場 tab's list (a product's list, catalog.mjs SUBS; null: 總覽).
   category: null,
-  // A market's full list open (browseHtml): {cat, kind, n}.
-  browse: null,
+  // How far the open list is shown: {sub, n}.
+  shown: null,
   // The tool sheet open (alloc, income, plans, alerts, rates, loans, credit, td, lend).
   tool: null,
   query: '',
@@ -265,11 +265,16 @@ const fundLine = s => fundParts(state.quotes.get(s)?.name || listingName.get(s) 
 const bareSymbol = s => (METALS[s] ? s : stockMarkets.isFuture?.(s) || stockMarkets.isOption?.(s) ? s.slice(0, -3) : stockMarkets.isTwFund?.(s) ? fundLine(s) : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1'));
 const kindLabel = kind => t(`kind_${kind}`);
 const marketLabel = id => L(MARKETS[id] || MARKETS.INTL);
+// (Taiwan's other products by what they are, not where: a fund, a future, a warrant…)
+const productTag = s =>
+  stockMarkets.isTwFund?.(s) ? 'kind_fund' : stockMarkets.isFuture?.(s) ? 'kind_fut' : stockMarkets.isOption?.(s) ? 'kind_opt' : isWarrantSym(s) ? 'kind_warrant' : stockMarkets.isCb?.(s) ? 'kind_cb' : stockMarkets.isEmerging?.(s) ? 'tagEmerging' : '';
 const flagOf = (symbol, q) => {
   const info = q || state.quotes.get(symbol);
   if (info?.kind === 'index' || info?.kind === 'future' || info?.kind === 'fx') {
     return '';
   }
+  const tag = productTag(symbol);
+  if (tag) return `<span class="mkt-tag">${h(t(tag))}</span>`;
   // (A Taiwan listing with no quote yet: still 台股.)
   const market = info?.market || (/\.TWO?$/.test(symbol) ? 'TW' : null);
   const id = BONDS[symbol] ? 'US' : MARKETS[market] ? market : 'INTL';
@@ -300,7 +305,7 @@ function unitOf(symbol) {
   if (BONDS[symbol]) return t('bondsUnit');
   // A currency pair is counted in its first currency (EUR/USD: euros).
   if (/^[A-Z]{6}=X$/.test(symbol)) return symbol.slice(0, 3);
-  const kind = state.quotes.get(symbol)?.kind || catalogInfo(symbol)?.kind;
+  const kind = kindOf(symbol, state.quotes.get(symbol));
   if (kind === 'crypto' || /-USD$/.test(symbol)) return symbol.replace(/-USD$/, '');
   if (kind === 'fut' || kind === 'opt') return t('contracts');
   return kind === 'fund' || kind === 'cb' || kind === 'warrant' ? t('units') : t('shares');
@@ -342,23 +347,15 @@ function coreSymbols() {
 }
 
 function listSymbols() {
-  const cat = state.category ? categoryOf(state.category) : null;
-  if (cat && browsing()) return browseRows().slice(0, state.browse.n);
-  return cat ? cat.items.map(i => i[0]) : [];
+  const sub = state.category ? subOf(state.category) : null;
+  if (!sub) return [...MARKET_INDEXES];
+  return (subSymbols(sub) || []).slice(0, sub.view ? Infinity : shownOf(sub));
 }
 
 // Every security each market lists (scripts/listings.mjs): fetched the first
-// time its 全部 list is opened or a search needs it, never at start.
-// Rows are [symbol, name, kind letter].
-const LISTING_OF = { tw: 'tw', twetf: 'tw', bond: 'tw', us: 'us', usetf: 'us', jp: 'jp', hk: 'hk', fund: 'fund' };
-const LISTING_KIND = { tw: 's', twetf: 'e', bond: 'b', us: 's', usetf: 'e', jp: 's', hk: 's', fund: 'q' };
-// (Taiwan's funds by SITCA's type: equity, bond, balanced, multi-asset, fund of
-// funds, index, money market, other; their rows carry the fund house too.)
-const LISTING_KINDS = ['s', 'e', 'b', 'n', 'r', 'd', 'p', 'm', 'c', 'w', 'x', 'q', 'y', 'l', 'u', 'o', 'i', 'k', 'z'];
-// Warrants and 牛熊證 (some 50,000) are a list of their own, read when asked
-// for: [symbol, name, kind, last trading day YYMMDD].
-const WARRANT_KINDS = new Set(['w', 'x']);
-const listingOf = (cat, kind) => (LISTING_OF[cat] === 'tw' && WARRANT_KINDS.has(kind) ? 'tww' : LISTING_OF[cat]);
+// time a list of it is opened or a search needs it, never at start.
+// Rows are [symbol, name, kind letter]. Warrants and 牛熊證 (some 50,000)
+// are a list of their own (tww): [symbol, name, kind, last trading day YYMMDD].
 const isWarrantSym = s => Boolean(stockMarkets.isWarrant?.(s));
 // A warrant's last trading day's 13:30 close, from its list (null till that's read).
 function warrantLast(symbol) {
@@ -368,6 +365,8 @@ function warrantLast(symbol) {
 }
 const listings = new Map();
 const listingName = new Map();
+// Each listing's kind letter by symbol (a list's picks keep to its kinds).
+const listingKind = new Map();
 const fundHouse = new Map();
 const listingLoads = new Map();
 function loadListing(market) {
@@ -378,8 +377,11 @@ function loadListing(market) {
         .then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
         .then(rows => {
           listings.set(market, rows);
-          for (const [sym, name, , house] of rows) {
+          const kinds = new Map();
+          listingKind.set(market, kinds);
+          for (const [sym, name, kind, house] of rows) {
             listingName.set(sym, name);
+            kinds.set(sym, kind);
             if (market === 'fund' && house) fundHouse.set(sym, house);
           }
           return rows;
@@ -392,8 +394,6 @@ function loadListing(market) {
   }
   return listingLoads.get(market);
 }
-const browsing = () => state.browse?.cat === state.category && Boolean(LISTING_OF[state.category]);
-const browseRows = () => (listings.get(listingOf(state.category, state.browse.kind)) || []).filter(r => r[2] === state.browse.kind).map(r => r[0]);
 // A search in Chinese or Japanese reads Hong Kong's, Japan's and the funds' lists too
 // (Yahoo has their names in English only); any list already here is read as well.
 const NEEDS_LISTINGS = q => [...(/[^\x20-\x7e]/.test(q) ? ['hk', 'jp', 'fund'] : []), ...(/[購售牛熊]/.test(q) || /^(0[3-8]\d{3}[0-9A-Z]|7\d{4}[0-9A-Z])$/i.test(q) ? ['tww'] : [])];
@@ -465,8 +465,13 @@ async function ensureRates(currencies) {
 }
 
 let refreshing = null;
+// (A list asked for while a refresh runs is read straight after it.)
+let refreshAgain = false;
 async function refresh({ list = false } = {}) {
-  if (refreshing) return refreshing;
+  if (refreshing) {
+    refreshAgain ||= list;
+    return refreshing;
+  }
   refreshing = (async () => {
     const symbols = coreSymbols();
     const now = Date.now();
@@ -495,6 +500,10 @@ async function refresh({ list = false } = {}) {
       setBusy(false);
       refreshing = null;
       render();
+      if (refreshAgain) {
+        refreshAgain = false;
+        refresh({ list: true });
+      }
     }
   })();
   return refreshing;
@@ -1231,9 +1240,12 @@ const saveLogos = () => {
     } catch {}
   }, 1000);
 };
+// What a symbol is, before its quote has come: the catalogue's word, else its code's (a fund, a warrant…).
+const SYM_KIND = { kind_fund: 'fund', kind_fut: 'fut', kind_opt: 'opt', kind_warrant: 'warrant', kind_cb: 'cb' };
+const kindOf = (symbol, q) => q?.kind || catalogInfo(symbol)?.kind || SYM_KIND[productTag(symbol)] || 'stock';
 const SYM_MARK = { stock: 'bank', etf: 'grid', bond: 'bank', fund: 'wallet', crypto: 'coin', metal: 'coin', index: 'chart', fut: 'chart', opt: 'target', warrant: 'ticket', cb: 'shield', fx: 'exchange' };
 function symbolBadge(symbol, q) {
-  const kind = q?.kind || catalogInfo(symbol)?.kind || 'stock';
+  const kind = kindOf(symbol, q);
   const zh = twSymbol(symbol) ? catalogInfo(symbol)?.zh || twZhName(symbol) : null;
   const zhShort = zh ? zh.replace(kind === 'etf' ? /^(元大|富邦|國泰|群益|復華|統一|凱基|大華|中信|永豐|兆豐)/ : /[-*].*$/, '').slice(0, 2) : '';
   const text = BONDS[symbol] ? symbol.split('-')[1] : /^[A-Z]{6}=X$/.test(symbol) ? symbol.slice(0, 3) : zhShort || bareSymbol(symbol).replace(/-USD$/, '').replace(/^\^/, '').slice(0, 4);
@@ -1250,7 +1262,7 @@ function symbolBadge(symbol, q) {
 // A symbol's picture for a sheet's hero: the kit's logo tile with the whole list of pictures
 // (and the name's letter at the end); this app's round badge where the kit has no such tile.
 function heroLogo(symbol, q) {
-  const kind = q?.kind || catalogInfo(symbol)?.kind || 'stock';
+  const kind = kindOf(symbol, q);
   const urls = logoUrls(symbol, kind);
   const name = nameOf(symbol, q);
   if (!kitUI.logoTileHtml || !urls.length || /^[A-Z]{6}=X$/.test(symbol)) return symbolBadge(symbol, q);
@@ -1382,7 +1394,7 @@ const movePill = q => kitUI.movePillHtml(q && Number.isFinite(q.pct) ? q.pct * 1
 function stockRow(symbol, { sub = '' } = {}) {
   const q = state.quotes.get(symbol);
   const info = catalogInfo(symbol);
-  const kind = q?.kind || info?.kind || 'stock';
+  const kind = kindOf(symbol, q);
   const held = snap()?.positions[symbol];
   const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
   const logo = logoUrls(symbol, kind);
@@ -1419,15 +1431,8 @@ function renderHome() {
   // No balance here: it's 資產's (Jay 2026-10-21). Home is the market; an
   // overdraft still says so, as it needs doing.
   const hero = v && overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))}</button>` : '';
-  const actions = [
-    { icon: 'chart', tint: TINT.blue, label: t('qaBuy'), attrs: 'data-action="goto" data-tab="markets"' },
-    { icon: 'exchange', tint: TINT.orange, label: t('qaFx'), attrs: 'data-action="goto" data-tab="fx"' },
-    { icon: 'lock', tint: TINT.green, label: t('qaSave'), attrs: 'data-action="tool" data-tool="td"' },
-    { icon: 'grid', tint: TINT.purple, label: t('qaAlloc'), attrs: 'data-action="tool" data-tool="alloc"' }
-  ];
-  const grid = kitUI.actionGrid(actions.map(a => ({ icon: a.icon, tint: a.tint, label: a.label, onTap: null })));
-  grid.querySelectorAll('.q-action').forEach((b, i) => actions[i].attrs.split(/\s(?=data-)/).forEach(a => b.setAttribute(a.split('=')[0], a.split('=')[1].replace(/"/g, ''))));
-  const quick = grid.outerHTML;
+  // 商品: every product, the same tiles and order as 市場's bar; a tap opens it there.
+  const quick = `<div class="q-actions-grid prod-grid">${PRODUCTS.map(p => `<button class="q-action q-press" type="button" data-action="go-product" data-id="${h(p.id)}">${productTile(p.id)}<span>${h(L(p.short))}</span></button>`).join('')}</div>`;
   // 我的持股: a rail, each holding's picture, name, price and today's move.
   const positions = v ? [...v.positions].sort((a, b) => Math.abs(b.valueTWD) - Math.abs(a.valueTWD)).slice(0, 12) : [];
   const holdCard = p => {
@@ -1652,72 +1657,130 @@ async function checkIpoResults() {
   }
 }
 
-// ---- 市場: browse, search, today's movers -------------------------------------------------
+// ---- 市場: a product at a time (catalog.mjs PRODUCTS), its lists, search, today's movers ----
 
-// Each list's tile: a market by its flag, the rest by a glyph.
-const catLook = id =>
-  ({
-    watch: [ico('star'), TINT.orange],
-    tw: [curMark('TW'), TINT.red],
-    twetf: [ico('grid'), TINT.pink],
-    us: [curMark('US'), TINT.blue],
-    usetf: [ico('grid'), TINT.indigo],
-    govbond: [ico('book'), TINT.brown],
-    bond: [ico('list'), TINT.green],
-    crypto: [ico('coin'), TINT.orange],
-    fx: [ico('swap'), TINT.teal],
-    metal: [ico('coin'), '#c9a227'],
-    jp: [curMark('JP'), TINT.purple],
-    hk: [curMark('HK'), TINT.mint],
-    kr: [curMark('KR'), TINT.cyan],
-    eu: [curMark('EU'), TINT.blue],
-    fund: [ico('wallet'), TINT.indigo],
-    fut: [ico('chart'), TINT.purple],
-    opt: [ico('chart'), TINT.pink],
-    other: [ico('map'), TINT.gray],
-    index: [ico('chart'), TINT.gray]
-  })[id] || [ico('list'), TINT.gray];
-const catTile = (id, size = '') => tileHtml(...catLook(id), `cat-glyph${size ? ` ${size}` : ''}`);
-const watchCat = () => ({ id: 'watch', zh: '自選', en: 'Watchlist', items: watched(state.account).map(s => [s]) });
-// (選擇權: the chosen month's chain around the index, built from it.)
-const categoryOf = id => (id === 'watch' ? watchCat() : id === 'opt' ? optCat() : CATEGORIES.find(c => c.id === id));
-const optCat = () => ({ ...CATEGORIES.find(c => c.id === 'opt'), items: optSymbols().map(s => [s]) });
+// Each product's tile, on home and 市場 alike: Taiwan by its flag, the rest by a glyph.
+const PRODUCT_LOOK = {
+  all: [ico('grid'), TINT.gray],
+  watch: [ico('star'), TINT.orange],
+  tw: [curMark('TW'), TINT.red],
+  deriv: [ico('target'), TINT.purple],
+  intl: [ico('map'), TINT.blue],
+  fund: [ico('wallet'), TINT.indigo],
+  bonds: [ico('bank'), TINT.brown],
+  fx: [ico('swap'), TINT.teal],
+  gold: [ico('coin'), '#c9a227'],
+  crypto: [ico('coin'), TINT.orange]
+};
+const productTile = id => tileHtml(...(PRODUCT_LOOK[id] || [ico('list'), TINT.gray]), 'prod-tile');
+const WATCH = { id: 'watch', zh: '自選', en: 'Watchlist', subs: [{ id: 'watch', zh: '自選', en: 'Watchlist', product: 'watch' }] };
+const subOf = id => (id === 'watch' ? WATCH.subs[0] : SUBS.get(id) || null);
+const productOf = id => (id === 'watch' ? WATCH : PRODUCTS.find(p => p.id === id) || null);
+// The list each product last showed (its first till another is picked).
+const lastSub = new Map();
+// Open a product (its last list) or one of its lists; '' is 總覽.
+function goMarket(id, { sub = false } = {}) {
+  const s = sub ? subOf(id) : null;
+  const p = sub ? productOf(s?.product) : productOf(id);
+  state.category = s ? s.id : p ? lastSub.get(p.id) || p.subs[0].id : null;
+  if (p && state.category) lastSub.set(p.id, state.category);
+  // (Reopening the chain centres it on the money again.)
+  state.optCentred = null;
+  state.query = '';
+  $('search').value = '';
+  const now = subOf(state.category);
+  if (now?.listing) ensureListing(now);
+}
+const PAGE = 50;
+const shownOf = sub => (state.shown?.sub === sub.id ? state.shown.n : PAGE);
+const listFailed = new Set();
+function ensureListing(sub) {
+  if (listings.has(sub.listing)) return;
+  listFailed.delete(sub.listing);
+  loadListing(sub.listing)
+    .then(() => {
+      if (subOf(state.category)?.listing !== sub.listing) return;
+      renderMarkets();
+      refresh({ list: true });
+    })
+    .catch(() => {
+      listFailed.add(sub.listing);
+      if (subOf(state.category)?.listing === sub.listing) renderMarkets();
+    });
+}
+// A list's symbols: its picks, then the rest its market lists, by code (null:
+// a fund list till its listing is read, as its picks are sorted by it).
+function subSymbols(sub) {
+  if (sub.id === 'watch') return watched(state.account);
+  if (sub.view === 'opt') return optSymbols();
+  const rows = sub.listing ? listings.get(sub.listing) : null;
+  if (sub.listing && !rows && sub.product === 'fund') return null;
+  const kinds = rows ? listingKind.get(sub.listing) : null;
+  const picks = subPicks(sub).filter(s => !kinds?.has(s) || sub.kinds.includes(kinds.get(s)));
+  const rest = rows ? rows.filter(r => sub.kinds.includes(r[2]) && (!sub.only || sub.only(r[0]))).map(r => r[0]) : [];
+  return [...new Set([...picks, ...rest])];
+}
 
+// The product bar: 總覽, 自選 (when there are stars), then every product; the
+// open one's lists under it. The one way between them, on every 市場 screen.
+function productBar(on) {
+  const products = [{ id: '', zh: '總覽', en: 'Overview' }, ...(watched(state.account).length ? [WATCH] : []), ...PRODUCTS];
+  return `<div class="prod-bar" role="tablist">${products
+    .map(p => `<button class="prod q-press" type="button" role="tab" data-action="product" data-id="${h(p.id)}" aria-selected="${(on || '') === p.id}">${productTile(p.id || 'all')}<span>${h(L(p.short || p))}</span></button>`)
+    .join('')}</div>`;
+}
 function renderMarkets() {
   const box = $('markets-body');
   if (state.query) return renderSearch();
-  const watch = watched(state.account);
-  if (state.category === 'watch' && !watch.length) state.category = null;
-  const cats = [...(watch.length ? [watchCat()] : []), ...CATEGORIES.map(c => (c.id === 'opt' ? optCat() : c))];
-  if (!state.category) {
-    const grid = `<div class="cat-grid q-even3">${cats
-      .map(c => `<button class="cat q-press" type="button" data-action="cat" data-id="${h(c.id)}">${catTile(c.id)}<span class="cat-name q-fit">${h(L(c))}</span><small class="num">${c.items.length}</small></button>`)
-      .join('')}</div>`;
-    morph(box, `${sectionHtml(t('moversTitle'), moversHtml())}${sectionHtml(t('categoriesTitle'), grid)}`);
-    return;
-  }
-  const cat = categoryOf(state.category);
-  const symbols = cat.items.map(i => i[0]);
-  // A long list opens on its first rows; the rest a tap away.
-  const cap = state.listAll === state.category ? Infinity : LIST_SHOWN;
-  const more = symbols.length - Math.min(cap, symbols.length);
-  const chips = `<div class="q-chips bleed">${[{ id: '', zh: '全部', en: 'All' }, ...cats]
-    .map(c => `<button class="q-chip" type="button" data-action="cat" data-id="${h(c.id)}" aria-pressed="${state.category === c.id || (!c.id && !state.category)}">${h(L(c))}</button>`)
-    .join('')}</div>`;
-  const watchOnly = cat.id === 'index' || cat.id === 'metal' ? `<p class="foot-note">${h(t('watchOnlyNote'))}</p>` : '';
-  if (LISTING_OF[cat.id]) return morph(box, `${chips}${browseHtml(cat, symbols, cap, more)}`);
-  if (cat.id === 'opt') return morph(box, `${chips}${optChainHtml()}`);
-  morph(
-    box,
-    `${chips}${sectionHtml(
-      L(cat),
-      `<div class="q-rowcard quotes">${symbols.slice(0, cap).map(s => quoteRow(s)).join('') || `${plainEmpty(t('nothingHere'))}`}${more > 0 ? `<button class="list-more" type="button" data-action="list-all">${h(t('listAll', { n: symbols.length }))}</button>` : ''}</div>${watchOnly}`,
-      { cls: 'list-section' }
-    )}`
-  );
+  if (state.category === 'watch' && !watched(state.account).length) state.category = null;
+  const sub = state.category ? subOf(state.category) : null;
+  if (!sub) return morph(box, `${productBar('')}${overviewHtml()}`);
+  const product = productOf(sub.product);
+  const subs =
+    product.subs.length > 1
+      ? `<div class="q-chips bleed sub-chips">${product.subs.map(s => `<button class="q-chip" type="button" data-action="sub" data-id="${h(s.id)}" aria-pressed="${s.id === sub.id}">${h(L(s))}</button>`).join('')}</div>`
+      : '';
+  morph(box, `${productBar(product.id)}${subs}${sub.view === 'opt' ? optChainHtml() : listHtml(sub)}`);
 }
-const LIST_SHOWN = 30;
-const BROWSE_PAGE = 50;
+// A list, the same for every product: its rows fifty at a time, its count by its title.
+function listHtml(sub) {
+  const all = subSymbols(sub);
+  const failed = sub.listing && listFailed.has(sub.listing) && !listings.has(sub.listing);
+  if (!all) return `<section class="q-section list-section">${plainEmpty(failed ? t('browseFailed') : t('browseLoading'))}</section>`;
+  const shown = all.slice(0, shownOf(sub));
+  const left = all.length - shown.length;
+  const whole = !sub.listing || listings.has(sub.listing);
+  const tail =
+    left > 0
+      ? `<button class="list-more" type="button" data-action="list-more">${h(t('browseMore', { n: Math.min(left, PAGE), left: left.toLocaleString() }))}</button>`
+      : whole
+        ? ''
+        : `<p class="list-more list-wait">${h(failed ? t('browseFailed') : t('browseLoading'))}</p>`;
+  const note = sub.id === 'commodity' ? `<p class="foot-note">${h(t('watchOnlyNote'))}</p>` : '';
+  return sectionHtml(L(sub), `<div class="q-rowcard quotes">${shown.map(s => quoteRow(s)).join('') || (whole ? plainEmpty(t('nothingHere')) : '')}${tail}</div>${note}`, {
+    cls: 'list-section',
+    count: whole && all.length ? all.length.toLocaleString() : ''
+  });
+}
+// 總覽: the indexes, every product with what it holds, and today's movers.
+function overviewHtml() {
+  const idx = MARKET_INDEXES.map(sym => {
+    const q = state.quotes.get(sym);
+    return `<button class="q-rail-card idx-card q-press" type="button" data-action="open" data-symbol="${h(sym)}">
+      <small>${h(nameOf(sym, q))}</small>
+      <strong class="num" data-q-live="tile:${h(sym)}">${q ? qPrice(q) : '…'}</strong>
+      ${pctTag(q)}
+    </button>`;
+  }).join('');
+  const dir = PRODUCTS.map(
+    p =>
+      `<button class="q-ritem chevron" type="button" data-action="product" data-id="${h(p.id)}">${productTile(p.id)}<span class="q-ritem-text"><span class="q-ritem-title">${h(L(p))}</span><small>${h(t(`prodSub_${p.id}`))}</small></span></button>`
+  ).join('');
+  const mv = moversHtml();
+  return `${sectionHtml(t('indexesTitle'), `<div class="q-rail small idx-rail">${idx}</div>`)}
+    ${sectionHtml(t('productsTitle'), `<div class="q-rowcard prod-dir">${dir}</div>`)}
+    ${mv ? sectionHtml(t('moversTitle'), mv) : ''}`;
+}
 
 // ---- 選擇權 (TXO): a series' chain (a weekly or a month), calls and puts by strike ----
 // Strikes every 100 points within OPT_SPAN of the index, and every 50 within
@@ -1800,45 +1863,6 @@ function optChainHtml() {
     `<div class="opt-chain q-rowcard"><div class="opt-row opt-head"><span>${h(t('optCall'))}</span><span>${h(t('optStrike'))}</span><span>${h(t('optPut'))}</span></div>${rows}</div><p class="foot-note">${h(t('optChainNote'))}</p>`,
     { cls: 'list-section' }
   )}`;
-}
-
-// A market with its full list: 精選 (the catalogue's picks) or 全部 (all it
-// lists, a kind at a time, fifty rows at a time).
-function browseHtml(cat, symbols, cap, more) {
-  const market = LISTING_OF[cat.id];
-  const rows = listings.get(market);
-  const all = browsing();
-  const browse = seg([['', t('browsePicks')], ['all', rows ? t('browseAllN', { n: rows.length.toLocaleString() }) : t('browseAll')]], 'browse', 'v', v => v === (all ? 'all' : ''), 'browse-seg');
-  if (!all) {
-    return `${browse}${sectionHtml(L(cat), `<div class="q-rowcard quotes">${symbols.slice(0, cap).map(s => quoteRow(s)).join('')}${more > 0 ? `<button class="list-more" type="button" data-action="list-all">${h(t('listAll', { n: symbols.length }))}</button>` : ''}</div>`, { cls: 'list-section' })}`;
-  }
-  if (!rows) return `${browse}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
-  const counts = {};
-  for (const r of [...rows, ...(market === 'tw' ? listings.get('tww') || [] : [])]) counts[r[2]] = (counts[r[2]] || 0) + 1;
-  // (台股's warrants: a chip before their list is read, its count after.)
-  const offered = k => counts[k] || (market === 'tw' && WARRANT_KINDS.has(k));
-  const kinds = `<div class="q-chips bleed browse-kinds">${LISTING_KINDS.filter(offered)
-    .map(k => `<button class="q-chip" type="button" data-action="browse-kind" data-v="${k}" aria-pressed="${state.browse.kind === k}">${h(t(`listKind_${k}`))}${counts[k] ? ` <small class="num">${counts[k].toLocaleString()}</small>` : ''}</button>`)
-    .join('')}</div>`;
-  if (!listings.has(listingOf(cat.id, state.browse.kind))) return `${browse}${kinds}<section class="q-section list-section">${plainEmpty(state.browse.failed ? t('browseFailed') : t('browseLoading'))}</section>`;
-  const list = browseRows();
-  const shown = list.slice(0, state.browse.n);
-  const left = list.length - shown.length;
-  return `${browse}${kinds}<section class="q-section list-section"><div class="q-rowcard quotes">${shown.map(s => quoteRow(s)).join('') || plainEmpty(t('nothingHere'))}${left > 0 ? `<button class="list-more" type="button" data-action="browse-more">${h(t('browseMore', { n: Math.min(left, BROWSE_PAGE), left: left.toLocaleString() }))}</button>` : ''}</div><p class="foot-note">${h(market === 'fund' ? t('browseNoteFund') : t('browseNote'))}</p></section>`;
-}
-async function openBrowse(kind) {
-  const cat = state.category;
-  state.browse = { cat, kind: kind || LISTING_KIND[cat], n: BROWSE_PAGE };
-  renderMarkets();
-  try {
-    await Promise.all([loadListing(LISTING_OF[cat]), loadListing(listingOf(cat, state.browse.kind))]);
-  } catch {
-    if (state.browse?.cat === cat) state.browse.failed = true;
-    return renderMarkets();
-  }
-  if (state.browse?.cat !== cat) return;
-  renderMarkets();
-  refresh({ list: true });
 }
 
 // The markets with movers to show (three or more), and the one shown: the picked one,
@@ -3733,7 +3757,7 @@ function alertsHtml() {
 const keepParts = text => text.split(' · ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} ·` : x)}</span>`).join(' ');
 // 1,500 股 (1 張 500 股): Taiwan's stocks and ETFs, a lot or more.
 function lotsNote(p, q) {
-  const kind = q?.kind || catalogInfo(p.symbol)?.kind;
+  const kind = kindOf(p.symbol, q);
   const lots = (q?.market || p.market) === 'TW' && (kind === 'stock' || kind === 'etf') ? boardLots(p.qty) : null;
   if (!lots) return '';
   return ` (${lots.odd ? t('lotsOdd', { lots: fmtQty(lots.lots), odd: fmtQty(lots.odd) }) : t('lotsWhole', { lots: fmtQty(lots.lots) })})`;
@@ -5242,10 +5266,13 @@ document.addEventListener('click', async event => {
       else renderMarkets();
       break;
     // The home's 「交易中」 tag: that market's movers on 市場.
+    case 'go-product':
+      goMarket(el.dataset.id);
+      showTab('markets');
+      refresh({ list: true });
+      break;
     case 'open-watch':
-      state.category = 'watch';
-      state.query = '';
-      $('search').value = '';
+      goMarket('watch');
       showTab('markets');
       break;
     case 'movers-go':
@@ -5285,14 +5312,12 @@ document.addEventListener('click', async event => {
       renderMarkets();
       refresh({ list: true });
       break;
-    case 'cat':
-      state.category = el.dataset.id || null;
-      state.optCentred = null;
-      state.query = '';
-      $('search').value = '';
+    case 'product':
+    case 'sub':
+      goMarket(el.dataset.id, { sub: a === 'sub' });
       renderMarkets();
       window.scrollTo(0, 0);
-      if (state.category) refresh({ list: true });
+      refresh({ list: true });
       break;
     case 'cover': {
       // Sell what the plan says, at market, one order each.
@@ -5318,26 +5343,13 @@ document.addEventListener('click', async event => {
       render();
       break;
     }
-    case 'list-all':
-      state.listAll = state.category;
-      renderMarkets();
-      break;
-    case 'browse':
-      if (el.dataset.v) openBrowse();
-      else {
-        state.browse = null;
-        renderMarkets();
-      }
-      break;
-    case 'browse-kind':
-      openBrowse(el.dataset.v);
-      window.scrollTo(0, 0);
-      break;
-    case 'browse-more':
-      state.browse.n += BROWSE_PAGE;
+    case 'list-more': {
+      const sub = subOf(state.category);
+      state.shown = { sub: sub.id, n: shownOf(sub) + PAGE };
       renderMarkets();
       refresh({ list: true });
       break;
+    }
     case 'open':
       openDetail(el.dataset.symbol);
       break;
@@ -5494,9 +5506,7 @@ document.addEventListener('click', async event => {
       break;
     }
     case 'fx-trade':
-      state.category = 'fx';
-      state.query = '';
-      $('search').value = '';
+      goMarket('fx');
       closeSheets();
       showTab('markets');
       refresh({ list: true });

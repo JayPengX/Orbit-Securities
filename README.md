@@ -10,8 +10,14 @@ Live: https://jaypengx.github.io/Quadra-Securities/
 ## How it works
 
 - **Tabs:** 首頁, 市場, 資產, 資金, 紀錄.
-  - **首頁:** total, 為你推薦, movers, what's trading now, the world strip.
-  - **市場:** search and the curated lists (about 300 items).
+  - **首頁:** the world strip, the 8 product tiles, holdings, watchlist,
+    movers, 為你推薦, 新股申購, what's coming.
+  - **市場:** search, then one product bar (總覽, 自選, 台股, 期權, 複委託,
+    基金, 債券, 外匯, 黃金, 加密: `PRODUCTS` in `lib/catalog.mjs`) and the
+    open product's lists under it (台股: 上市, 上櫃, 興櫃, ETF, 權證, 牛熊證,
+    可轉債, 特別股・REITs…). Every list is the same: the curated picks, then
+    everything that market lists (`public/data/listings-*.json`), 50 rows at
+    a time. Home's tiles open the same places.
   - **資產:** net worth over time, allocation, positions, cash in every
     currency, income.
   - **資金:** exchange, the rates board, margin loans.

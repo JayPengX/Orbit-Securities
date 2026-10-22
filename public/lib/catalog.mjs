@@ -111,8 +111,8 @@ const BOND_ETFS = [
   ['BND', '美國整體債券', 'Vanguard Total Bond Market', 'bond'], ['AGG', 'iShares 美國綜合債', 'iShares Core US Agg Bond', 'bond'],
   ['LQD', '投資級公司債', 'iShares IG Corporate Bond', 'bond'], ['HYG', '高收益債', 'iShares High Yield Corp Bond', 'bond'],
   ['TIP', '抗通膨公債', 'iShares TIPS Bond', 'bond'], ['EMB', '新興市場債', 'iShares JPM EM Bond', 'bond'], ['BNDX', '國際債券', 'Vanguard Total Intl Bond', 'bond'],
-  ['^IRX', '美國13週國庫券殖利率', 'US 13-week T-bill yield'], ['^FVX', '美國5年公債殖利率', 'US 5-year yield'],
-  ['^TNX', '美國10年公債殖利率', 'US 10-year yield'], ['^TYX', '美國30年公債殖利率', 'US 30-year yield']
+  ['^IRX', '美債13週殖利率', 'US 13-week T-bill yield'], ['^FVX', '美債5年殖利率', 'US 5-year yield'],
+  ['^TNX', '美債10年殖利率', 'US 10-year yield'], ['^TYX', '美債30年殖利率', 'US 30-year yield']
 ];
 
 const JP = [
@@ -236,6 +236,81 @@ export const CATEGORIES = [
   { id: 'other', zh: '其他市場', en: 'More markets', icon: '🌏', items: OTHER },
   { id: 'index', zh: '指數', en: 'Indexes', icon: '📈', items: INDEXES }
 ];
+
+// 市場's two levels: a product, as a Taiwan broker's app sells them (its own
+// exchanges' securities, TAIFEX's futures and options, 複委託 abroad, funds,
+// bonds, forex, gold, crypto), and its lists. A list is the curated picks
+// (`cat`: a list above, `only`: which of its symbols) and then everything its
+// market lists (`listing`: the file, `kinds`: its kind letters, `only` again),
+// or a view of its own (`view`: the options chain). Home's product tiles are
+// these, in this order.
+const tw = s => /\.TW$/.test(s);
+const two = s => /\.TWO$/.test(s);
+const GOLD = new Set(['XAU', 'XAG', 'GLD', 'SLV', '00635U.TW']);
+export const PRODUCTS = [
+  {
+    id: 'tw', zh: '台股', en: 'Taiwan', short: { zh: '台股', en: 'Taiwan' },
+    subs: [
+      { id: 'twse', zh: '上市', en: 'TWSE', cat: 'tw', only: tw, listing: 'tw', kinds: 's' },
+      { id: 'tpex', zh: '上櫃', en: 'TPEx', cat: 'tw', only: two, listing: 'tw', kinds: 's' },
+      { id: 'esb', zh: '興櫃', en: 'Emerging', listing: 'tw', kinds: 'm' },
+      { id: 'twetf', zh: 'ETF', en: 'ETFs', cat: 'twetf', listing: 'tw', kinds: 'en' },
+      { id: 'warrant', zh: '權證', en: 'Warrants', listing: 'tww', kinds: 'w' },
+      { id: 'cbbc', zh: '牛熊證', en: 'Bull/bear', listing: 'tww', kinds: 'x' },
+      { id: 'cb', zh: '可轉債', en: 'Convertibles', listing: 'tw', kinds: 'c' },
+      { id: 'twmore', zh: '特別股・REITs', en: 'Preferred · REITs', listing: 'tw', kinds: 'prd' }
+    ]
+  },
+  {
+    id: 'deriv', zh: '期貨・選擇權', en: 'Futures · options', short: { zh: '期權', en: 'F&O' },
+    subs: [
+      { id: 'fut', zh: '台指期貨', en: 'TAIEX futures', cat: 'fut' },
+      { id: 'opt', zh: '台指選擇權', en: 'TAIEX options', view: 'opt' }
+    ]
+  },
+  {
+    id: 'intl', zh: '複委託', en: 'Overseas', short: { zh: '複委託', en: 'Overseas' },
+    subs: [
+      { id: 'us', zh: '美股', en: 'US', cat: 'us', listing: 'us', kinds: 's' },
+      { id: 'usetf', zh: '美國 ETF', en: 'US ETFs', cat: 'usetf', listing: 'us', kinds: 'e' },
+      { id: 'jp', zh: '日股', en: 'Japan', cat: 'jp', listing: 'jp', kinds: 'ser' },
+      { id: 'hk', zh: '港股', en: 'Hong Kong', cat: 'hk', only: s => s.endsWith('.HK'), listing: 'hk', kinds: 'ser' },
+      { id: 'cn', zh: '陸股', en: 'China A', cat: 'hk', only: s => /\.S[SZ]$/.test(s) },
+      { id: 'kr', zh: '韓股', en: 'Korea', cat: 'kr' },
+      { id: 'eu', zh: '歐股', en: 'Europe', cat: 'eu' },
+      { id: 'other', zh: '其他', en: 'More', cat: 'other' }
+    ]
+  },
+  {
+    id: 'fund', zh: '基金', en: 'Funds', short: { zh: '基金', en: 'Funds' },
+    subs: [
+      ['q', '股票型', 'Equity'], ['y', '債券型', 'Bond'], ['l', '平衡型', 'Balanced'], ['u', '多重資產', 'Multi-asset'],
+      ['o', '組合型', 'Fund of funds'], ['i', '指數型', 'Index'], ['k', '貨幣市場', 'Money market'], ['z', '其他', 'Other']
+    ].map(([k, zh, en]) => ({ id: `fund${k}`, zh, en, cat: 'fund', listing: 'fund', kinds: k }))
+  },
+  {
+    id: 'bonds', zh: '債券', en: 'Bonds', short: { zh: '債券', en: 'Bonds' },
+    subs: [
+      { id: 'govbond', zh: '公債', en: 'Government', cat: 'govbond' },
+      { id: 'twbond', zh: '台灣債券 ETF', en: 'Taiwan bond ETFs', cat: 'bond', only: two, listing: 'tw', kinds: 'b' },
+      { id: 'usbond', zh: '美國債券 ETF', en: 'US bond ETFs', cat: 'bond', only: s => !/\.TWO$|^\^/.test(s) }
+    ]
+  },
+  { id: 'fx', zh: '外匯', en: 'Forex', short: { zh: '外匯', en: 'Forex' }, subs: [{ id: 'fx', zh: '外匯', en: 'Forex', cat: 'fx' }] },
+  {
+    id: 'gold', zh: '黃金・原物料', en: 'Gold · commodities', short: { zh: '黃金', en: 'Gold' },
+    subs: [
+      { id: 'gold', zh: '黃金・白銀', en: 'Gold · silver', cat: 'metal', only: s => GOLD.has(s), extra: ['00635U.TW'] },
+      { id: 'commodity', zh: '原物料', en: 'Commodities', cat: 'metal', only: s => !GOLD.has(s), extra: ['00642U.TW'] }
+    ]
+  },
+  { id: 'crypto', zh: '加密貨幣', en: 'Crypto', short: { zh: '加密', en: 'Crypto' }, subs: [{ id: 'crypto', zh: '加密貨幣', en: 'Crypto', cat: 'crypto' }] }
+];
+export const SUBS = new Map(PRODUCTS.flatMap(p => p.subs.map(s => [s.id, { ...s, product: p.id }])));
+// A list's curated picks: its list's symbols it takes, then its extras.
+export const subPicks = sub => [...new Set([...(CATEGORIES.find(c => c.id === sub.cat)?.items || []).map(i => i[0]).filter(s => !sub.only || sub.only(s)), ...(sub.extra || [])])];
+// 總覽's indexes: the world's, then the yields.
+export const MARKET_INDEXES = [...INDEXES.map(i => i[0]), '^IRX', '^FVX', '^TNX', '^TYX'];
 
 // The overview strip at the top of the markets tab.
 export const OVERVIEW = ['^TWII', '^GSPC', '^IXIC', '^SOX', '^N225', '^HSI', 'BTC-USD', 'USDTWD=X', 'XAU', '^TNX'];
