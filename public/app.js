@@ -3756,12 +3756,13 @@ function alertsHtml() {
 // A ' · ' line that wraps between its parts, never inside one (an amount left
 // alone on a line), each '·' kept with the part before it (no line starts with one).
 const keepParts = text => text.split(' · ').map((x, i, all) => `<span class="keep">${h(i < all.length - 1 ? `${x} ·` : x)}</span>`).join(' ');
-// 1,500 股 (1 張 500 股): Taiwan's stocks and ETFs, a lot or more.
-function lotsNote(p, q) {
+// How many held: 1 張 500 股 for Taiwan's stocks and ETFs a lot or more (as
+// brokers write it, and one line with the worth beside it), else 1,500 股.
+function heldQtyText(p, q) {
   const kind = kindOf(p.symbol, q);
   const lots = (q?.market || p.market) === 'TW' && (kind === 'stock' || kind === 'etf') ? boardLots(p.qty) : null;
-  if (!lots) return '';
-  return ` (${lots.odd ? t('lotsOdd', { lots: fmtQty(lots.lots), odd: fmtQty(lots.odd) }) : t('lotsWhole', { lots: fmtQty(lots.lots) })})`;
+  if (!lots) return `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}`;
+  return lots.odd ? t('lotsOdd', { lots: fmtQty(lots.lots), odd: fmtQty(lots.odd) }) : t('lotsWhole', { lots: fmtQty(lots.lots) });
 }
 // 除息 / 除權 / 除權息 on a holding on its ex-date, as brokers mark it.
 function exTagHtml(symbol) {
@@ -3789,7 +3790,7 @@ function positionRow(p, sort = 'value') {
     exTagHtml(p.symbol),
     alertTag(p.symbol)
   ].join('');
-  const qty = p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : `${fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}${lotsNote(p, q)}`;
+  const qty = p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : heldQtyText(p, q);
   // Money made or lost in NT$ (today's under 今日, since bought otherwise), its % as the tag; the worth goes left.
   const net = netPl(p);
   const [x, xPct] = sort === 'day' ? [p.dayTWD, p.dayPct] : [net.pl, net.pct];
