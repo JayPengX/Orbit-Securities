@@ -205,6 +205,18 @@ const FUTS = markets.futureMonths
     )
   : [];
 
+// TAIFEX's 股票期貨 and ETF期貨 (an older kit: none): each contract's nearest
+// month, the best-known stocks' first (in 台股's order), a 小型 after its full size.
+const twRank = new Map(TW.map(([s], i) => [s, i]));
+const SSF = (markets.stockFutureCodes?.() || [])
+  .map(code => markets.futureMonths(code, Date.now(), 1)[0])
+  .filter(Boolean)
+  .map(symbol => ({ symbol, f: markets.futureOf(symbol) }))
+  .sort((a, b) => (twRank.get(a.f.underlying) ?? 1e4) - (twRank.get(b.f.underlying) ?? 1e4) || a.f.underlying.localeCompare(b.f.underlying) || b.f.mult - a.f.mult)
+  .map(({ symbol, f }) => [[symbol, `${f.zh} ${f.month}月`, `${f.en} ${MONTH_EN[f.month - 1]}`, 'fut'], f.etf]);
+const SSF_STOCK = SSF.filter(([, etf]) => !etf).map(([item]) => item);
+const SSF_ETF = SSF.filter(([, etf]) => etf).map(([item]) => item);
+
 const GOV_BONDS = Object.values(BONDS).map(b => [b.id, bondName(b, 'zh'), bondName(b, 'en'), 'govbond']);
 
 const INDEXES = [
@@ -231,6 +243,7 @@ export const CATEGORIES = [
   { id: 'eu', zh: '歐股', en: 'Europe', icon: '🇪🇺', items: EU },
   { id: 'fund', zh: '基金', en: 'Funds', icon: '🗂️', items: FUNDS },
   ...(FUTS.length ? [{ id: 'fut', zh: '期貨', en: 'Futures', icon: '📉', items: FUTS }] : []),
+  ...(SSF_STOCK.length ? [{ id: 'ssf', zh: '個股期貨', en: 'Stock futures', icon: '📉', items: SSF_STOCK }, { id: 'etffut', zh: 'ETF 期貨', en: 'ETF futures', icon: '📉', items: SSF_ETF }] : []),
   // (Its chain is built in the app around the index: app.js optCat.)
   ...(markets.optionMonths ? [{ id: 'opt', zh: '選擇權', en: 'Options', icon: '🎯', items: [] }] : []),
   { id: 'other', zh: '其他市場', en: 'More markets', icon: '🌏', items: OTHER },
@@ -265,6 +278,7 @@ export const PRODUCTS = [
     id: 'deriv', zh: '期貨・選擇權', en: 'Futures · options', short: { zh: '期權', en: 'F&O' },
     subs: [
       { id: 'fut', zh: '台指期貨', en: 'TAIEX futures', cat: 'fut' },
+      ...(SSF_STOCK.length ? [{ id: 'ssf', zh: '個股期貨', en: 'Stock futures', cat: 'ssf' }, { id: 'etffut', zh: 'ETF 期貨', en: 'ETF futures', cat: 'etffut' }] : []),
       { id: 'opt', zh: '台指選擇權', en: 'TAIEX options', view: 'opt' }
     ]
   },
@@ -342,7 +356,7 @@ const SAME = [
   ['yield', '殖利率', '收益率']
 ];
 // What a thing is, searched too ("dividend etf", 台股 台積): its list's words.
-const KIND_WORDS = { tw: '台股 stock', twetf: 'etf 台灣etf', us: '美股 stock', usetf: 'etf 美國etf', govbond: '公債 bond', bond: 'etf 債券 bond', crypto: '加密 crypto', fx: '外匯 forex', metal: '原物料 commodity', jp: '日股 stock', hk: '港股 陸股 stock', kr: '韓股 stock', eu: '歐股 stock', fund: '基金 fund', index: '指數 index' };
+const KIND_WORDS = { tw: '台股 stock', twetf: 'etf 台灣etf', us: '美股 stock', usetf: 'etf 美國etf', govbond: '公債 bond', bond: 'etf 債券 bond', crypto: '加密 crypto', fx: '外匯 forex', metal: '原物料 commodity', jp: '日股 stock', hk: '港股 陸股 stock', kr: '韓股 stock', eu: '歐股 stock', fund: '基金 fund', index: '指數 index', fut: '期貨 futures', ssf: '期貨 個股期 futures', etffut: '期貨 etf futures' };
 const has = (hay, w) => (/^[a-z ]+$/.test(w) ? new RegExp(`(^|[^a-z])${w}([^a-z]|$)`).test(hay) : hay.includes(w));
 const matches = (hay, w) => hay.includes(w) || SAME.some(g => g.includes(w) && g.some(x => has(hay, x)));
 

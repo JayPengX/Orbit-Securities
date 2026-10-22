@@ -15,7 +15,8 @@ Live: https://jaypengx.github.io/Quadra-Securities/
   - **市場:** search, then one product bar (總覽, 自選, 台股, 期權, 複委託,
     基金, 債券, 外匯, 黃金, 加密: `PRODUCTS` in `lib/catalog.mjs`) and the
     open product's lists under it (台股: 上市, 上櫃, 興櫃, ETF, 權證, 牛熊證,
-    可轉債, 特別股・REITs…). Every list is the same: the curated picks, then
+    可轉債, 特別股・REITs…; 期權: 台指期貨, 個股期貨, ETF 期貨,
+    台指選擇權). Every list is the same: the curated picks, then
     everything that market lists (`public/data/listings-*.json`), 50 rows at
     a time. Home's tiles open the same places.
   - **資產:** net worth over time, allocation, positions, cash in every

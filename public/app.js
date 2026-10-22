@@ -291,11 +291,13 @@ const curMark = c => {
 };
 // A quote's price as shown: a future in whole index points, an option's
 // premium in points to its tick (a tenth at most).
-const ptsOf = kind => (kind === 'fut' ? x => num(x, 0, 0) : kind === 'opt' ? x => num(x, 1, 0) : null);
-const qAmt = (q, x) => (ptsOf(q.kind) ? ptsOf(q.kind)(x) : fmtPrice(x, q.currency));
+// (A stock's future is in NT$ a share, as its stock.)
+const isSsf = s => Boolean(stockMarkets.futureOf?.(s)?.stock);
+const ptsOf = (kind, symbol = '') => (kind === 'fut' && !isSsf(symbol) ? x => num(x, 0, 0) : kind === 'opt' ? x => num(x, 1, 0) : null);
+const qAmt = (q, x) => (ptsOf(q.kind, q.symbol) ? ptsOf(q.kind, q.symbol)(x) : fmtPrice(x, q.currency));
 const qPrice = q => qAmt(q, q.price);
 // A future's or option's unit is index points, not NT$.
-const qUnit = q => (ptsOf(q.kind) ? t('futPoints') : q.currency);
+const qUnit = q => (ptsOf(q.kind, q.symbol) ? t('futPoints') : q.currency);
 const isTaifex = s => Boolean(stockMarkets.isFuture?.(s) || stockMarkets.isOption?.(s));
 const expiryOf = s => (stockMarkets.isOption?.(s) ? stockMarkets.optionExpiry(s) : stockMarkets.futureExpiry(s));
 const futLastDay = symbol => t('futLastDay', { date: shortDate(expiryOf(symbol)) });
@@ -848,8 +850,7 @@ async function settleFutures() {
   if (futs.some(p => now >= stockMarkets.futureExpiry(p.symbol))) {
     const table = await stockQuotes.fetchFutTable().catch(() => null);
     for (const p of futs) {
-      const f = stockMarkets.futureOf(p.symbol);
-      const final = table?.final?.[`${f.year}${String(f.month).padStart(2, '0')}`];
+      const final = stockMarkets.futFinal ? stockMarkets.futFinal(p.symbol, table) : table?.final?.[p.symbol.slice(-9, -3)];
       const r = stockAccount.applyFutExpiry(account, p.symbol, final, { now });
       if (!r.added.length) continue;
       account = r.account;
@@ -1082,7 +1083,7 @@ function marketRules(q) {
   if (q.kind === 'fut') {
     const f = stockMarkets.futureOf(q.symbol);
     const [im, mm] = stockAccount.futMargin(q.symbol, q);
-    return [t('ruleFut', { mult: money(f.mult, BASE), im: money(im, BASE), mm: money(mm, BASE) }), t('ruleFutExpiry', { date: fmtDate(stockMarkets.futureExpiry(q.symbol)) }), t('ruleDayOrder')].join(' · ');
+    return [f.stock ? t('ruleSsf', { n: fmtQty(f.mult), unit: t(f.etf ? 'units' : 'shares'), im: money(im, BASE), mm: money(mm, BASE) }) : t('ruleFut', { mult: money(f.mult, BASE), im: money(im, BASE), mm: money(mm, BASE) }), t('ruleFutExpiry', { date: fmtDate(stockMarkets.futureExpiry(q.symbol)) }), t('ruleDayOrder')].join(' · ');
   }
   const parts = [];
   const lot = lotSize(q.market, q.symbol, q.kind);
@@ -2188,7 +2189,7 @@ function renderChart() {
     return;
   }
   const cur = q?.currency || d.chart?.quote?.currency;
-  const pts = ptsOf(isTaifex(d.symbol) ? (stockMarkets.isOption?.(d.symbol) ? 'opt' : 'fut') : '');
+  const pts = ptsOf(isTaifex(d.symbol) ? (stockMarkets.isOption?.(d.symbol) ? 'opt' : 'fut') : '', d.symbol);
   const intraday = d.range === '1d' || d.range === '5d';
   const base = d.range === '1d' && q && q.kind !== 'crypto' ? q.prev : points[0][1];
   const dir = dirClass(points.at(-1)[1] - base);
@@ -2290,7 +2291,7 @@ function factsHtml(q) {
     [t('prevClose'), qAmt(q, q.prev)],
     ...(priceLimits(q) ? [[t('limitPrices'), `${fmtPrice(priceLimits(q).up, q.currency)} / ${fmtPrice(priceLimits(q).down, q.currency)}`]] : []),
     // (A fund has a NAV a day: no range or volume.)
-    ...(q.kind === 'fut' && Number.isFinite(q.basis) ? [[t('futBasis'), `${q.basis > 0 ? '+' : ''}${num(q.basis, 0, 0)}`], [t('futValue1'), money(q.price * stockMarkets.futMult(q.symbol), BASE)], [t('futExpiryFact'), fmtDate(stockMarkets.futureExpiry(q.symbol))]] : []),
+    ...(q.kind === 'fut' && Number.isFinite(q.basis) ? [[t(isSsf(q.symbol) ? 'futBasisStock' : 'futBasis'), `${q.basis > 0 ? '+' : q.basis < 0 ? '−' : ''}${qAmt(q, Math.abs(q.basis))}`], [t('futValue1'), money(q.price * stockMarkets.futMult(q.symbol), BASE)], [t('futExpiryFact'), fmtDate(stockMarkets.futureExpiry(q.symbol))]] : []),
     ...(q.kind === 'opt'
       ? [
           [t('optUnderlying'), num(q.underlying, 0, 0)],
@@ -3079,7 +3080,7 @@ function renderFutTicket(box, d, q) {
   const presets = [...(closable ? [[t('futCloseAll'), closable]] : []), [t('max'), max], ['1', 1], ['2', 2], ['5', 5]].filter(([, v]) => v > 0);
   const lines = est
     ? [
-        [t('estPrice'), num(est.price, 0, 0)],
+        [t('estPrice'), qAmt(q, est.price)],
         [t('futValue'), money(est.price * f.mult * qty, BASE)],
         ...(opening ? [[t('futMarginLine', { n: fmtQty(opening) }), money(opening * im, BASE)], [t('futMmLine'), money(opening * mm, BASE)]] : []),
         ...(est.commission ? [[t('commission'), money(est.commission, BASE)]] : []),
@@ -3095,7 +3096,7 @@ function renderFutTicket(box, d, q) {
   morph(
     box,
     `<div class="ticket">
-      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: bareSymbol(d.symbol), big: qPrice(q), sub: `${t('futPoints')} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${num(Math.abs(q.change), 0, 0)} (${pct(q.pct)})`, tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)' })}
+      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: bareSymbol(d.symbol), big: qPrice(q), sub: `${qUnit(q)} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${qAmt(q, Math.abs(q.change))} (${pct(q.pct)})`, tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)' })}
       <div class="q-seg side-toggle" role="group">
         <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(futSide('buy', held))}</button>
         <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(futSide('sell', held))}</button>
@@ -3103,12 +3104,12 @@ function renderFutTicket(box, d, q) {
       ${seg(['market', 'limit'].map(x => [x, t(`otype_${x}`)]), 'otype', 'otype', v => d.type === v)}
       <div class="ticket-fields">
         <div class="q-stake ticket-stake" style="--n:${presets.length || 1}"><label class="q-stake-amt"><small>${h(t('quantity'))} · ${h(unit)}</small><input id="t-qty" class="num" inputmode="numeric" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>${presets.length ? `<div class="q-stake-presets">${presets.map(([label, v]) => `<button type="button" data-action="qty" data-qty="${v}" aria-pressed="${Number(d.qty) === v}">${h(label)}</button>`).join('')}</div>` : ''}</div>
-        ${d.type === 'limit' ? `<label class="big-field"><span>${h(t('limitPrice'))}<em>${h(t('futPoints'))}</em></span><input id="t-limit" class="num" inputmode="numeric" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
+        ${d.type === 'limit' ? `<label class="big-field"><span>${h(t('limitPrice'))}<em>${h(qUnit(q))}</em></span><input id="t-limit" class="num" inputmode="${f.stock ? 'decimal' : 'numeric'}" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
       </div>
       <div class="q-tags ticket-tags">
         <span class="q-tag">${h(t('cashAvail', { amount: money(cash, BASE) }))}</span>
         <span class="q-tag">${h(t('optDueTag', { date: shortDate(expiry) }))}</span>
-        <span class="q-tag">${h(t('perPoint', { mult: money(f.mult, BASE) }))}</span>
+        <span class="q-tag">${h(f.stock ? t('perContract', { n: fmtQty(f.mult), unit: t(f.etf ? 'units' : 'shares') }) : t('perPoint', { mult: money(f.mult, BASE) }))}</span>
         ${held ? `<span class="q-tag">${h(t(held > 0 ? 'futHeldLong' : 'futHeldShort', { n: fmtQty(Math.abs(held)) }))}</span>` : ''}
       </div>
       ${
