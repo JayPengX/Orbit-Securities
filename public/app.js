@@ -1993,7 +1993,7 @@ const QUOTE_FRESH_MS = 25_000;
 const ABOUT_KINDS = new Set(['stock', 'etf', 'bond', 'fund']);
 async function loadAbout(symbol) {
   const q = state.quotes.get(symbol);
-  if (!q || !ABOUT_KINDS.has(q.kind) || BONDS[symbol] || q.market === 'TWFUND') return;
+  if (!q || !ABOUT_KINDS.has(q.kind) || BONDS[symbol]) return;
   const have = state.about.get(symbol);
   if (have && (have.loading || Date.now() - have.at < 30 * 60_000)) return;
   state.about.set(symbol, { loading: true, at: Date.now() });
@@ -2576,11 +2576,13 @@ const RATINGS = ['strong_buy', 'buy', 'hold', 'underperform', 'sell'];
 const compactMoney = (x, cur) => `${currencyInfo(cur).symbol || `${cur} `}${compact(x)}`;
 
 function aboutHtml(symbol, q) {
-  if (!ABOUT_KINDS.has(q.kind) || BONDS[symbol] || q.market === 'TWFUND') return '';
+  if (!ABOUT_KINDS.has(q.kind) || BONDS[symbol]) return '';
   const a = state.about.get(symbol);
+  // (A Taiwan fund not found where its profile comes from: no empty fold.)
+  if (q.market === 'TWFUND' && a && !a.loading && !a.facts) return '';
   const fund = q.kind !== 'stock';
   const icon = fund ? tileHtml(ico('grid'), TINT.indigo, 'sm') : tileHtml(ico('chart'), TINT.blue, 'sm');
-  const title = fund ? t('aboutFund') : t('aboutCompany');
+  const title = q.market === 'TWFUND' ? t('aboutTwFund') : fund ? t('aboutFund') : t('aboutCompany');
   if (!a || a.loading) return fold(icon, title, `<p class="foot-note">${h(t('aboutLoading'))}</p>`, true, 'about');
   const f = a.facts;
   const body = !f ? `<p class="foot-note">${h(t('aboutNone'))}</p>` : fund ? fundAboutHtml(f, q, a) : stockAboutHtml(f, q, a);
@@ -2733,15 +2735,21 @@ function fundAboutHtml(f, q, a) {
   const top = f.holdings?.[0]?.weight || 0;
   const top10 = (f.holdings || []).reduce((sum, x) => sum + x.weight, 0);
   const v = [];
+  // A Taiwan fund's 風險收益等級 (RR1–RR5), as its prospectus and every platform show it.
+  if (f.risk) v.push(verdict(t('vRisk'), t(f.risk <= 2 ? 'vRiskLow' : f.risk === 3 ? 'vRiskMid' : 'vRiskHigh'), f.risk <= 2 ? 'good' : f.risk === 3 ? 'mid' : 'warn', t('vRiskLine', { n: f.risk })));
   if (f.expenseRatio != null) v.push(verdict(t('vCost'), f.expenseRatio < 0.002 ? t('vVeryCheap') : f.expenseRatio < 0.006 ? t('vOk') : t('vPricey'), f.expenseRatio < 0.002 ? 'good' : f.expenseRatio < 0.006 ? 'mid' : 'warn', t('vCostYear', { v: pct(f.expenseRatio, { sign: false, digits: 2 }) })));
   if (sizeTwd) v.push(verdict(t('vSize'), sizeTwd > 3e10 ? t('vBig') : sizeTwd > 3e9 ? t('vMid') : t('vSmall'), sizeTwd > 3e10 ? 'good' : sizeTwd > 3e9 ? 'mid' : 'warn', compactMoney(sizeTwd, BASE)));
   if (f.holdings?.length) v.push(verdict(t('vSpread'), top > 0.3 || top10 > 0.65 ? t('vConcentrated') : t('vDiversified'), top > 0.3 || top10 > 0.65 ? 'warn' : 'good', t('top10Share', { pct: pct(top10, { sign: false, digits: 0 }) })));
-  v.push(verdict(t('vDividend'), !f.dividendYield ? t('vNoDiv') : [t('vSmallDiv'), t('vSomeDiv'), t('vHighDiv')][band(f.dividendYield, 0.01, 0.04)], !f.dividendYield ? 'info' : ['info', 'mid', 'good'][band(f.dividendYield, 0.01, 0.04)], `${t('divYield')} ${pct(f.dividendYield || 0, { sign: false })}`));
+  // (A Taiwan fund: whether it pays is its 收益分配 below; no yield is known.)
+  if (q.market !== 'TWFUND') v.push(verdict(t('vDividend'), !f.dividendYield ? t('vNoDiv') : [t('vSmallDiv'), t('vSomeDiv'), t('vHighDiv')][band(f.dividendYield, 0.01, 0.04)], !f.dividendYield ? 'info' : ['info', 'mid', 'good'][band(f.dividendYield, 0.01, 0.04)], `${t('divYield')} ${pct(f.dividendYield || 0, { sign: false })}`));
   const returns = [
     ['retYtd', f.ytd],
+    ['ret1y', f.return1y],
     ['ret3y', f.return3y],
     ['ret5y', f.return5y]
-  ].filter(([, x]) => x != null);
+  ]
+    .filter(([, x]) => x != null)
+    .slice(-3); // three across at most (a phone's width): the longest spans
   const sectors = f.sectors?.length
     ? `<h3 class="about-h">${h(t('sectorMix'))}</h3>${stackBar(
         (f.sectors.length > 8 ? [...f.sectors.slice(0, 7), { id: 'others', weight: f.sectors.slice(7).reduce((sum, x) => sum + x.weight, 0) }] : f.sectors).map((x, i) => ({
@@ -2762,10 +2770,14 @@ function fundAboutHtml(f, q, a) {
   return `
     ${profile.length ? `<p class="about-profile">${profile.map(x => `<span>${h(x)}</span>`).join('')}</p>` : ''}
     ${v.length ? `<div class="verdicts">${v.join('')}</div><p class="foot-note">${h(t('verdictNote'))}</p>` : ''}
-    ${returns.length ? `<div class="q-stats about-returns" style="--n:${returns.length}">${returns.map(([k, x]) => stat(t(k), pct(x, { digits: 1 }), k === 'retYtd' ? '' : t('retYearly'), dirClass(x))).join('')}</div>` : ''}
+    ${returns.length ? `<div class="q-stats about-returns" style="--n:${returns.length}">${returns.map(([k, x]) => stat(t(k), pct(x, { digits: 1 }), k === 'retYtd' || k === 'ret1y' ? '' : t('retYearly'), dirClass(x))).join('')}</div>` : ''}
     ${sectors}${mix}${holdings}
     ${factGroup(t('gFund'), [
       ['expenseRatio', f.expenseRatio != null ? pct(f.expenseRatio, { sign: false, digits: 2 }) : null, 'expenseRatioHelp'],
+      ['fundRisk', f.risk ? `RR${f.risk}` : null, 'fundRiskHelp'],
+      ['frontLoadMax', f.frontLoadMax ? pct(f.frontLoadMax, { sign: false, digits: 1 }) : null, 'frontLoadHelp'],
+      ['fundPays', f.distribution ? (f.distribution === 'income' ? t('fundPaysIncome') : t('fundPaysAcc')) : null],
+      ['fundCustodian', f.custodian],
       ['fundSize', f.totalAssets != null ? compactMoney(f.totalAssets, cur) + (sizeTwd && cur !== BASE ? ` (≈ ${compactMoney(sizeTwd, BASE)})` : '') : null, 'fundSizeHelp'],
       ['divYield', f.dividendYield != null ? pct(f.dividendYield, { sign: false }) : null, 'divYieldHelp'],
       ['peRatio', f.pe != null ? num(f.pe, 1) : null, 'peFundHelp'],
