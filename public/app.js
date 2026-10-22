@@ -5696,7 +5696,7 @@ topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 // (And a fact or an order's hint, a line each.)
 const FIT_SELECTOR = '.q-hc-big, .q-stat strong, .big-price, .idx-card > strong, .rec-foot strong, .q-ritem-end > strong, .fx-result, .verdict strong, .facts-grid dd span, .about-fin .about-h';
 // (The kit's watchFit: new, so a phone on an older kit just isn't fitted after a redraw.)
-kitQuadra.watchFit?.(FIT_SELECTOR);
+kitQuadra.watchFit(FIT_SELECTOR);
 
 // Redraw charts when the width changes (not when a phone's address bar hides).
 let lastWidth = window.innerWidth;
