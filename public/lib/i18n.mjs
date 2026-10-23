@@ -1473,7 +1473,7 @@ export const STRINGS = {
     fromDate: '{date}', creditTradesT: 'Trades, 1 yr', creditTurnoverT: 'Volume, 1 yr', creditMeansT: 'Proof of means', dayTradeTitle: 'Sell-first day trades', dayTradeLeftShort: '{left} left today', dayTradeNeed: '3 months + 10 trades, or credit', dayTradeYes: 'Yes',
     lendEarned: 'Lending income', lendCutTag: 'Broker keeps {cut}', lendRecallTag: 'Recall: {days} business days', lendNoneTitle: 'Nothing to lend', lendAskTax: 'Over NT$20,000: 10% withheld', lendAskNhi: 'NT$20,000 or more: 2.11% NHI premium',
     ratesHeroUsd: 'US$ · bank sells', ratesInNtd: 'In NT$', todayShort: 'Today', plansMonthly: 'A month · {n} plans', alertsOnSub: 'alerts on',
-    tdTitle: 'Time deposits', tdMonths: '{n} mo', tdHave: '{v} available', tdAll: 'All', tdRenew: 'Roll over at maturity', tdRenewTag: 'rolls over',
+    tdTitle: 'Time deposits', tdMonths: '{n} mo', tdHave: 'Up to {v}', tdAll: 'All', tdRenew: 'Roll over at maturity', tdRenewTag: 'rolls over',
     tdTooMuch: 'More than the cash available', tdOpen: 'Open a deposit',
     tdYours: 'Your deposits', tdEnds: 'Matures {date} · interest {v}', tdBreak: 'Close early',
     tdAsk: 'Put {v} in a {n}-month deposit?', tdAskRate: 'Fixed {rate}', tdAskEarn: 'About {v} interest at maturity', tdAskLock: 'Locked until {date}', tdAskEarly: 'Closing early pays {early} of the rate, nothing under a month',

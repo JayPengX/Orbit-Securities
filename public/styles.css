@@ -798,3 +798,17 @@ html .q-logo.disc img { transform: scale(1.02); }
 .opt-step > span { display: grid; justify-items: center; line-height: 1; }
 .opt-step small { color: var(--q-label-2); font: 500 10px/12px var(--q-font); white-space: nowrap; }
 .opt-step b { color: var(--q-label); font: 700 15px/18px var(--q-font-rounded); white-space: nowrap; }
+
+/* Typing in a tool sheet (定存, 信貸, 融資's repay, 借券's ask): the sheet keeps
+   to the form, so it fits above the keys whole, never scrolling or drawing
+   past its edge. The hero, the sections that aren't being typed in and what's
+   marked .kb-hide wait behind the keys and come back as they go down. Its
+   foot runs on under the keys, so no page shows between the sheet and them. */
+html.q-kb .tool-sheet :is(.q-sheet-hero, .kb-hide, .tool-page > .q-section:not(:focus-within)) { display: none; }
+html.q-kb dialog.q-sheet.tool-sheet[open] { max-height: calc(var(--q-vvh) + var(--q-kb) - 8px); margin-bottom: 0; padding-bottom: var(--q-kb); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+html.q-kb .tool-sheet #tool-body { padding-bottom: 12px; }
+html.q-kb .tool-sheet .tool-page .q-btn.primary:not(.small) { position: static; box-shadow: none; }
+/* What an amount earns, on the amount's own line (定存). */
+.big-field:has(.big-field-end) { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; }
+.big-field:has(.big-field-end) > span { grid-column: 1 / -1; }
+.big-field-end { color: var(--q-label-2); font: 600 13px/18px var(--q-font); font-style: normal; white-space: nowrap; }

@@ -4188,7 +4188,7 @@ function bankHtml() {
       const offer = loanOffer(w, amount, b.weeks, now);
       main = `<div class="q-seg bank-terms" role="group" aria-label="${h(t('bankTerm'))}">${LOAN.terms.map(n => `<button type="button" data-action="bank-term" data-weeks="${n}" aria-pressed="${n === b.weeks}">${h(t('bankYears', { n: n / 52 }))}</button>`).join('')}</div>
         <label class="big-field"><span>${h(t('bankAmount'))}<em class="num">${h(t('bankMax', { v: money(max, BASE) }))}</em></span><input id="bank-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(typed > 0 ? num(typed) : '')}" placeholder="${h(num(amount))}" /></label>
-        ${offer.ok ? `<div class="q-stats">${fact(t('bankEach'), money(offer.installment, BASE))}${fact(t('bankCost'), money(offer.cost, BASE))}</div><div class="q-tags"><span class="q-tag num">${h(t('bankApr'))} ${h(rateText(offer.totalApr))}</span></div>` : `<p class="warn">${h(t(`bankWhy_${offer.why}`, { min: money(LOAN.min, BASE), max: money(max, BASE) }))}</p>`}
+        ${offer.ok ? `<div class="q-stats">${fact(t('bankEach'), money(offer.installment, BASE))}${fact(t('bankCost'), money(offer.cost, BASE))}</div><div class="q-tags kb-hide"><span class="q-tag num">${h(t('bankApr'))} ${h(rateText(offer.totalApr))}</span></div>` : `<p class="warn">${h(t(`bankWhy_${offer.why}`, { min: money(LOAN.min, BASE), max: money(max, BASE) }))}</p>`}
         <button class="q-btn primary block" type="button" data-action="bank-sign" data-amount="${amount}" ${offer.ok ? '' : 'disabled'}>${h(offer.ok ? t('bankSign', { v: money(offer.principal - offer.fee, BASE) }) : t('bankApply'))}</button>`;
     }
   }
@@ -4424,8 +4424,8 @@ function tdHtml() {
   const ok = amount >= TD_MIN && amount <= free;
   const tds = v.tds || [];
   return `<div class="term-grid" role="group">${TD_TERMS.map(x => `<button class="term q-press" type="button" data-action="td-term" data-months="${x.months}" aria-pressed="${x.months === term.months}"><strong class="num">${x.months}</strong><small>${h(t('monthsUnit'))}</small><span class="num">${h(pct(tdRate(x.months), { digits: 2, sign: false }))}</span></button>`).join('')}</div>
-    <label class="big-field"><span>${h(t('amount'))}<em class="num">${h(t('tdHave', { v: money(free, BASE) }))}${free >= TD_MIN ? `<button class="q-tag tint" type="button" data-action="td-max">${h(t('tdAll'))}</button>` : ''}</em></span><input id="td-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(amount > 0 ? num(amount) : '')}" placeholder="${h(num(TD_MIN))}" /></label>
-    <label class="check-row"><input id="td-renew" type="checkbox" class="sw" ${d.renew ? 'checked' : ''} /><i class="q-switch" aria-hidden="true"></i> <span><b>${h(t('tdRenew'))}</b><small>${h(t('tdRenewSub'))}</small></span></label>
+    <label class="big-field"><span>${h(t('amount'))}<em class="num">${h(t('tdHave', { v: money(free, BASE) }))}${free >= TD_MIN ? `<button class="q-tag tint" type="button" data-action="td-max">${h(t('tdAll'))}</button>` : ''}</em></span><input id="td-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(amount > 0 ? num(amount) : '')}" placeholder="${h(num(TD_MIN))}" />${ok ? `<em class="big-field-end num">${h(t('tdEarnTag', { v: money(tdPreview(amount, term.months, Date.now()).gross, BASE) }))}</em>` : ''}</label>
+    <label class="check-row kb-hide"><input id="td-renew" type="checkbox" class="sw" ${d.renew ? 'checked' : ''} /><i class="q-switch" aria-hidden="true"></i> <span><b>${h(t('tdRenew'))}</b><small>${h(t('tdRenewSub'))}</small></span></label>
     ${amount > 0 && !ok ? `<p class="warn">${h(amount < TD_MIN ? t('err_tdMin', { min: money(TD_MIN, BASE) }) : t('tdTooMuch'))}</p>` : ''}
     <button class="q-btn primary block" type="button" data-action="td-open" ${ok ? '' : 'disabled'}>${h(t('tdOpen'))}</button>
     ${sectionHtml(
@@ -4592,13 +4592,13 @@ function loansHtml() {
   const canRepay = loan?.balance > 0 && amount > 0;
   // Nothing borrowed: one line on where loans come from, no form.
   if (!(v.debtTWD > 0) && !v.loans.length) return emptyHtml({ icon: 'bank', tint: TINT.indigo, title: t('noLoans'), body: t('loansIntroCredit') });
-  return `<div class="q-stats">
+  return `<div class="q-stats kb-hide">
       ${stat(t('ratioShort'), pct(v.ratio, { digits: 0, sign: false }), t(`margin_${v.margin}`), v.margin === 'ok' ? '' : 'down')}
       ${stat(t('collateral'), money(v.collateral, BASE))}
       ${stat(t('interestAccrued'), money(v.interestTWD || 0, BASE, { digits: (v.interestTWD || 0) < 10 ? 2 : 0 }))}
     </div>
-    ${v.debtTWD > 0 ? `<div class="card-box">${gauge(v.ratio)}</div>` : ''}
-    ${v.owed > 0 ? callPanelHtml(v) : ''}
+    ${v.debtTWD > 0 ? `<div class="card-box kb-hide">${gauge(v.ratio)}</div>` : ''}
+    ${(x => (x ? `<div class="kb-hide">${x}</div>` : ''))(v.owed > 0 ? callPanelHtml(v) : '')}
     ${sectionHtml(
       t('repay'),
       `<div class="card-box">
@@ -5346,12 +5346,11 @@ function toolHero(kind) {
       const term = TD_TERMS.find(x => x.months === state.td.months) || TD_TERMS.at(-1);
       const amount = Math.round(Number(state.td.amount) || 0);
       const preview = tdPreview(Math.max(0, amount), term.months, now);
-      const free = Math.max(0, withdrawable(state.account, snap())[BASE] || 0);
       return {
         eyebrow: t('tdHeroOf', { n: term.months }),
         big: rate(tdRate(term.months)),
         sub: t('tdYearRate'),
-        tags: [t('tdEndsTag', { date: fmtDate(preview.ends) }), ...(amount >= TD_MIN && amount <= free ? [t('tdEarnTag', { v: money(preview.gross, BASE) })] : [])],
+        tags: [t('tdEndsTag', { date: fmtDate(preview.ends) })],
         tint: TINT.green
       };
     },
