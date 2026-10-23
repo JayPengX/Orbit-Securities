@@ -1156,7 +1156,8 @@ const heldMargin = symbol => {
   return p && !p.short ? marginShares(p) : 0;
 };
 // When today's session ends: its close, or a half day's early close.
-const closeOf = (q, now = Date.now()) => Math.min(q.session?.end ?? Infinity, stockMarkets.earlyCloseAt(q.market, now) ?? Infinity);
+// (興櫃's runs to 15:00: the kit's sessionEnd.)
+const closeOf = (q, now = Date.now()) => Math.min(stockMarkets.sessionEnd?.(q) ?? q.session?.end ?? Infinity, stockMarkets.earlyCloseAt(q.market, now) ?? Infinity);
 function marketStatus(q) {
   if (!q) return '';
   if (q.kind === 'crypto') return `<span class="mkt-status open">${statusDot(q)}${h(t('always'))}</span>`;
@@ -1181,7 +1182,7 @@ function marketStatus(q) {
   }
   // A half day closes early (the kit's earlyCloseAt).
   if (isOpen(q, now)) {
-    const early = closeOf(q, now) < q.session.end;
+    const early = closeOf(q, now) < (stockMarkets.sessionEnd?.(q) ?? q.session.end);
     return `<span class="mkt-status open">${statusDot(q)}${h(t(early ? 'marketOpenUntilEarly' : 'marketOpenUntil', { time: clock(closeOf(q, now), q.tz) }))} ${local}</span>`;
   }
   const opens = nextOpen(q, now);
@@ -2410,7 +2411,7 @@ const minsOf = (ts, tz) => {
 function sessionParts(q) {
   if (!q.session || q.kind === 'crypto' || q.market === 'TWFUND') return null;
   const from = minsOf(q.session.start, q.tz);
-  let to = minsOf(q.session.end, q.tz);
+  let to = minsOf(stockMarkets.sessionEnd?.(q) ?? q.session.end, q.tz);
   if (to <= from) to += 1440;
   if (to - from >= 23 * 60) return [];
   if (q.market === 'TW' && isTradable(q.kind) && !stockMarkets.isEmerging?.(q.symbol)) {
