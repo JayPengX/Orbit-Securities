@@ -798,7 +798,8 @@ html.q-kb .tool-sheet .tool-page .q-btn.primary:not(.small) { position: static; 
 .guide-part h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; color: var(--q-label-2); font: 600 13px/1.2 var(--q-font); }
 .guide-part h4 svg { width: 15px; height: 15px; }
 .guide-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.guide-chips .q-tag { max-width: 100%; white-space: nowrap; }
+.guide-chips .q-tag { max-width: 100%; min-width: 0; white-space: normal; text-wrap: balance; }
+.gt { min-width: 0; }
 .gt-bar { position: relative; height: 10px; border-radius: 5px; background: var(--q-fill); }
 .gt-bar > i { position: absolute; top: 0; bottom: 0; border-radius: 5px; }
 .gt-bar > i.gt-now { top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--q-label); }

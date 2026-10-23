@@ -267,7 +267,7 @@ function fundParts(name) {
 }
 // (A Taiwan fund by its class, else its house (its logo shows that): its 統編 means nothing to a reader.)
 const fundLine = s => fundParts(state.quotes.get(s)?.name || listingName.get(s) || '').cls || (fundHouseOf(s) ? `${fundHouseOf(s)}投信` : s.slice(0, -4));
-const bareSymbol = s => (METALS[s] ? s : stockMarkets.isFuture?.(s) || stockMarkets.isOption?.(s) ? s.slice(0, -3) : stockMarkets.isTwFund?.(s) ? fundLine(s) : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1'));
+const bareSymbol = s => (METALS[s] ? s : stockMarkets.isFuture?.(s) || stockMarkets.isOption?.(s) ? s.slice(0, -3) : stockMarkets.isTwFund?.(s) ? fundLine(s) : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1').replace(/^([A-Z]{3})([A-Z]{3})=X$/, '$1/$2'));
 const kindLabel = kind => t(`kind_${kind}`);
 const marketLabel = id => L(MARKETS[id] || MARKETS.INTL);
 // (Taiwan's other products by what they are, not where: a fund, a future, a warrant…)
@@ -2324,7 +2324,7 @@ function bondFacts(q) {
     [t('accrued'), `${money((b.accrued * bond.face) / 100, bond.currency, { digits: 2 })} ${t('perBond')}`],
     [t('coupon'), bond.coupon ? `${num(bond.coupon, 3)}% · ${perYear}` : t('zeroCoupon')],
     [t('maturity'), `${fmtDate(bond.maturity, 'UTC')} (${t('yearsLeft', { n: num(b.years, 1) })})`],
-    [t('faceValue'), `${money(bond.face, bond.currency)} ${t('perBond')}`],
+    [t('faceValue'), `${money(bond.face, bond.currency, { digits: 0 })} ${t('perBond')}`],
     [t('couponTax'), rateText(bond.tax)],
     [t('currency'), `${q.currency} · ${L(currencyInfo(q.currency))}`],
     ...(state.rates[q.currency] && q.currency !== BASE ? [[t('inTwd'), `${money(q.price * state.rates[q.currency], BASE)} ${t('perBond')}`]] : [])
@@ -2455,10 +2455,10 @@ function hoursGuide(q) {
 const ruleChips = line => {
   const out = [''];
   let depth = 0;
-  for (const part of String(line).split(/( · |[，；;]\s*|[（(]|[）)])/)) {
+  for (const part of String(line).split(/( · |[，；;、]\s*|[（(]|[）)])/)) {
     if (/^[（(]$/.test(part)) depth++;
     else if (/^[）)]$/.test(part)) depth = Math.max(0, depth - 1);
-    if (!depth && /^( · |[，；;]\s*)$/.test(part)) out.push('');
+    if (!depth && /^( · |[，；;、]\s*)$/.test(part)) out.push('');
     else out[out.length - 1] += part;
   }
   return out
