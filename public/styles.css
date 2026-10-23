@@ -814,3 +814,87 @@ html.q-kb .tool-sheet .tool-page .q-btn.primary:not(.small) { position: static; 
 .gt-key li > b { font-weight: 600; }
 .gt-tw { margin: 8px 0 0; color: var(--q-label-2); font-size: 13px; white-space: nowrap; }
 .gt-tw b { color: var(--q-label); font-weight: 600; }
+
+/* 開戶與交易資格: each row's status as its small line, in its colour. */
+.acc-word.green {
+  color: var(--q-green);
+}
+.acc-word.orange {
+  color: var(--q-orange);
+}
+.acc-word.red {
+  color: var(--q-red);
+}
+.acc-back {
+  justify-self: start;
+  width: auto;
+  margin-bottom: 12px;
+}
+.acc-head p {
+  margin: 6px 0 10px;
+  color: var(--q-label-2);
+  font-size: 14px;
+  line-height: 20px;
+}
+.acc-doc {
+  margin-bottom: 10px;
+  border-radius: 16px;
+  background: var(--q-surface);
+  overflow: hidden;
+}
+.acc-doc summary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  font-weight: 600;
+  text-wrap: balance;
+  list-style: none;
+  cursor: pointer;
+}
+.acc-doc summary::-webkit-details-marker {
+  display: none;
+}
+.acc-doc ul {
+  margin: 0;
+  padding: 0 16px 6px 34px;
+  color: var(--q-label-2);
+  font-size: 14px;
+  line-height: 20px;
+}
+.acc-doc li + li {
+  margin-top: 4px;
+}
+.acc-ok {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-top: 0.5px solid var(--q-sep);
+  font-size: 15px;
+}
+.acc-ok input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--q-accent);
+}
+.acc-pick {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.acc-pick .q-chip {
+  justify-content: center;
+  min-width: 0;
+  padding: 0 6px;
+}
+.acc-result {
+  margin: 12px 0;
+}
+.acc-result p {
+  margin: 4px 0 0;
+  color: var(--q-label-2);
+}
+.acc-go {
+  margin-top: 8px;
+}

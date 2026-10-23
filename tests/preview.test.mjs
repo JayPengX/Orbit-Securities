@@ -6,6 +6,7 @@ import * as markets from '../public/lib/markets.mjs';
 import { LEND_RATE, TD_TERMS, tdRate } from '../public/lib/savings.mjs';
 import * as kit from '../public/lib/account.mjs';
 import { ticketEstimate, dayTradeShareOf, shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange } from '../public/lib/preview.mjs';
+import { signed } from './signed.mjs';
 import { oddLotNeedsLimit, boardLots, placeLots } from '../public/lib/preview.mjs';
 
 const HOUR = 3_600_000;
@@ -26,9 +27,12 @@ function trader(months, n) {
   const created = T0 - months * 31 * DAY;
   const a = newAccount(5_000_000, created, 'acc');
   const fills = Array.from({ length: n }, (_, i) => ({ id: `fill:h${i}`, type: 'fill', t: T0 - (i + 1) * DAY, symbol: 'H.TW', name: 'H', kind: 'stock', market: 'TW', currency: 'TWD', side: i % 2 ? 'sell' : 'buy', qty: 1000, price: 100, gross: 100_000, commission: 0, tax: 0, fee: 0, total: 100_000, twd: 1 }));
-  return { ...a, created, events: [...a.events, ...fills] };
+  // (Three months and ten trades: day trading applied for, as a trader would.)
+  const t = { ...a, created, events: [...a.events, ...fills] };
+  return months >= 3 && n >= 10 ? signed(t, 'daytrade') : t;
 }
-const withCredit = (a, limit = 5_000_000) => ({ ...a, events: [...a.events, { id: 'credit:test', type: 'credit', t: a.created, limit }] });
+// (A credit account holder applies for day trading too.)
+const withCredit = (a, limit = 5_000_000) => signed({ ...a, events: [...a.events, { id: 'credit:test', type: 'credit', t: a.created, limit }] }, 'daytrade', 'kyc', 'sub');
 
 test('the ticket shows the day-trade tax a same-day sale pays (it showed the full 0.3%)', () => {
   const q = quote('2330.TW', 1000);
@@ -376,7 +380,7 @@ test('a Taiwan holding in 張 and 股: under a lot nothing extra, a short counte
 
 test('the ticket offers only what the kit takes: no 融資 or short abroad, Hong Kong limit only, 盤前／盤後 in their hours, STAR and ChiNext sold only, US fractions sold', async () => {
   const { cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, sellFraction, ticketRound, ticketStepOk, marginRateFor } = await import('../public/lib/preview.mjs');
-  const credited = { ...newAccount(1_000_000, T0 - 400 * DAY, 'acc'), events: [...newAccount(1_000_000, T0 - 400 * DAY, 'acc').events, { id: 'credit:t', type: 'credit', t: T0 - DAY, limit: 5_000_000 }] };
+  const credited = signed({ ...newAccount(1_000_000, T0 - 400 * DAY, 'acc'), events: [...newAccount(1_000_000, T0 - 400 * DAY, 'acc').events, { id: 'credit:t', type: 'credit', t: T0 - DAY, limit: 5_000_000 }] }, 'kyc', 'sub');
   const us = quote('AAPL', 200, T0, { market: 'US', currency: 'USD' });
   const hk = quote('0700.HK', 400, T0, { market: 'HK', currency: 'HKD' });
   const tw = quote('2330.TW', 1000);
@@ -406,7 +410,7 @@ test('the ticket offers only what the kit takes: no 融資 or short abroad, Hong
   assert.equal(extOffered(us, { type: 'market' }, ny('17:00')), false);
   assert.equal(extOffered(us, { type: 'limit' }, ny('12:00')), false);
   // A pre-market order the ticket offers is one the kit takes, lasting to 18:00.
-  const funded = kit.exchange(newAccount(1_000_000, T0 - DAY, 'b'), { from: 'TWD', to: 'USD', amount: 64_000 }, { rates: RATES, now: T0 - DAY, id: 'x' }).account;
+  const funded = kit.exchange(signed(newAccount(1_000_000, T0 - DAY, 'b'), 'kyc', 'sub'), { from: 'TWD', to: 'USD', amount: 64_000 }, { rates: RATES, now: T0 - DAY, id: 'x' }).account;
   const r = placeOrder(funded, { side: 'buy', type: 'limit', limit: 190, qty: 1, ext: true }, { quote: us, rates: RATES, now: ny('08:00') });
   assert.equal(r.error, undefined);
   assert.equal(r.order.ext, true);

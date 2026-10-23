@@ -24,6 +24,7 @@ import { shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRa
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { twPhase, afterHoursSend, atLimit, exDayTags, closeMatchOf as twseCloseMatchOf, orderWaitKind } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
+import * as stockAccess from './lib/access.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
 import {
@@ -3065,6 +3066,11 @@ function renderTicket() {
       ]
     : [];
   const problems = [];
+  // What the product needs opened or signed first (開戶與交易資格): said, with a button there.
+  const fundRR = q.market === 'TWFUND' ? (state.about.get(d.symbol)?.facts?.risk ?? null) : null;
+  const gate = accessGate(q, d, { rr: fundRR });
+  if (gate) problems.push(errorText(gate));
+  else if (q.market === 'TWFUND' && d.side === 'buy' && state.about.get(d.symbol)?.loading) problems.push(t('fundRiskWait'));
   if (shorting && !isShortable(q.kind, q.symbol)) problems.push(t('notEnoughShares', { have: fmtQty(shares) }));
   else if (shorting && cashOnly(q)) problems.push(t('err_cashOnlyHave', { have: fmtQty(shares) }));
   else if (shorting && !twCredit && !twDayShort && (q.market === 'TW' || (q.kind !== 'fx' && !creditAccount(state.account, Date.now()).open))) problems.push(t('err_creditNeeded'));
@@ -3178,7 +3184,7 @@ function renderTicket() {
           : ''
       }
       ${halt && Date.now() < halt.until ? `<p class="warn">${h(halt.level === 3 ? t('haltNoteDay') : t('haltNote', { level: halt.level, time: clock(halt.until) }))}</p>` : ''}
-      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
+      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}
       ${notes.length ? `<ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>` : ''}
       ${d.type !== 'limit' && est && !afterLines.length ? `<p class="foot-note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
@@ -3221,6 +3227,8 @@ function renderFutTicket(box, d, q) {
   const { cash, held, f, im, mm, qty, closable, opening, est, need, max, expiry } = futTicket(d, q);
   const unit = unitOf(d.symbol);
   const problems = [];
+  const gate = accessGate(q, d, { opening });
+  if (gate) problems.push(errorText(gate));
   if (Date.now() >= expiry) problems.push(t('err_futExpired'));
   if (d.qty && !(Number.isInteger(qty) && qty > 0)) problems.push(t('err_qtyStep'));
   if (est && need > cash + 1e-9) problems.push(t('futMarginShort', { need: money(need, BASE), have: money(cash, BASE) }));
@@ -3266,7 +3274,7 @@ function renderFutTicket(box, d, q) {
           <div class="preview-have ${need > cash + 1e-9 ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, BASE))}</dd></div></dl>`
           : ''
       }
-      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
+      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}
       ${notes.length ? `<ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
@@ -3367,6 +3375,9 @@ function renderOptTicket(box, d, q) {
   optNeighbours(d.symbol);
   const unit = unitOf(d.symbol);
   const problems = [];
+  // (What it opens, long or written: a 期貨帳戶 first.)
+  const gate = accessGate(q, d, { opening: qty > 0 ? stockAccount.futOpening(held || -written || 0, d.side, qty) : 0 });
+  if (gate) problems.push(errorText(gate));
   if (Date.now() >= expiry) problems.push(t('err_futExpired'));
   if (d.qty && !(Number.isInteger(qty) && qty > 0)) problems.push(t('err_qtyStep'));
   if (writeNeed > cash + 1e-9) problems.push(t('err_optNoWrite', { need: money(writeNeed, BASE), have: money(cash, BASE) }));
@@ -3418,7 +3429,7 @@ function renderOptTicket(box, d, q) {
           ${d.side === 'buy' || write > 0 ? `<div class="preview-have ${problems.length ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, BASE))}</dd></div>` : ''}</dl>`
           : ''
       }
-      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}
+      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}
       <ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
@@ -3436,6 +3447,8 @@ function placeFromTicket() {
   if (d.type === 'stop') req.stop = Number(d.stop);
   if (d.type !== 'market' && d.tif === 'gtc') req.tif = 'gtc';
   if (d.ext && extOffered(q, d)) req.ext = true;
+  // A Taiwan fund's 風險收益等級, checked against your KYC (stock-access).
+  if (q.market === 'TWFUND' && d.side === 'buy') req.rr = state.about.get(d.symbol)?.facts?.risk ?? null;
   // A mixed Taiwan quantity goes in as two orders (lib/preview.mjs placeLots).
   const { account, parts, failed } = placeLots(state.account, req, { quote: q, rates: state.rates, valuation: valuation(), now: Date.now(), halt: haltNow() }, place);
   if (account) {
@@ -3543,10 +3556,12 @@ function confirmContracts(d) {
 }
 // Short of the currency: exchanged first (from NT$, or the currency that
 // covers it), then the order.
-function placeWithFx(need, from = BASE) {
+async function placeWithFx(need, from = BASE) {
   const d = state.detail;
   if (!d) return;
   const cur = state.quotes.get(d.symbol)?.currency;
+  const fq = quoteExchange(from, cur, need, state.rates, state.fxOpen);
+  if (fq && fxDeclare(from, cur, need, fq.received) && !(await askKit({ lang: locale, icon: '🧾', title: t('fxAsk', { from: money(need, from), to: money(fq.received, cur) }), body: t('fxDeclareBody'), ok: t('fxDeclareOk'), cancel: t('orderAskCancel') }))) return;
   const r = exchange(state.account, { from, to: cur, amount: need }, { rates: state.rates, fxOpen: state.fxOpen, now: Date.now() });
   if (r.error) {
     d.msg = { kind: 'bad', text: errorText(r) };
@@ -3621,6 +3636,18 @@ function errorText(r) {
       return t('err_lendRate', { min: rateText(r.min), max: rateText(r.max) });
     case 'lendNoTaker':
       return t('err_lendNoTaker', { rate: lendPct(r.rate) });
+    case 'accessNeeded':
+      return r.pending ? t('err_accessPending', { what: t(`acc_${r.key}`), date: shortDate(r.pending) }) : t(`err_access_${r.key}`);
+    case 'fundRisk':
+      return t('err_fundRisk', { rr: r.rr, max: r.max ?? 0, level: r.level ? t(`kyc_${r.level}`) : '' });
+    case 'proOnly':
+      return r.etn ? t('err_proOnlyEtn') : t('err_proOnly', { x: `${r.inverse ? '−' : ''}${r.mult}` });
+    case 'fxYearCap':
+      return t('err_fxYearCap', { left: money(r.leftUSD ?? 0, 'USD'), cap: money(r.capUSD ?? 5_000_000, 'USD') });
+    case 'accessDocs':
+      return t('err_accessDocs');
+    case 'accessNeeds':
+      return (r.needs || []).map(accessNeedText).join(t('listSep'));
     default:
       return t(`err_${r.error}`);
   }
@@ -4211,6 +4238,7 @@ function moneyToolsHtml(v) {
   const row = (tool, glyph, color, title, small, end) => `<button class="q-ritem chevron" type="button" data-action="tool" data-tool="${tool}">${tileHtml(glyph, color)}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span><small class="num">${h(small)}</small></span>${end}</button>`;
   return `<div class="q-rowcard">
     ${row('loans', svgIcon('bank'), TINT.indigo, t('fxViewLoans'), v.debtTWD > 0 ? `${t('borrowed')} ${money(v.debtTWD, BASE)}` : t('noLoans'), v.debtTWD > 0 ? `<span class="q-tag ${v.margin === 'ok' ? 'green' : 'red'} num">${h(t('ratioShort'))} ${h(pct(v.ratio, { digits: 0, sign: false }))}</span>` : '')}
+    ${stockAccess.ACCESS_KEYS ? row('access', ico('shield'), TINT.blue, t('accessTitle'), t('accessOpenN', { n: stockAccess.ACCESS_KEYS.filter(k => stockAccess.accessState(state.account, k, Date.now()).open).length, of: stockAccess.ACCESS_KEYS.length }), '') : ''}
     ${row('credit', ico('key'), TINT.purple, t('creditTitle'), credit.open ? t('creditLimitIs', { v: compactMoney(credit.limit, BASE) }) : t('creditClosed'), credit.open ? `<span class="q-tag green">${h(t('creditOpenTag'))}</span>` : '')}
     ${row('td', svgIcon('lock'), TINT.green, t('tdTitle'), v.savedTWD > 0 ? money(v.savedTWD, BASE) : t('tdBestRate', { rate: pct(best, { digits: 2, sign: false }) }), (v.tds || []).length ? `<span class="q-tag">${(v.tds || []).length}</span>` : '')}
     ${row('lend', svgIcon('hand'), TINT.orange, t('lendTitle'), v.lendIncome > 0 ? `+${money(v.lendIncome, BASE)}` : t('lendableN', { n: nLend }), (v.lent || []).filter(l => !l.back).length ? `<span class="q-tag">${(v.lent || []).filter(l => !l.back).length}</span>` : '')}
@@ -4456,9 +4484,24 @@ function exchangeHtml() {
       <button class="q-hc-btn q-press" type="button" data-action="fx-go" ${q && q.received > 0 && !tooMuch && f.from !== f.to && pricesLive() ? '' : 'disabled'}>${h(q && !tooMuch ? t('fxConfirm', { from: money(amount, f.from), to: money(q.received, f.to) }) : t('doExchange'))}</button>
     </div>
     ${tooMuch ? `<p class="warn">${h(t('notEnoughCur', { cur: f.from, have: money(have, f.from) }))}</p>` : ''}
+    ${fxYearLine(f, q)}
     ${waiting > 0 ? `<p class="foot-note">${h(t('unsettledNote', { amount: money(waiting, f.from), date: shortDate(settlesBy(state.account)[f.from]) }))}</p>` : ''}
     ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}`;
 }
+// 結匯: a NT$ conversion counts toward the year's US$5,000,000 each way
+// (stock-access fxYear): what's left, said once it matters (a tenth used);
+// past it, why it can't go.
+function fxYearLine(f, q) {
+  if (!stockAccess.fxYear || (f.from !== BASE && f.to !== BASE)) return '';
+  const y = stockAccess.fxYear(state.account, state.rates, Date.now());
+  const left = f.from === BASE ? y.leftBuy : y.leftSell;
+  const cap = stockAccess.FX_YEAR_CAP_USD;
+  const over = q && stockAccess.fxCapProblem(state.account, { from: f.from, to: f.to, amount: fxPayAmount(), received: q.received }, state.rates, Date.now());
+  if (over) return `<p class="warn">${h(errorText(over))}</p>`;
+  return left < cap * 0.9 ? `<p class="foot-note num">${h(t('fxYearLeft', { left: money(Math.floor(left), 'USD'), cap: money(cap, 'USD') }))}</p>` : '';
+}
+// 結匯 of NT$500,000 or more: the 申報書 confirmed in the same ask.
+const fxDeclare = (from, to, amount, received) => Boolean(stockAccess.fxNeedsDeclare?.({ from, to, amount, received }));
 // The rates board, as a bank shows it: what it buys and sells each currency
 // for (per unit, or per 100 for the small ones), and today's move. A row
 // opens the exchange for that currency. (No USD chart over it: the board
@@ -4735,15 +4778,17 @@ function creditCardHtml(v) {
         ${pick > CREDIT_TIERS[0] ? row('means', t('creditMeansT'), compactMoney(pick * CREDIT_PROOF, BASE)) : ''}
       </div>`
       )}
-      <button class="q-btn primary block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>
-      <div class="q-rowcard"><div class="q-ritem">${tileHtml(dayOk ? ico('check') : ico('clock'), dayOk ? TINT.green : TINT.gray, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('dayTradeTitle'))}</span><small class="num">${h(dayOk ? (dayRoom ? t('dayTradeLeftShort', { left: money(dayRoom.left, BASE) }) : '') : t('dayTradeNeed'))}</small></span>${dayOk ? `<span class="q-tag green">${h(t('dayTradeYes'))}</span>` : ''}</div></div>`;
+      ${credit.pending ? `<p class="foot-note">${h(t('creditPendingLine', { v: compactMoney(credit.pending.limit, BASE), date: dateTime(credit.pending.from) }))}</p>` : `${sectionHtml(t('accessDocs'), docsHtml(stockCredit.CREDIT_DOCS || [], accessUi().docs))}
+      <button class="q-btn primary block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok && (stockCredit.CREDIT_DOCS || []).every(x => accessUi().docs.has(x)) ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>`}
+      <div class="q-rowcard"><div class="q-ritem">${tileHtml(dayOk ? ico('check') : ico('clock'), dayOk ? TINT.green : TINT.gray, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('dayTradeTitle'))}</span><small class="num">${h(dayOk ? (dayRoom ? t('dayTradeLeftShort', { left: money(dayRoom.left, BASE) }) : '') : t('dayTradeNeed'))}</small></span>${dayOk ? `<span class="q-tag green">${h(t('dayTradeYes'))}</span>` : `<button class="q-btn small" type="button" data-action="access-open" data-key="daytrade">${h(t('accessGo'))}</button>`}</div></div>`;
   }
   const used = creditUsed(v);
   const better = bestTier(state.account, v.netWorth, now);
   const bar = (label, x) => `<div class="credit-use"><span>${h(label)}</span><strong class="num">${h(money(x, BASE))} / ${h(compactMoney(credit.limit, BASE))}</strong><div class="loan-bar"><i style="width:${Math.min(100, (x / credit.limit) * 100).toFixed(1)}%"></i></div></div>`;
   const list = creditTerms(v, now);
   return `<div class="card-box">${bar(t('creditLoanUsed'), used.loan)}${bar(t('creditShortUsed'), used.short)}</div>
-    ${better > credit.limit ? `<button class="q-btn tinted block" type="button" data-action="credit-open" data-limit="${better}">${h(t('creditRaise', { v: compactMoney(better, BASE) }))}</button>` : ''}
+    ${credit.pending ? `<p class="foot-note">${h(t('creditPendingLine', { v: compactMoney(credit.pending.limit, BASE), date: dateTime(credit.pending.from) }))}</p>` : ''}
+    ${better > credit.limit && !credit.pending ? `<button class="q-btn tinted block" type="button" data-action="credit-open" data-limit="${better}">${h(t('creditRaise', { v: compactMoney(better, BASE) }))}</button>` : ''}
     ${sectionHtml(
       t('creditTermsTitle'),
       list.length
@@ -4753,12 +4798,107 @@ function creditCardHtml(v) {
     )}`;
 }
 function doOpenCredit(limit) {
-  const r = openCredit(state.account, limit, valuation().netWorth, Date.now());
-  if (r.error) return toast(t('creditNotYet'), 'bad');
+  const r = openCredit(state.account, limit, valuation().netWorth, Date.now(), { docs: [...accessUi().docs] });
+  if (r.error) return toast(r.error === 'credit' ? t('creditNotYet') : errorText(r), 'bad');
   commit(r.account);
-  toast(t('creditOpened', { v: money(limit, BASE) }), 'good');
+  accessUi().docs = new Set();
+  // (The broker opens it, or the new limit, the next trading day.)
+  toast(r.event.from > r.event.t ? t('creditAppliedWait', { v: money(limit, BASE), date: shortDate(r.event.from) }) : t('creditOpened', { v: money(limit, BASE) }), 'good');
   render();
 }
+// 開戶與交易資格 (a sheet; the kit's stock-access.mjs): a row per account
+// or permission with where it stands; each opens its page: what it needs
+// (have / want), the papers to read and sign (each its own 我已詳閱並了解),
+// KYC's six questions, and 申請. A broker approves some for the next trading day.
+const ACCESS_DO = { daytrade: 'dayTrade', warrant: 'warrant', emerging: 'emerging', leveraged: 'leveraged', futures: 'futures', sub: 'sub', pro: 'pro', kyc: 'kyc' };
+const KYC_OPTS = 3;
+const accessUi = () => (state.accessUi ||= { key: null, docs: new Set(), answers: {} });
+// Where one stands, in a word: [text, tone].
+function accessWord(key, now = Date.now()) {
+  const a = stockAccess.accessState(state.account, key, now);
+  if (a.open) return [key === 'kyc' && a.level ? `${t('accessOpen')} · ${t(`kyc_${a.level}`)}` : t('accessOpen'), 'green'];
+  if (a.pending) return [t('accessPendingTag', { date: shortDate(a.pending) }), 'orange'];
+  if (a.lapsed) return [t('accessLapsed'), 'red'];
+  return [t('accessNone'), ''];
+}
+function accessTag(key, now = Date.now()) {
+  const [word, tone] = accessWord(key, now);
+  return `<span class="q-tag ${tone} num">${h(word)}</span>`;
+}
+function accessHtml() {
+  const ui = accessUi();
+  if (ui.key) return accessKeyHtml(ui.key);
+  const glyph = { kyc: ico('list'), daytrade: ico('swap'), warrant: ico('ticket'), emerging: ico('spark'), leveraged: ico('flame'), futures: ico('chart'), sub: ico('exchange'), pro: ico('trophy') };
+  const tint = { kyc: TINT.teal, daytrade: TINT.orange, warrant: TINT.purple, emerging: TINT.pink, leveraged: TINT.red, futures: TINT.indigo, sub: TINT.blue, pro: TINT.brown };
+  return `<div class="q-rowcard">${stockAccess.ACCESS_KEYS.map(k => `<button class="q-ritem chevron" type="button" data-action="access-key" data-key="${k}">${tileHtml(glyph[k], tint[k])}<span class="q-ritem-text"><span class="q-ritem-title">${h(t(`acc_${k}`))}</span><small class="acc-word ${accessWord(k)[1]}">${h(accessWord(k)[0])}</small></span></button>`).join('')}</div>
+    <p class="foot-note">${h(t('accessFoot'))}</p>`;
+}
+// One need (stock-access accessNeeds) in words.
+function accessNeedText(n) {
+  if (n.key === 'kyc') return t('needKyc');
+  if (n.key === 'age') return t('needAge', { date: shortDate(n.from) });
+  if (n.key === 'trades') return t('needTrades', { have: n.have, want: n.want });
+  if (n.key === 'leveragedWay') return t('needLeveraged', { w: n.warrants, f: n.futures, want: n.want });
+  if (n.key === 'means') return t('needMeans', { have: compactMoney(n.have, BASE), want: compactMoney(n.want, BASE) });
+  return t('accessNotYet');
+}
+// The papers to read and sign: each a fold with what it says, and its own check.
+const docsHtml = (docs, signed) =>
+  docs
+    .map(d => `<div class="acc-doc"><details><summary>${tileHtml(ico('book'), TINT.gray, 'sm')}<span>${h(t(`doc_${d}`))}</span></summary><ul>${t(`doc_${d}_says`).split('｜').map(x => `<li>${h(x)}</li>`).join('')}</ul></details><label class="acc-ok"><input type="checkbox" data-access-doc="${d}" ${signed.has(d) ? 'checked' : ''}><span>${h(t('docRead'))}</span></label></div>`)
+    .join('');
+function accessKeyHtml(key) {
+  const ui = accessUi();
+  const now = Date.now();
+  const a = stockAccess.accessState(state.account, key, now);
+  const spec = stockAccess.ACCESS[key];
+  const back = `<button class="q-btn small acc-back" type="button" data-action="access-back">‹ ${h(t('accessAll'))}</button>`;
+  const head = `<div class="card-box acc-head"><strong>${h(t(`acc_${key}`))}</strong><p>${h(t(`acc_${key}_what`))}</p><div class="q-tags">${accessTag(key, now)}${a.open && a.until ? `<span class="q-tag num">${h(t('accessUntil', { date: shortDate(a.until) }))}</span>` : ''}</div></div>`;
+  // Open (KYC can be taken again any time), or waiting for the broker: nothing to sign.
+  if ((a.open || a.pending) && key !== 'kyc') return `${back}${head}${a.pending ? `<p class="foot-note">${h(t('accessPendingLine', { date: dateTime(a.pending) }))}</p>` : ''}`;
+  const needs = stockAccess.accessNeeds(state.account, key, { netWorthTWD: valuation()?.netWorth || 0 }, now);
+  const needRows = needs.length ? sectionHtml(t('accessNeeds'), `<div class="q-rowcard">${needs.map(n => `<div class="q-ritem">${tileHtml(svgIcon('alert'), TINT.orange, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(accessNeedText(n))}</span></span>${n.key === 'kyc' ? `<button class="q-btn small" type="button" data-action="access-key" data-key="kyc">${h(t('accessGo'))}</button>` : ''}</div>`).join('')}</div>`) : '';
+  let kyc = '';
+  let result = null;
+  if (key === 'kyc') {
+    result = stockAccess.kycResult(ui.answers);
+    kyc = stockAccess.KYC_QUESTIONS.map(q => sectionHtml(t(`kycQ_${q.id}`), `<div class="acc-pick" role="group">${Array.from({ length: KYC_OPTS }, (_, i) => `<button class="q-chip" type="button" data-action="access-kyc" data-q="${q.id}" data-i="${i}" aria-pressed="${ui.answers[q.id] === i}">${h(t(`kycA_${q.id}_${i}`))}</button>`).join('')}</div>`)).join('');
+    if (result) kyc += `<div class="card-box acc-result"><strong>${h(t(`kyc_${result.level}`))}</strong><p>${h(t('kycResultLine', { rr: result.maxRR }))}</p></div>`;
+  }
+  const docs = spec.docs.length ? sectionHtml(t('accessDocs'), docsHtml(spec.docs, ui.docs)) : '';
+  const ready = !needs.length && spec.docs.every(d => ui.docs.has(d)) && (key !== 'kyc' || result);
+  const word = key === 'kyc' ? (a.open ? t('kycAgain') : t('kycSubmit')) : spec.wait ? t('accessApply') : t('accessSign');
+  return `${back}${head}${needRows}${kyc}${docs}
+    ${spec.wait ? `<p class="foot-note">${h(t('accessWaitNote'))}</p>` : ''}
+    <button class="q-btn primary block" type="button" data-action="access-apply" data-key="${key}" ${ready ? '' : 'disabled'}>${h(word)}</button>`;
+}
+function openAccess(key = null) {
+  const ui = accessUi();
+  ui.key = key;
+  ui.docs = new Set();
+  ui.answers = {};
+  if (state.tool === 'access' && $('tool')?.open) return renderTool();
+  openTool('access');
+}
+function doApplyAccess(key) {
+  const ui = accessUi();
+  const r = stockAccess.applyAccess(state.account, key, { netWorthTWD: valuation()?.netWorth || 0, answers: ui.answers, docs: [...ui.docs] }, Date.now());
+  if (r.error) return toast(errorText(r), 'bad');
+  commit(r.account);
+  const e = r.event;
+  toast(key === 'kyc' ? t('kycDone', { level: t(`kyc_${e.level}`), rr: e.maxRR }) : e.from > e.t ? t('accessAppliedWait', { what: t(`acc_${key}`), date: shortDate(e.from) }) : t('accessSigned', { what: t(`acc_${key}`) }), 'good');
+  ui.key = null;
+  ui.docs = new Set();
+  ui.answers = {};
+  render();
+}
+// What an order needs opened first (the ticket's line, with its button), or null.
+function accessGate(q, d, extra = {}) {
+  if (!stockAccess.accessProblem || !state.account) return null;
+  return stockAccess.accessProblem(state.account, q, { side: d.side, ...extra }, Date.now());
+}
+const gateButton = g => (g?.error === 'accessNeeded' || g?.error === 'fundRisk' ? `<button class="q-btn tinted block acc-go" type="button" data-action="access-open" data-key="${g.error === 'fundRisk' ? 'kyc' : g.key}">${h(t(g.error === 'fundRisk' ? 'kycAgain' : g.pending ? 'accessSee' : 'accessGoApply'))}</button>` : '');
+
 function doExtend(symbol) {
   const r = extendTerm(state.account, valuation(), symbol, Date.now());
   if (r.error) return toast(errorText(r), 'bad');
@@ -4772,7 +4912,8 @@ async function doExchange() {
   const f = state.fx;
   const amount = fxPayAmount();
   const quote = amount > 0 ? quoteExchange(f.from, f.to, amount, state.rates, state.fxOpen) : null;
-  if (quote && !(await askKit({ lang: locale, icon: '💱', title: t('fxAsk', { from: money(amount, f.from), to: money(quote.received, f.to) }), body: t('fxAskBody'), ok: t('fxAskOk'), cancel: t('orderAskCancel') }))) return;
+  const declare = quote && fxDeclare(f.from, f.to, amount, quote.received);
+  if (quote && !(await askKit({ lang: locale, icon: declare ? '🧾' : '💱', title: t('fxAsk', { from: money(amount, f.from), to: money(quote.received, f.to) }), body: declare ? t('fxDeclareBody') : t('fxAskBody'), ok: declare ? t('fxDeclareOk') : t('fxAskOk'), cancel: t('orderAskCancel') }))) return;
   const r = exchange(state.account, { from: f.from, to: f.to, amount: fxPayAmount() }, { rates: state.rates, fxOpen: state.fxOpen, now: Date.now() });
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
@@ -5398,6 +5539,7 @@ const TOOLS = {
   rates: () => [t('fxViewRates'), ratesHtml()],
   loans: () => [t('fxViewLoans'), loansHtml()],
   credit: () => [t('creditTitle'), creditCardHtml(valuation())],
+  access: () => [t('accessTitle'), accessHtml()],
   td: () => [t('tdTitle'), tdHtml()],
   lend: () => [t('lendTitle'), lendHtml()],
   bank: () => [t('bankTitle'), bankHtml()],
@@ -5489,7 +5631,14 @@ function toolHero(kind) {
       const { worth, at, next } = rankOf(passWallet());
       return { eyebrow: t('ranksTitle'), big: `${WEALTH_RANKS[at].icon} ${rankName(WEALTH_RANKS[at])}`, sub: t('ranksWorth', { v: money(worth, BASE) }), tags: next ? [t('rankNext', { v: money(next.min - worth, BASE), rank: rankName(next) })] : [], tint: TINT.orange };
     },
-    truth: () => ({ eyebrow: t('truthWorth'), big: money(moneySides(passWallet()).worth, BASE), sub: t('truthSub'), tint: TINT.teal })
+    truth: () => ({ eyebrow: t('truthWorth'), big: money(moneySides(passWallet()).worth, BASE), sub: t('truthSub'), tint: TINT.teal }),
+    // (A page of one: its own head says what it is.)
+    access: () => {
+      if (accessUi().key) return null;
+      const keys = stockAccess.ACCESS_KEYS || [];
+      const open = keys.filter(k => stockAccess.accessState(state.account, k, now).open).length;
+      return { eyebrow: t('accessTitle'), big: `${open} / ${keys.length}`, sub: t('accessOpenSub'), tint: TINT.blue };
+    }
   }[kind];
   if (!make) return '';
   try {
@@ -5863,6 +6012,27 @@ document.addEventListener('click', async event => {
     case 'credit-open':
       doOpenCredit(Number(el.dataset.limit));
       break;
+    case 'access-key':
+      accessUi().key = el.dataset.key;
+      accessUi().docs = new Set();
+      accessUi().answers = {};
+      renderTool();
+      $('tool') && ($('tool').scrollTop = 0);
+      break;
+    case 'access-back':
+      accessUi().key = null;
+      renderTool();
+      break;
+    case 'access-kyc':
+      accessUi().answers[el.dataset.q] = Number(el.dataset.i);
+      renderTool();
+      break;
+    case 'access-apply':
+      doApplyAccess(el.dataset.key);
+      break;
+    case 'access-open':
+      openAccess(el.dataset.key || null);
+      break;
     case 'extend':
       doExtend(el.dataset.symbol);
       break;
@@ -6153,6 +6323,11 @@ document.addEventListener('change', event => {
     const c = el.value;
     if (!state.rates[c]) ensureRates([c]).then(renderFx).catch(() => {});
     renderFx();
+  }
+  if (el.dataset?.accessDoc) {
+    const docs = accessUi().docs;
+    el.checked ? docs.add(el.dataset.accessDoc) : docs.delete(el.dataset.accessDoc);
+    renderTool();
   }
   if (el.id === 'td-renew') state.td.renew = el.checked;
   if (el.id === 'lend-renew') state.lend.renew = el.checked;

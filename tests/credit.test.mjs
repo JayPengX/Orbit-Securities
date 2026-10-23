@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { newAccount, replay, placeOrder, processOrders, valuate, repayAll } from '../public/lib/account.mjs';
-import { creditAccount, creditCheck, openCredit, bestTier, terms, extendTerm, closeOutPlan, afterHours, dayTradeSellFirst, CREDIT_TIERS } from '../public/lib/credit.mjs';
+import { creditAccount, creditCheck, openCredit, bestTier, terms, extendTerm, closeOutPlan, afterHours, dayTradeSellFirst, CREDIT_TIERS, CREDIT_DOCS } from '../public/lib/credit.mjs';
+import { applyAccess, ACCESS } from '../public/lib/access.mjs';
+import { signed } from './signed.mjs';
 import { tradeCosts } from '../public/lib/markets.mjs';
 import * as markets from '../public/lib/markets.mjs';
 
@@ -38,7 +40,7 @@ test('a new account has no credit account; margin and shorts in Taiwan need one'
 
 test('an older account still opens its credit account by the rules', () => {
   const old = newAccount(1_000_000, tpe('2026-09-01', '10:00'), 'acc');
-  assert.deepEqual(creditAccount(old, T0), { open: false, limit: 0, since: null });
+  assert.deepEqual(creditAccount(old, T0), { open: false, limit: 0, since: null, pending: null });
 });
 
 test('opening one: three months, ten trades, turnover of half the limit, and means above the first tier', () => {
@@ -53,14 +55,17 @@ test('opening one: three months, ten trades, turnover of half the limit, and mea
   // 2M needs NT$600,000 of means.
   assert.deepEqual(creditCheck(ok, 2_000_000, 500_000, T0).needs.map(n => n.key), ['means']);
   assert.equal(bestTier(ok, 1e9, T0), 2_000_000);
-  const opened = openCredit(ok, 1_000_000, 1e9, T0);
-  assert.equal(creditAccount(opened.account, T0).limit, 1_000_000);
+  // Its contract and 風險預告書 signed; the broker opens it the next trading day.
+  assert.equal(openCredit(ok, 1_000_000, 1e9, T0).error, 'accessDocs');
+  const opened = openCredit(ok, 1_000_000, 1e9, T0, { docs: CREDIT_DOCS });
+  assert.deepEqual(creditAccount(opened.account, T0 + HOUR), { open: false, limit: 0, since: null, pending: { from: tpe('2028-03-02', '08:00'), limit: 1_000_000 } });
+  assert.equal(creditAccount(opened.account, tpe('2028-03-02', '08:00')).limit, 1_000_000);
   assert.equal(openCredit(young, 500_000, 1e9, T0).error, 'credit');
   assert.ok(CREDIT_TIERS.includes(500_000));
 });
 
 test('融資 within the limit; a six-month term, 展延 in its last month, sold when past due', () => {
-  let a = openCredit(trader(6, 12), 1_000_000, 1e9, T0).account;
+  let a = (({ ...x }) => ({ ...x, events: [...x.events, { id: 'credit:t', type: 'credit', t: T0 - 1, limit: 1_000_000 }] }))(trader(6, 12));
   const q = quote('2330.TW', 1000);
   let v = val(a, T0, [['2330.TW', q]]);
   // 2,000 shares: NT$1.2M lent, over the 1M limit.
@@ -83,12 +88,17 @@ test('融資 within the limit; a six-month term, 展延 in its last month, sold 
 });
 
 test('day trading sold first: 3 months open and ten trades (or a credit account); what is not bought back by the close is bought back for you', () => {
-  assert.equal(dayTradeSellFirst(trader(2, 12), T0), false);
-  assert.equal(dayTradeSellFirst(trader(4, 3), T0), false);
-  // A 信用帳戶 holder may, whatever the account's age and trades.
+  // Applied for (開戶與交易資格): 3 months and 10 trades, or a 信用帳戶 whatever the age; its two papers signed; the next trading day.
+  const apply = a => applyAccess(a, 'daytrade', { docs: ACCESS.daytrade.docs }, T0);
+  assert.deepEqual(apply(trader(2, 12)).needs.map(n => n.key), ['age']);
+  assert.deepEqual(apply(trader(4, 3)).needs.map(n => n.key), ['trades']);
   const holder = trader(1, 0);
-  assert.equal(dayTradeSellFirst({ ...holder, events: [...holder.events, { id: 'credit:x', type: 'credit', t: holder.created, limit: 500_000 }] }, T0), true);
-  let a = trader(4, 12);
+  assert.equal(apply({ ...holder, events: [...holder.events, { id: 'credit:x', type: 'credit', t: holder.created, limit: 500_000 }] }).error, undefined);
+  assert.equal(dayTradeSellFirst(trader(4, 12), T0), false, 'qualified, not yet applied');
+  const applied = apply(trader(4, 12)).account;
+  assert.equal(dayTradeSellFirst(applied, T0), false);
+  assert.equal(dayTradeSellFirst(applied, tpe('2028-03-02', '08:00')), true);
+  let a = signed(trader(4, 12), 'daytrade');
   assert.equal(dayTradeSellFirst(a, T0), true);
   const q = quote('2330.TW', 1000);
   const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: q, rates: RATES, valuation: val(a, T0, [['2330.TW', q]]), now: T0, id: 'd' });
@@ -110,7 +120,7 @@ test('day trading bought first: the half tax once the account is 3 months open w
     const lq = quote('2330.TW', 1000, later);
     return placeOrder(bought, { side: 'sell', type: 'limit', limit: 1000, qty: 1000 }, { quote: lq, rates: RATES, valuation: val(bought, later, [['2330.TW', lq]]), now: later, id: 's' });
   };
-  assert.equal(roundTrip(trader(4, 12)).fill.tax, HALF_TAX);
+  assert.equal(roundTrip(signed(trader(4, 12), 'daytrade')).fill.tax, HALF_TAX);
   // Not yet a day trader: a broker refuses the sale until tomorrow.
   assert.equal(roundTrip(trader(1, 12)).error, 'dayTradeNeeded');
   assert.equal(roundTrip(trader(4, 3)).error, 'dayTradeNeeded');
@@ -145,7 +155,7 @@ test('fees: the minimum applies after the discount; free is free', () => {
 });
 
 test('no credit account: no margin or borrowed shorts in any market, and the broker closes any it holds', () => {
-  const a = newAccount(1_000_000, T0, 'acc');
+  const a = signed(newAccount(1_000_000, T0, 'acc'), 'kyc', 'sub', 'daytrade');
   const us = quote('AAPL', 200, T0, { market: 'US', currency: 'USD', session: { start: T0 - HOUR, end: T0 + 5 * HOUR } });
   const v = val(a, T0, [['AAPL', us]]);
   // A foreign stock: 複委託 is cash only (cashOnly), whatever the credit account.
@@ -188,7 +198,7 @@ test('no credit account: no margin or borrowed shorts in any market, and the bro
 });
 
 test('a day trade sold first is held to the day-trade limit (twice net worth, at least NT$500,000)', () => {
-  const a = trader(4, 12);
+  const a = signed(trader(4, 12), 'daytrade');
   const q = quote('2330.TW', 1000);
   const v = val(a, T0, [['2330.TW', q]]);
   const limit = Math.floor((v.netWorth * 2) / 100_000) * 100_000;

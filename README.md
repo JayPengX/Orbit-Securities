@@ -76,8 +76,21 @@ Live: https://jaypengx.github.io/Orbit-Securities/
   - taxes that end on a date in law, shown with it: bond ETFs' exemption
     to 2026-12-31 (then 0.1%), 當沖's 0.15% to 2027-12-31;
   - interest on idle NT$ (0.8%, members alike);
-  - day trading (either way) once the account is 3 months open with 10
-    trades in the year, or has a credit account; the half tax then, only
+  - 開戶與交易資格 (the kit's `stock-access.mjs`, the 資金 tab's sheet): a
+    product is bought only once its account or papers are in place, as a
+    Taiwan broker asks: KYC (six questions; a fund above its RR is refused;
+    yearly), 現股當沖 (3 months and 10 trades, or a credit account; two
+    papers; the next trading day), 權證 and 興櫃 (a 風險預告書 before the
+    first buy), 槓反 ETF (a credit account, 10 warrant or futures trades,
+    or one bought before; abroad up to 2× long or 1× short and no ETN
+    unless a 專業投資人), 期貨帳戶 (new positions only), 複委託 (every
+    foreign buy) and 專業投資人 (NT$30M, or NT$15M with a NT$3M trade; 10
+    trades; yearly). Selling or closing never needs any. Accounts from
+    before 2026-10-24 keep what they had already traded. The credit account
+    too: its contract and 風險預告書 signed, open the next trading day;
+  - 結匯: US$5M a calendar year each way; NT$500,000 or more declared on
+    the 申報書 in the same confirm;
+  - day trading (either way) once applied for; the half tax then, only
     on the whole lots the day's cash buys match (`dayTradeShareOf`: 3 lots
     sold, 1 bought today, a third at 0.15%), never on odd lots; what's
     sold first within the day's 當沖額度 (twice net worth);
@@ -126,7 +139,7 @@ Live: https://jaypengx.github.io/Orbit-Securities/
 
 ## Files (`public/lib`)
 
-`account`, `markets`, `credit`, `savings`, `bonds`, `holidays`, `codec` and
+`account`, `access`, `markets`, `credit`, `savings`, `bonds`, `holidays`, `codec` and
 `ipo` are 3-line re-exports of the kit's `stock-*.mjs` (one copy for the
 app and the Worker that checks it); the rules live in the kit.
 
@@ -135,6 +148,7 @@ app and the Worker that checks it); the rules live in the kit.
 | `account.mjs` | The ledger: orders, fills, shorts, FX, loans, dividends, valuation, history, merging |
 | `markets.mjs` | Currencies, markets, fees, taxes, hours, margin rules |
 | `credit.mjs`, `savings.mjs`, `bonds.mjs`, `ipo.mjs` | Taiwan credit trading; 定存 and lending; government bonds; 新股申購 |
+| `access.mjs` | 開戶與交易資格: KYC, 當沖, 權證, 興櫃, 槓反, 期貨, 複委託, 專業投資人, the 結匯 cap |
 | `quotes.mjs`, `catalog.mjs` | Yahoo reads; the curated lists |
 | `chart.mjs`, `format.mjs`, `i18n.mjs`, `codec.mjs` | Charts; number formats; text; gzip saves |
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |
