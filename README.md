@@ -81,13 +81,22 @@ Live: https://jaypengx.github.io/Orbit-Securities/
     Taiwan broker asks: KYC (six questions; a fund above its RR is refused;
     yearly), 現股當沖 (3 months and 10 trades, or a credit account; two
     papers; the next trading day), 權證 and 興櫃 (a 風險預告書 before the
-    first buy), 槓反 ETF (a credit account, 10 warrant or futures trades,
-    or one bought before; abroad up to 2× long or 1× short and no ETN
-    unless a 專業投資人), 期貨帳戶 (new positions only), 複委託 (every
+    first buy), 創新板 (its 風險預告書 before the first buy), 槓反 ETF (a
+    credit account, 10 warrant or futures trades, or one bought before;
+    abroad up to 2× long or 1× short and no ETN unless a 專業投資人), 槓反期貨
+    ETF (TWSE's 17-item 交易檢核表, all right, before the first buy;
+    專業投資人 exempt), 期貨帳戶 (new positions only), 複委託 (every
     foreign buy) and 專業投資人 (NT$30M, or NT$15M with a NT$3M trade; 10
     trades; yearly). Selling or closing never needs any. Accounts from
     before 2026-10-24 keep what they had already traded. The credit account
     too: its contract and 風險預告書 signed, open the next trading day;
+  - 期貨保證金專戶: from 2026-10-24 futures and options trade only from the
+    futures account's money (入金 from settled NT$, 出金 of what margins and
+    open losses leave; its 權益數 decides 追繳 and 25% forced closing); an
+    older account's margin moved in then. It stays part of the NT$ cash;
+  - 全額交割股 (TWSE's and TPEx's 變更交易 lists, the kit's `TW_FULL`):
+    settled cash before a buy, settled shares before a sale, no 融資,
+    融券 or 當沖;
   - 結匯: US$5M a calendar year each way; NT$500,000 or more declared on
     the 申報書 in the same confirm;
   - day trading (either way) once applied for; the half tax then, only
@@ -148,7 +157,7 @@ app and the Worker that checks it); the rules live in the kit.
 | `account.mjs` | The ledger: orders, fills, shorts, FX, loans, dividends, valuation, history, merging |
 | `markets.mjs` | Currencies, markets, fees, taxes, hours, margin rules |
 | `credit.mjs`, `savings.mjs`, `bonds.mjs`, `ipo.mjs` | Taiwan credit trading; 定存 and lending; government bonds; 新股申購 |
-| `access.mjs` | 開戶與交易資格: KYC, 當沖, 權證, 興櫃, 槓反, 期貨, 複委託, 專業投資人, the 結匯 cap |
+| `access.mjs` | 開戶與交易資格: KYC, 當沖, 權證, 興櫃, 創新板, 槓反, 槓反期貨 檢核表, 期貨, 複委託, 專業投資人, the 結匯 cap |
 | `quotes.mjs`, `catalog.mjs` | Yahoo reads; the curated lists |
 | `chart.mjs`, `format.mjs`, `i18n.mjs`, `codec.mjs` | Charts; number formats; text; gzip saves |
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |

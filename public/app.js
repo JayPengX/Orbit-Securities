@@ -95,6 +95,8 @@ const state = {
   // 信貸's application: the term in weeks and the amount typed (blank: the base amount).
   bank: { weeks: 52, amount: '' },
   td: { amount: '', months: 12, renew: false },
+  // 期貨保證金專戶's 入金 ('in') or 出金 ('out') and the amount typed.
+  futx: { dir: 'in', amount: '' },
   // 借券出借's own ask (a yearly %, blank: the going rate) and its renewals.
   lend: { rate: '', renew: false },
   alloc: 'kind',
@@ -1115,6 +1117,10 @@ function marketRules(q) {
   const board = northboundBlock(q);
   if (board) parts.push(t('ruleNorthbound', { board: t(`cnBoard_${board}`) }));
   const emerging = stockMarkets.isEmerging?.(q.symbol);
+  const full = q.market === 'TW' && stockMarkets.isFullDelivery?.(q.symbol);
+  if (full) parts.push(t('ruleFull'));
+  if (q.market === 'TW' && stockMarkets.isInnovation?.(q.symbol)) parts.push(t('ruleInnovation'));
+  if (q.market === 'TW' && stockMarkets.isLiFutures?.(q.symbol)) parts.push(t('ruleLiFutures'));
   if (emerging) parts.push(t('ruleEmerging'));
   else if (q.kind === 'warrant') {
     const last = warrantLast(q.symbol);
@@ -1124,7 +1130,7 @@ function marketRules(q) {
   else if (q.market === 'TWFUND') parts.push(t('ruleFund', { cutoff: stockMarkets.FUND_CUTOFF || '15:30', fee: rateText(stockMarkets.FUND_FEE ?? 0.01) }));
   else if (orderTypes(q).length === 1) parts.push(t('ruleLimitOnly'));
   if (cashOnly(q) && ['stock', 'etf', 'bond'].includes(q.kind)) parts.push(t('ruleCashOnly'));
-  if (q.market === 'TW' && q.kind === 'stock' && !emerging) {
+  if (q.market === 'TW' && q.kind === 'stock' && !emerging && !full) {
     // 0.15% to the date the law sets (the kit's DAY_TRADE_TAX_UNTIL), then the full tax.
     const until = stockMarkets.DAY_TRADE_TAX_UNTIL;
     if (!until) parts.push(t('ruleDayTrade'));
@@ -3203,13 +3209,20 @@ function renderTicket() {
 // A future's ticket (期貨): contracts (口), long or short, margin not the
 // contract's value: what it opens holds TAIFEX's initial margin, what it
 // closes frees it.
+// What a TAIFEX order has to trade with: the futures account's money free
+// once it's its own (futSplit), else the NT$ cash.
+function futFree(s) {
+  if (!s) return 0;
+  const a = available(state.account, s);
+  return Math.max(0, s.futSplit ? a.fut || 0 : a.cash[BASE] || 0);
+}
 function futTicket(d, q) {
   if (!['market', 'limit'].includes(d.type)) {
     d.type = 'market';
     d.limit = String(q.price);
   }
   const s = snap();
-  const cash = Math.max(0, (s ? available(state.account, s) : { cash: {} }).cash[BASE] || 0);
+  const cash = futFree(s);
   const held = s?.positions[d.symbol]?.qty || 0;
   const f = stockMarkets.futureOf(d.symbol);
   const [im, mm] = stockAccount.futMargin(d.symbol, q);
@@ -3263,7 +3276,7 @@ function renderFutTicket(box, d, q) {
         ${d.type === 'limit' ? `<label class="big-field"><span>${h(t('limitPrice'))}<em>${h(qUnit(q))}</em></span><input id="t-limit" class="num" inputmode="${f.stock ? 'decimal' : 'numeric'}" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
       </div>
       <div class="q-tags ticket-tags">
-        <span class="q-tag">${h(t('cashAvail', { amount: money(cash, BASE) }))}</span>
+        <span class="q-tag">${h(t(snap()?.futSplit ? 'futAvail' : 'cashAvail', { amount: money(cash, BASE) }))}</span>
         <span class="q-tag">${h(t('optDueTag', { date: shortDate(expiry) }))}</span>
         <span class="q-tag">${h(f.stock ? t('perContract', { n: fmtQty(f.mult), unit: t(f.etf ? 'units' : 'shares') }) : t('perPoint', { mult: money(f.mult, BASE) }))}</span>
         ${held ? `<span class="q-tag">${h(t(held > 0 ? 'futHeldLong' : 'futHeldShort', { n: fmtQty(Math.abs(held)) }))}</span>` : ''}
@@ -3275,7 +3288,7 @@ function renderFutTicket(box, d, q) {
           <div class="preview-have ${need > cash + 1e-9 ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, BASE))}</dd></div></dl>`
           : ''
       }
-      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}
+      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}${futInButton(need > cash + 1e-9 && !gate)}
       ${notes.length ? `<ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
@@ -3293,7 +3306,7 @@ function optTicket(d, q) {
     d.limit = String(q.price);
   }
   const s = snap();
-  const cash = Math.max(0, (s ? available(state.account, s) : { cash: {} }).cash[BASE] || 0);
+  const cash = futFree(s);
   // Held (bought) or written (sold first): a sale past what's held writes the rest.
   const pos = s?.positions[d.symbol]?.qty || 0;
   const held = Math.max(0, pos);
@@ -3416,7 +3429,7 @@ function renderOptTicket(box, d, q) {
         ${d.type === 'limit' ? `<label class="big-field"><span>${h(t('limitPrice'))}<em>${h(t('futPoints'))}</em></span><input id="t-limit" class="num" inputmode="decimal" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
       </div>
       <div class="q-tags ticket-tags">
-        <span class="q-tag">${h(t('cashAvail', { amount: money(cash, BASE) }))}</span>
+        <span class="q-tag">${h(t(snap()?.futSplit ? 'futAvail' : 'cashAvail', { amount: money(cash, BASE) }))}</span>
         ${money1 ? `<span class="q-tag">${h(money1)}</span>` : ''}
         <span class="q-tag">${h(t('optDueTag', { date: shortDate(expiry) }))}</span>
         <span class="q-tag">${h(t('perPoint', { mult: money(mult, BASE) }))}</span>
@@ -3430,7 +3443,7 @@ function renderOptTicket(box, d, q) {
           ${d.side === 'buy' || write > 0 ? `<div class="preview-have ${problems.length ? 'short' : ''}"><dt>${h(t('youHave', { amount: '' }).trim())}</dt><dd class="num">${h(money(cash, BASE))}</dd></div>` : ''}</dl>`
           : ''
       }
-      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}
+      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}${futInButton(!gate && (writeNeed > cash + 1e-9 || Boolean(est && d.side === 'buy' && est.total > cash + freed + 1e-9)))}
       <ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
@@ -3645,6 +3658,12 @@ function errorText(r) {
       return r.etn ? t('err_proOnlyEtn') : t('err_proOnly', { x: `${r.inverse ? '−' : ''}${r.mult}` });
     case 'fxYearCap':
       return t('err_fxYearCap', { left: money(r.leftUSD ?? 0, 'USD'), cap: money(r.capUSD ?? 5_000_000, 'USD') });
+    case 'fullDelivery':
+      return t(`err_fullDelivery_${r.part}`, { have: fmtQty(r.have ?? 0), need: money(r.need ?? 0, BASE), cash: money(r.have ?? 0, BASE) });
+    case 'futOut':
+      return t('err_futOut', { have: money(r.have ?? 0, BASE) });
+    case 'liCheck':
+      return t('err_liCheck', { n: (r.wrong || []).length + (r.missing || []).length });
     case 'accessDocs':
       return t('err_accessDocs');
     case 'accessNeeds':
@@ -3730,9 +3749,13 @@ function cashHtml(v) {
   const avail = available(state.account, snap());
   const unsettledNow = unsettled(state.account);
   const settleAt = settlesBy(state.account);
+  // (The futures account's money is a pocket of the NT$: its own row, not held for orders.)
+  const fut = snap()?.futSplit ? Math.max(0, snap().futCash || 0) : 0;
+  const cash = v.cash.map(c => (fut && c.currency === BASE ? { ...c, amount: c.amount - fut, twd: c.twd - fut } : c));
   const heldFor = c => Math.max(0, c.amount - (avail.cash[c.currency] ?? c.amount));
-  const heldTWD = v.cash.reduce((sum, c) => sum + (c.amount ? (heldFor(c) / c.amount) * c.twd : 0), 0);
-  const rows = v.cash.map(c => walletRow(c, heldFor(c), unsettledNow[c.currency] || 0, settleAt[c.currency])).join('');
+  const heldTWD = cash.reduce((sum, c) => sum + (c.amount ? (heldFor(c) / c.amount) * c.twd : 0), 0);
+  const futRow = fut || v.futMarginTWD > 0 ? `<button class="q-ritem chevron wallet" type="button" data-action="tool" data-tool="futacct">${tileHtml(ico('chart'), TINT.indigo, 'soft flag')}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('futWallet'))}</span><small class="q-fit">${h(t('futWalletSub'))}</small></span><span class="q-ritem-end"><strong class="num">${h(money(fut, BASE))}</strong></span></button>` : '';
+  const rows = cash.map(c => walletRow(c, heldFor(c), unsettledNow[c.currency] || 0, settleAt[c.currency])).join('') + futRow;
   const pay = `<div class="q-ritem">${tileHtml(ico('calendar'), TINT.green)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('weeklyPay'))}</span><small>${h(shortDate(orbitPayday(Date.now())))}</small></span><span class="q-ritem-end"><strong class="num">+${h(money(paydayFor(state.wallet), BASE))}</strong></span></div>`;
   return sectionHtml(t('cash'), `<div class="q-rowcard wallets">${rows}${v.loans.map(loanWalletRow).join('')}${pay}</div>`, {
     side: `<strong class="sec-value num">${h(money(v.cashTWD - heldTWD, BASE))}</strong>`,
@@ -4241,6 +4264,7 @@ function moneyToolsHtml(v) {
     ${row('loans', svgIcon('bank'), TINT.indigo, t('fxViewLoans'), v.debtTWD > 0 ? `${t('borrowed')} ${money(v.debtTWD, BASE)}` : t('noLoans'), v.debtTWD > 0 ? `<span class="q-tag ${v.margin === 'ok' ? 'green' : 'red'} num">${h(t('ratioShort'))} ${h(pct(v.ratio, { digits: 0, sign: false }))}</span>` : '')}
     ${stockAccess.ACCESS_KEYS ? row('access', ico('shield'), TINT.blue, t('accessTitle'), t('accessOpenN', { n: stockAccess.ACCESS_KEYS.filter(k => stockAccess.accessState(state.account, k, Date.now()).open).length, of: stockAccess.ACCESS_KEYS.length }), '') : ''}
     ${row('credit', ico('key'), TINT.purple, t('creditTitle'), credit.open ? t('creditLimitIs', { v: compactMoney(credit.limit, BASE) }) : t('creditClosed'), credit.open ? `<span class="q-tag green">${h(t('creditOpenTag'))}</span>` : '')}
+    ${snap()?.futSplit && stockAccount.futTransfer ? row('futacct', ico('chart'), TINT.indigo, t('futAcctTitle'), v.futCash > 0 || v.futMarginTWD > 0 ? t('futEquityIs', { v: money(v.futEquity, BASE) }) : t('futAcctEmpty'), v.futCall ? `<span class="q-tag red">${h(t('futCallTag'))}</span>` : '') : ''}
     ${row('td', svgIcon('lock'), TINT.green, t('tdTitle'), v.savedTWD > 0 ? money(v.savedTWD, BASE) : t('tdBestRate', { rate: pct(best, { digits: 2, sign: false }) }), (v.tds || []).length ? `<span class="q-tag">${(v.tds || []).length}</span>` : '')}
     ${row('lend', svgIcon('hand'), TINT.orange, t('lendTitle'), v.lendIncome > 0 ? `+${money(v.lendIncome, BASE)}` : t('lendableN', { n: nLend }), (v.lent || []).filter(l => !l.back).length ? `<span class="q-tag">${(v.lent || []).filter(l => !l.back).length}</span>` : '')}
   </div>`;
@@ -4579,6 +4603,41 @@ function tdHtml() {
     )}`;
 }
 
+// 期貨保證金專戶 (a sheet): what's in the futures account and what it holds,
+// and 入金 from the settled NT$ cash or 出金 of what the margins leave.
+const futxRoom = () =>
+  state.futx.dir === 'in' ? Math.floor(Math.max(0, withdrawable(state.account, snap())[BASE] || 0)) : stockAccount.futWithdrawable(state.account, valuation(), Date.now());
+function futAcctHtml() {
+  const v = valuation();
+  const d = state.futx;
+  const isIn = d.dir !== 'out';
+  const open = stockAccess.accessState(state.account, 'futures', Date.now());
+  const room = futxRoom();
+  const amount = Math.round(Number(d.amount) || 0);
+  const ok = open.open && amount >= 1 && amount <= room;
+  const free = futFree(snap());
+  const stat2 = (label, value) => `<div class="q-ritem"><span class="q-ritem-text"><span class="q-ritem-title">${h(label)}</span></span><strong class="num">${h(value)}</strong></div>`;
+  return `<div class="q-rowcard">${stat2(t('futCashWord'), money(v.futCash || 0, BASE))}${stat2(t('futOpenPl'), money(v.futTWD || 0, BASE))}${stat2(t('futMarginWord'), money(v.futMarginTWD || 0, BASE))}${stat2(t('futFreeWord'), money(free, BASE))}</div>
+    ${open.open ? '' : `${open.pending ? `<p class="foot-note">${h(t('accessPendingLine', { date: dateTime(open.pending) }))}</p>` : ''}<button class="q-btn primary block" type="button" data-action="access-open" data-key="futures">${h(t(open.pending ? 'accessSee' : 'futAcctOpen'))}</button>`}
+    ${open.open ? `${seg([['in', t('futIn')], ['out', t('futOut')]], 'futx-dir', 'dir', x => d.dir === x)}
+    <label class="big-field"><span>${h(t('amount'))}<em class="num">${h(t(isIn ? 'futInHave' : 'futOutHave', { v: money(room, BASE) }))}${room >= 1 ? `<button class="q-tag tint" type="button" data-action="futx-max">${h(t('tdAll'))}</button>` : ''}</em></span><input id="futx-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(amount > 0 ? num(amount) : '')}" placeholder="0" /></label>
+    ${amount > room ? `<p class="warn">${h(t(isIn ? 'tdTooMuch' : 'err_futOut', { have: money(room, BASE) }))}</p>` : ''}
+    <button class="q-btn primary block" type="button" data-action="futx-go" ${ok ? '' : 'disabled'}>${h(t(isIn ? 'futIn' : 'futOut'))}</button>` : ''}
+    <p class="foot-note">${h(t('futAcctFoot'))}</p>`;
+}
+function doFutTransfer() {
+  const d = state.futx;
+  const amount = Math.round(Number(d.amount) || 0) * (d.dir === 'out' ? -1 : 1);
+  const r = stockAccount.futTransfer(state.account, amount, { valuation: valuation(), now: Date.now() });
+  if (r.error) return toast(errorText(r), 'bad');
+  commit(r.account);
+  toast(t(amount > 0 ? 'futInDone' : 'futOutDone', { v: money(Math.abs(amount), BASE) }), 'good');
+  d.amount = '';
+  render();
+}
+// The futures ticket's 入金 button, when what it opens needs more than the futures account has.
+const futInButton = short => (short && snap()?.futSplit && stockAccount.futTransfer ? `<button class="q-btn tinted block acc-go" type="button" data-action="futx-open">${h(t('futInGo'))}</button>` : '');
+
 // 借券出借 (a sheet): what can be lent and for about how much, the ask, what's out.
 function lendHtml() {
   const v = valuation();
@@ -4811,9 +4870,8 @@ function doOpenCredit(limit) {
 // or permission with where it stands; each opens its page: what it needs
 // (have / want), the papers to read and sign (each its own 我已詳閱並了解),
 // KYC's six questions, and 申請. A broker approves some for the next trading day.
-const ACCESS_DO = { daytrade: 'dayTrade', warrant: 'warrant', emerging: 'emerging', leveraged: 'leveraged', futures: 'futures', sub: 'sub', pro: 'pro', kyc: 'kyc' };
 const KYC_OPTS = 3;
-const accessUi = () => (state.accessUi ||= { key: null, docs: new Set(), answers: {} });
+const accessUi = () => (state.accessUi ||= { key: null, docs: new Set(), answers: {}, li: [] });
 // Where one stands, in a word: [text, tone].
 function accessWord(key, now = Date.now()) {
   const a = stockAccess.accessState(state.account, key, now);
@@ -4829,8 +4887,8 @@ function accessTag(key, now = Date.now()) {
 function accessHtml() {
   const ui = accessUi();
   if (ui.key) return accessKeyHtml(ui.key);
-  const glyph = { kyc: ico('list'), daytrade: ico('swap'), warrant: ico('ticket'), emerging: ico('spark'), leveraged: ico('flame'), futures: ico('chart'), sub: ico('exchange'), pro: ico('trophy') };
-  const tint = { kyc: TINT.teal, daytrade: TINT.orange, warrant: TINT.purple, emerging: TINT.pink, leveraged: TINT.red, futures: TINT.indigo, sub: TINT.blue, pro: TINT.brown };
+  const glyph = { kyc: ico('list'), daytrade: ico('swap'), warrant: ico('ticket'), emerging: ico('spark'), innovation: ico('spark'), leveraged: ico('flame'), liFutures: ico('list'), futures: ico('chart'), sub: ico('exchange'), pro: ico('trophy') };
+  const tint = { kyc: TINT.teal, daytrade: TINT.orange, warrant: TINT.purple, emerging: TINT.pink, innovation: TINT.green, leveraged: TINT.red, liFutures: TINT.orange, futures: TINT.indigo, sub: TINT.blue, pro: TINT.brown };
   return `<div class="q-rowcard">${stockAccess.ACCESS_KEYS.map(k => `<button class="q-ritem chevron" type="button" data-action="access-key" data-key="${k}">${tileHtml(glyph[k], tint[k])}<span class="q-ritem-text"><span class="q-ritem-title">${h(t(`acc_${k}`))}</span><small class="acc-word ${accessWord(k)[1]}">${h(accessWord(k)[0])}</small></span></button>`).join('')}</div>
     <p class="foot-note">${h(t('accessFoot'))}</p>`;
 }
@@ -4866,9 +4924,20 @@ function accessKeyHtml(key) {
     kyc = stockAccess.KYC_QUESTIONS.map(q => sectionHtml(t(`kycQ_${q.id}`), `<div class="acc-pick" role="group">${Array.from({ length: KYC_OPTS }, (_, i) => `<button class="q-chip" type="button" data-action="access-kyc" data-q="${q.id}" data-i="${i}" aria-pressed="${ui.answers[q.id] === i}">${h(t(`kycA_${q.id}_${i}`))}</button>`).join('')}</div>`)).join('');
     if (result) kyc += `<div class="card-box acc-result"><strong>${h(t(`kyc_${result.level}`))}</strong><p>${h(t('kycResultLine', { rr: result.maxRR }))}</p></div>`;
   }
+  // 槓反期貨 ETF 交易檢核表: each statement 是 or 否; a wrong one is marked once all are answered.
+  let quiz = null;
+  if (spec.quiz) {
+    quiz = stockAccess.liCheckResult(ui.li);
+    const marked = quiz.missing.length ? new Set() : new Set(quiz.wrong);
+    kyc = sectionHtml(
+      t('liTitle'),
+      `<ol class="acc-quiz">${stockAccess.LI_FUTURES_CHECK.map((_, i) => `<li class="${marked.has(i) ? 'bad' : ''}"><p>${h(t(`liQ_${i}`))}</p><div class="acc-pick" role="group">${[true, false].map(v => `<button class="q-chip" type="button" data-action="access-li" data-i="${i}" data-v="${v}" aria-pressed="${ui.li[i] === v}">${h(t(v ? 'liYes' : 'liNo'))}</button>`).join('')}</div></li>`).join('')}</ol>
+      ${!quiz.missing.length && quiz.wrong.length ? `<p class="warn">${h(t('err_liCheck', { n: quiz.wrong.length }))}</p>` : ''}`
+    );
+  }
   const docs = spec.docs.length ? sectionHtml(t('accessDocs'), docsHtml(spec.docs, ui.docs)) : '';
-  const ready = !needs.length && spec.docs.every(d => ui.docs.has(d)) && (key !== 'kyc' || result);
-  const word = key === 'kyc' ? (a.open ? t('kycAgain') : t('kycSubmit')) : spec.wait ? t('accessApply') : t('accessSign');
+  const ready = !needs.length && spec.docs.every(d => ui.docs.has(d)) && (key !== 'kyc' || result) && (!quiz || quiz.ok);
+  const word = key === 'kyc' ? (a.open ? t('kycAgain') : t('kycSubmit')) : spec.quiz ? t('liSign') : spec.wait ? t('accessApply') : t('accessSign');
   return `${back}${head}${needRows}${kyc}${docs}
     ${spec.wait ? `<p class="foot-note">${h(t('accessWaitNote'))}</p>` : ''}
     <button class="q-btn primary block" type="button" data-action="access-apply" data-key="${key}" ${ready ? '' : 'disabled'}>${h(word)}</button>`;
@@ -4878,12 +4947,13 @@ function openAccess(key = null) {
   ui.key = key;
   ui.docs = new Set();
   ui.answers = {};
+  ui.li = [];
   if (state.tool === 'access' && $('tool')?.open) return renderTool();
   openTool('access');
 }
 function doApplyAccess(key) {
   const ui = accessUi();
-  const r = stockAccess.applyAccess(state.account, key, { netWorthTWD: valuation()?.netWorth || 0, answers: ui.answers, docs: [...ui.docs] }, Date.now());
+  const r = stockAccess.applyAccess(state.account, key, { netWorthTWD: valuation()?.netWorth || 0, answers: stockAccess.ACCESS[key]?.quiz ? ui.li : ui.answers, docs: [...ui.docs] }, Date.now());
   if (r.error) return toast(errorText(r), 'bad');
   commit(r.account);
   const e = r.event;
@@ -4891,6 +4961,7 @@ function doApplyAccess(key) {
   ui.key = null;
   ui.docs = new Set();
   ui.answers = {};
+  ui.li = [];
   render();
 }
 // What an order needs opened first (the ticket's line, with its button), or null.
@@ -5542,6 +5613,7 @@ const TOOLS = {
   credit: () => [t('creditTitle'), creditCardHtml(valuation())],
   access: () => [t('accessTitle'), accessHtml()],
   td: () => [t('tdTitle'), tdHtml()],
+  futacct: () => [t('futAcctTitle'), futAcctHtml()],
   lend: () => [t('lendTitle'), lendHtml()],
   bank: () => [t('bankTitle'), bankHtml()],
   ranks: () => [t('ranksTitle'), ranksHtml()],
@@ -6028,6 +6100,10 @@ document.addEventListener('click', async event => {
       accessUi().answers[el.dataset.q] = Number(el.dataset.i);
       renderTool();
       break;
+    case 'access-li':
+      accessUi().li[Number(el.dataset.i)] = el.dataset.v === 'true';
+      renderTool();
+      break;
     case 'access-apply':
       doApplyAccess(el.dataset.key);
       break;
@@ -6047,6 +6123,24 @@ document.addEventListener('click', async event => {
       break;
     case 'td-open':
       doOpenDeposit();
+      break;
+    case 'futx-dir':
+      state.futx.dir = el.dataset.dir;
+      state.futx.amount = '';
+      renderTool();
+      break;
+    case 'futx-max':
+      state.futx.amount = String(futxRoom());
+      renderTool();
+      break;
+    case 'futx-go':
+      doFutTransfer();
+      break;
+    case 'futx-open':
+      closeTrade();
+      state.futx.dir = 'in';
+      state.futx.amount = el.dataset.need || '';
+      openTool('futacct');
       break;
     case 'bank-term':
       state.bank.weeks = Number(el.dataset.weeks);
@@ -6244,7 +6338,7 @@ function patchElement(o, n) {
 // A second point typed into a number field ends the number: that point and
 // what's typed after it are refused (1.2.3.4 key by key stays 1.2, as pasted),
 // until a deletion or the field is left.
-const NUMBER_FIELDS = new Set(['t-qty', 't-limit', 't-stop', 'fx-amount', 'loan-amount', 'td-amount', 'bank-amount', 'alert-price', 'plan-amount', 'plan-row-amount', 'lend-rate']);
+const NUMBER_FIELDS = new Set(['t-qty', 't-limit', 't-stop', 'fx-amount', 'loan-amount', 'td-amount', 'futx-amount', 'bank-amount', 'alert-price', 'plan-amount', 'plan-row-amount', 'lend-rate']);
 const numberJam = new WeakMap();
 function refuseExtraPoint(el, event) {
   const kept = numberJam.get(el);
@@ -6292,6 +6386,10 @@ document.addEventListener('input', event => {
       break;
     case 'td-amount':
       state.td.amount = cleanNumber(el.value).replace(/\..*/, '');
+      keepCaret(renderTool);
+      break;
+    case 'futx-amount':
+      state.futx.amount = cleanNumber(el.value).replace(/\..*/, '');
       keepCaret(renderTool);
       break;
     case 'bank-amount':

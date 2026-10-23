@@ -892,6 +892,30 @@ html.q-kb .tool-sheet .tool-page .q-btn.primary:not(.small) { position: static; 
 .acc-result {
   margin: 12px 0;
 }
+/* 槓反期貨 ETF 交易檢核表: each statement a card, 是 / 否 under it. */
+.acc-quiz {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.acc-quiz li {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--q-surface);
+}
+.acc-quiz li.bad {
+  box-shadow: inset 0 0 0 1.5px var(--q-red);
+}
+.acc-quiz p {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 21px;
+}
+.acc-quiz .acc-pick {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .acc-result p {
   margin: 4px 0 0;
   color: var(--q-label-2);
