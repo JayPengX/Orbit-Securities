@@ -1671,6 +1671,10 @@ async function checkIpoResults() {
 // ---- 市場: a product at a time (catalog.mjs PRODUCTS), its lists, search, today's movers ----
 
 // Each product's tile, on home and 市場 alike: Taiwan by its flag, the rest by a glyph.
+// Gold (two bars) and bitcoin's ₿ in the kit's icon style (its icons have only one coin).
+const glyph = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const GOLD_BARS = glyph('<path d="M3 19.5h8l-1.6-5.5H4.6zM13 19.5h8l-1.6-5.5h-4.8zM8 12.5h8L14.4 7H9.6z"/>');
+const BITCOIN = glyph('<path d="M8 5.5h5.5a3 3 0 0 1 0 6H8zM8 11.5h6.5a3 3 0 0 1 0 6H8zM8 5.5v12M10 3.5v2M13 3.5v2M10 17.5v2M13 17.5v2"/>');
 const PRODUCT_LOOK = {
   all: [ico('grid'), TINT.gray],
   watch: [ico('star'), TINT.orange],
@@ -1680,8 +1684,8 @@ const PRODUCT_LOOK = {
   fund: [ico('wallet'), TINT.indigo],
   bonds: [ico('bank'), TINT.brown],
   fx: [ico('swap'), TINT.teal],
-  gold: [ico('coin'), '#c9a227'],
-  crypto: [ico('coin'), TINT.orange]
+  gold: [GOLD_BARS, '#c9a227'],
+  crypto: [BITCOIN, TINT.orange]
 };
 const productTile = id => tileHtml(...(PRODUCT_LOOK[id] || [ico('list'), TINT.gray]), 'prod-tile');
 const WATCH = { id: 'watch', zh: '自選', en: 'Watchlist', subs: [{ id: 'watch', zh: '自選', en: 'Watchlist', product: 'watch' }] };
@@ -2036,6 +2040,21 @@ async function loadAbout(symbol) {
 // again while its sheet stays open on it, quietly: once the kit's hold on
 // the failure is over (15 s), three times.
 const CHART_RETRY_MS = 16_000;
+// The last day a market traded, as a day's chart: its 5-minute bars (the kit's fetchBars).
+async function lastDayChart(symbol) {
+  const q = state.quotes.get(symbol);
+  const bars = (await fetchBars(symbol, Date.now() - 4 * 86_400_000)).filter(b => b.c > 0);
+  if (bars.length < 2) return null;
+  const tz = q?.tz;
+  const dayOf = tt => localDay(tt, tz);
+  const day = dayOf(bars.at(-1).t);
+  const its = bars.filter(b => dayOf(b.t) === day);
+  if (its.length < 2) return null;
+  const points = its.map(b => [b.t, b.c]);
+  // (Its close as the quote has it: the closing auction comes after the last bar.)
+  if (q?.price > 0 && q.marketTime > points.at(-1)[0] && dayOf(q.marketTime) === day) points.push([q.marketTime, q.price]);
+  return { day: its.at(-1).t, chart: { points, bars: its } };
+}
 async function loadChart(retry = 0) {
   const d = state.detail;
   if (!d) return;
@@ -2049,7 +2068,14 @@ async function loadChart(retry = 0) {
   // every refresh): no chart read, except for candles.
   if (dayLineOf(d) && state.settings.chart !== 'candle') return;
   try {
-    const chart = await fetchChart(symbol, range);
+    let chart = await fetchChart(symbol, range);
+    // A day with no trading yet (a holiday, a typhoon day, before the open):
+    // the last trading day's line instead, said so over the chart.
+    d.lastDay = null;
+    if (range === '1d' && !(chart?.points?.length > 1)) {
+      const last = await lastDayChart(symbol).catch(() => null);
+      if (last) [chart, d.lastDay] = [{ ...chart, ...last.chart }, last.day];
+    }
     if (state.detail !== d || d.range !== range) return;
     d.chart = chart;
     d.chartError = false;
@@ -2167,10 +2193,16 @@ function renderDetail() {
     ${positionHtml(d.symbol)}
     ${q && !tradable ? trackersHtml(d.symbol) : ''}
     ${q ? sectionHtml(t('factsTitle'), factsHtml(q)) : ''}
+    ${q ? sectionHtml(t('guideTitle'), guideHtml(q)) : ''}
     ${q ? toolsHtml(d.symbol, q) : ''}
     ${q ? aboutHtml(d.symbol, q) : ''}
     ${ownTradesHtml(d.symbol)}
-    ${tradable ? `<div class="trade-bar q-sheet-foot q-sf"><button class="q-btn trade buy" type="button" data-action="trade" data-side="buy">${h(t('buy'))}</button><button class="q-btn trade sell" type="button" data-action="trade" data-side="sell">${h(t('sell'))}</button></div>` : ''}
+    ${
+      // 買進/賣出 docked along the sheet's foot (not floating over it), beside the price they'd trade at.
+      tradable
+        ? `<div class="trade-bar q-sheet-foot q-sf"><span class="q-sf-sum"><b class="num">${qPrice(q)}</b><small class="num ${dirClass(q.change)}">${h(pct(q.pct))}</small></span><button class="q-btn trade buy" type="button" data-action="trade" data-side="buy">${h(t('buy'))}</button><button class="q-btn trade sell" type="button" data-action="trade" data-side="sell">${h(t('sell'))}</button></div>`
+        : ''
+    }
   `
   );
   renderChart();
@@ -2221,7 +2253,7 @@ function renderChart() {
   const legend = mas.length ? `<ul class="legend-inline">${mas.map(m => `<li><i class="sw ${m.cls}"></i>MA${m.n}</li>`).join('')}</ul>` : '';
   // The range's change sits on the row above, beside the chart's tools.
   const headBox = $('detail-chart-head');
-  if (headBox) headBox.innerHTML = `${h(t('rangeChange', { range: t(`range_${d.range}`) }))} <span class="chg ${dir}">${pct(change)}</span>`;
+  if (headBox) headBox.innerHTML = `${h(d.lastDay && d.range === '1d' ? t('lastDayChange', { date: shortDate(d.lastDay, tz) }) : t('rangeChange', { range: t(`range_${d.range}`) }))} <span class="chg ${dir}">${pct(change)}</span>`;
   const head = '';
   const height = width < 480 ? 220 : 260;
   if (state.settings.chart === 'candle' && bars) {
@@ -2294,9 +2326,6 @@ function bondFacts(q) {
     [t('faceValue'), `${money(bond.face, bond.currency)} ${t('perBond')}`],
     [t('couponTax'), rateText(bond.tax)],
     [t('currency'), `${q.currency} · ${L(currencyInfo(q.currency))}`],
-    [t('hours'), `${clock(q.session.start, q.tz)}–${clock(q.session.end, q.tz)} (${t('localTime')}) · ${clock(q.session.start)}–${clock(q.session.end)} ${t('taipeiTime')}`],
-    ...(holidayLine(q) ? [[t('holidaysNext'), holidayLine(q)]] : []),
-    [t('costs'), feeSummary(q)],
     ...(state.rates[q.currency] && q.currency !== BASE ? [[t('inTwd'), `${money(q.price * state.rates[q.currency], BASE)} ${t('perBond')}`]] : [])
   ];
 }
@@ -2347,10 +2376,6 @@ function stockFacts(q) {
         ]),
     [t('currency'), `${q.currency} · ${L(currencyInfo(q.currency))}`],
     [t('market'), q.market === 'TAIFEX' ? t('taifexName') : marketLabel(q.market)],
-    ...(q.session && q.kind !== 'crypto' ? [[t('hours'), hoursLine(q)]] : []),
-    ...(q.session && holidayLine(q) ? [[t('holidaysNext'), holidayLine(q)]] : []),
-    ...(isTradable(q.kind) ? [[t('costs'), feeSummary(q)]] : []),
-    ...(isTradable(q.kind) ? [[t('rulesFact'), marketRules(q)]] : []),
     ...(state.rates[q.currency] && q.currency !== BASE ? [[t('inTwd'), `${money(q.price * state.rates[q.currency], BASE, { digits: q.price * state.rates[q.currency] < 100 ? 2 : 0 })} ${t('perUnit', { unit: unitOf(q.symbol) })}`]] : [])
   ];
 }
@@ -2372,20 +2397,91 @@ function factsGrid(rows) {
     .join('')}</dl>`;
 }
 
-// Hours in Taiwan's time, and the market's own when it differs.
-function hoursLine(q) {
-  const tw = `${clock(q.session.start)}–${clock(q.session.end)}`;
-  const local = `${clock(q.session.start, q.tz)}–${clock(q.session.end, q.tz)}`;
-  const line = local === tw ? tw : `${tw} ${t('taipeiTime')} · ${t('localTime')} ${local}`;
-  // Taiwan: orders from 08:30 (試撮) and the after-hours sessions.
-  if (q.market === 'TW' && isTradable(q.kind)) return `${line} · ${t('twHoursMore')}`;
-  // US stocks and ETFs: the pre- and post-market (the kit's US_EXTENDED).
-  const ext = stockMarkets.US_EXTENDED;
-  if (ext && usSessionOf(q) !== undefined) {
-    const hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-    return `${line} · ${t('usExtHours', { pre: `${hm(ext.pre[0])}–${hm(ext.pre[1])}`, post: `${hm(ext.post[0])}–${hm(ext.post[1])}` })}`;
+// 交易須知: when, which days, what it costs and the rules, as pictures and
+// chips rather than lines (Jay 2026-10-23: "too much text"). Each rule here is
+// one the app keeps (the kit's account: auction, after-hours, odd lots, T+2…).
+const minClock = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+const minsOf = (ts, tz) => {
+  const [a, b] = clock(ts, tz).split(':');
+  return (+a % 24) * 60 + +b;
+};
+// A day's sessions in the market's own time, [from, to, kind, label] in minutes.
+function sessionParts(q) {
+  if (!q.session || q.kind === 'crypto' || q.market === 'TWFUND') return null;
+  const from = minsOf(q.session.start, q.tz);
+  let to = minsOf(q.session.end, q.tz);
+  if (to <= from) to += 1440;
+  if (to - from >= 23 * 60) return [];
+  if (q.market === 'TW' && isTradable(q.kind) && !stockMarkets.isEmerging?.(q.symbol)) {
+    return [
+      [510, from, 'pre', t('segPre')],
+      [from, 805, 'open', t('segOpen')],
+      [805, 810, 'auction', t('segAuction')],
+      [820, 870, 'after', t('segOddAfter')],
+      [840, 870, 'after', t('segFixedAfter'), true]
+    ];
   }
-  return line;
+  const parts = [];
+  const ext = stockMarkets.US_EXTENDED;
+  const us = ext && usSessionOf(q) !== undefined;
+  if (us) parts.push([ext.pre[0], ext.pre[1], 'pre', t('segExtPre')]);
+  const lunch = lunchOf(q.market);
+  if (lunch && lunch[0] > from && lunch[1] < to) parts.push([from, lunch[0], 'open', t('segAm')], [lunch[1], to, 'open', t('segPm')]);
+  else parts.push([from, to, 'open', t('segOpen')]);
+  if (us) parts.push([ext.post[0], ext.post[1], 'after', t('segExtPost')]);
+  return parts;
+}
+function hoursGuide(q) {
+  const parts = sessionParts(q);
+  if (!parts) return '';
+  if (!parts.length) return `<div class="guide-chips"><span class="q-tag">${h(t('allDay'))}</span></div>`;
+  const bar = parts.filter(p => !p[4]);
+  const lo = Math.min(...bar.map(p => p[0]));
+  const hi = Math.max(...bar.map(p => p[1]));
+  const at = m => `${(((m - lo) / (hi - lo)) * 100).toFixed(2)}%`;
+  // Now, on a day it trades (the quote's session is today's).
+  const now = Date.now();
+  const nowM = minsOf(now, q.tz);
+  const today = localDay(q.session.start, q.tz) === localDay(now, q.tz);
+  const mark = today && nowM >= lo && nowM <= hi ? `<i class="gt-now" style="left:${at(nowM)}"></i>` : '';
+  const tw = minsOf(q.session.start) !== minsOf(q.session.start, q.tz) ? `<p class="gt-tw">${h(t('taipeiTime'))} <b class="num">${clock(q.session.start)}–${clock(q.session.end)}</b></p>` : '';
+  return `<div class="gt"><div class="gt-bar">${bar.map(p => `<i class="gt-${p[2]}" style="left:${at(p[0])};width:${at(p[1] - p[0] + lo)}"></i>`).join('')}${mark}</div>
+    <div class="gt-ends num"><span>${minClock(lo)}</span><span>${minClock(hi)}</span></div>
+    <ul class="gt-key">${parts.map(p => `<li><i class="gt-${p[2]}"></i><span>${h(p[3])}</span><b class="num">${minClock(p[0])}–${minClock(p[1])}</b></li>`).join('')}</ul>${tw}</div>`;
+}
+// A rule line's parts, each a chip: split at its commas, without its "權證：" head.
+// (Never inside brackets: "減半 0.15%（至 2027/12/31，零股不適用）" is one chip.)
+const ruleChips = line => {
+  const out = [''];
+  let depth = 0;
+  for (const part of String(line).split(/( · |[，；;]\s*|[（(]|[）)])/)) {
+    if (/^[（(]$/.test(part)) depth++;
+    else if (/^[）)]$/.test(part)) depth = Math.max(0, depth - 1);
+    if (!depth && /^( · |[，；;]\s*)$/.test(part)) out.push('');
+    else out[out.length - 1] += part;
+  }
+  return out
+    .map(x => x.replace(/^[^：\d]{1,8}：\s*|^[A-Za-z ]{1,16}:\s+/, '').trim())
+    .filter(Boolean);
+};
+function costChips(q) {
+  const chips = feeSummary(q).split(' · ');
+  const m = MARKETS[q.market];
+  if (q.market === 'TW' && m?.commission?.oddMin != null && isTradable(q.kind) && q.kind !== 'fut' && q.kind !== 'opt') chips.splice(1, 0, t('feeOddMin', { min: money(m.commission.oddMin, BASE) }));
+  return chips;
+}
+function guideHtml(q) {
+  const block = (icon, title, body) => (body ? `<div class="guide-part"><h4>${ico(icon)}${h(title)}</h4>${body}</div>` : '');
+  const chips = (list, cls = '') => (list.length ? `<div class="guide-chips">${list.map(x => `<span class="q-tag ${cls}">${h(x)}</span>`).join('')}</div>` : '');
+  const days = q.session ? holidayLine(q) : '';
+  const tradable = isTradable(q.kind);
+  const body = [
+    block('clock', t('hours'), hoursGuide(q)),
+    block('calendar', t('holidaysNext'), days ? chips(days.split(/[、,] ?/), 'num') : ''),
+    block('coin', t('costs'), tradable || BONDS[q.symbol] ? chips(costChips(q), 'num') : ''),
+    block('list', t('rulesFact'), tradable && !BONDS[q.symbol] ? chips(ruleChips(marketRules(q))) : '')
+  ].join('');
+  return body ? `<div class="guide">${body}</div>` : '';
 }
 
 function positionHtml(symbol) {

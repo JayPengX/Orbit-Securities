@@ -388,8 +388,6 @@ html .q-stats.about-returns { grid-template-columns: repeat(var(--n, 3), minmax(
 .q-ritem-value small.est { margin-right: 4px; color: var(--q-label-2); font-size: 0.8em; font-weight: 500; }
 .pos-income { margin-top: 10px; }
 .pos-income .q-tag svg { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
-/* 買進 / 賣出 at the foot of the sheet, always in reach. */
-.trade-bar { position: sticky; bottom: calc(-24px - env(safe-area-inset-bottom)); z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px calc(-1 * var(--q-margin)) calc(-24px - env(safe-area-inset-bottom)); padding: 12px var(--q-margin) calc(12px + env(safe-area-inset-bottom)); background: var(--q-sheet); box-shadow: 0 -1px 0 var(--q-sep); }
 .q-btn.trade { min-height: 50px; color: #fff; font-size: 17px; }
 .q-btn.trade.buy, .q-btn.place.buy { background: var(--up); color: #fff; }
 .q-btn.trade.sell, .q-btn.place.sell { background: var(--down); color: #fff; }
@@ -622,8 +620,6 @@ a.act-row { color: inherit; }
 .q-sheet-hero .mkt-status { background: rgba(255, 255, 255, 0.2); color: #fff; }
 .q-sheet-hero .mkt-status.open { background: rgba(255, 255, 255, 0.28); color: #fff; }
 .q-sheet-hero .q-sh-row .q-tag { background: rgba(255, 255, 255, 0.2); color: #fff; }
-.q-sheet-foot.trade-bar { display: flex; gap: 12px; }
-.q-sheet-foot.trade-bar .q-btn { flex: 1; min-height: 50px; }
 .place-bar.q-sheet-foot { display: flex; align-items: center; gap: 12px; }
 .place-bar.q-sheet-foot .q-btn { flex: 1; min-height: 50px; }
 /* (The total shrinks to fit beside the button, never under it: the kit's fitNumbers.) */
@@ -714,10 +710,19 @@ a.act-row { color: inherit; }
 .tool-sheet .tool-page .q-btn.primary:disabled { box-shadow: none; }
 .big-field > span { white-space: nowrap; }
 .tool-page { grid-template-columns: minmax(0, 1fr); }
-/* 買進/賣出 and the ticket's button float over the sheet: no band, no line behind them. */
-.q-sheet-foot.q-sf:is(.trade-bar, .place-bar) { border-top: 0; background: transparent; box-shadow: none; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); pointer-events: none; }
-.q-sheet-foot.q-sf:is(.trade-bar, .place-bar) > * { pointer-events: auto; }
-.q-sheet-foot.q-sf:is(.trade-bar, .place-bar) .q-btn { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); }
+/* The ticket's button floats over its sheet: no band, no line behind it. */
+.q-sheet-foot.q-sf.place-bar { border-top: 0; background: transparent; box-shadow: none; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); pointer-events: none; }
+.q-sheet-foot.q-sf.place-bar > * { pointer-events: auto; }
+.q-sheet-foot.q-sf.place-bar .q-btn { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); }
+/* 買進/賣出: a slim bar docked along the detail's foot (the kit's sheet foot: its band and hairline), the price on its left, two compact buttons (Jay 2026-10-23: no big floating pills). */
+.q-sheet-foot.q-sf.trade-bar { gap: 8px; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+/* (Edge to edge and flush with the bottom: it sits in #detail-body, inside the sheet's own padding.) */
+#detail-body > .q-sheet-foot.trade-bar { bottom: calc(-1 * var(--sheet-pb, 16px)); margin: 16px calc(-2 * var(--q-margin)) calc(-24px - env(safe-area-inset-bottom) - var(--sheet-pb, 16px)); padding-left: calc(2 * var(--q-margin)); padding-right: calc(2 * var(--q-margin)); }
+.q-sheet-foot.q-sf.trade-bar .q-sf-sum { flex: 1; }
+.q-sheet-foot.q-sf.trade-bar .q-sf-sum b { font-size: 18px; }
+.q-sheet-foot.q-sf.trade-bar .q-sf-sum small.up { color: var(--up); }
+.q-sheet-foot.q-sf.trade-bar .q-sf-sum small.down { color: var(--down); }
+.q-sheet-foot.q-sf.trade-bar .q-btn { flex: 0 0 auto; width: 92px; min-height: 40px; border-radius: 10px; font-size: 16px; box-shadow: none; }
 .q-sheet-foot.q-sf.place-bar .q-sf-sum { padding: 6px 12px; border-radius: 14px; background: var(--q-sheet); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
 /* A range (今日區間, 52 週) breaks after its dash when the column is narrow, never inside a number. */
 .facts-grid div.range dd { white-space: normal; }
@@ -788,3 +793,24 @@ html.q-kb .tool-sheet .tool-page .q-btn.primary:not(.small) { position: static; 
 .big-field:has(.big-field-end) { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; }
 .big-field:has(.big-field-end) > span { grid-column: 1 / -1; }
 .big-field-end { color: var(--q-label-2); font: 600 13px/18px var(--q-font); font-style: normal; white-space: nowrap; }
+/* 交易須知: the day's sessions as a bar, then days, costs and rules as chips. */
+.guide { display: grid; gap: 14px; padding: 14px 16px 16px; border-radius: 18px; background: var(--q-surface); }
+.guide-part h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; color: var(--q-label-2); font: 600 13px/1.2 var(--q-font); }
+.guide-part h4 svg { width: 15px; height: 15px; }
+.guide-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.guide-chips .q-tag { max-width: 100%; white-space: nowrap; }
+.gt-bar { position: relative; height: 10px; border-radius: 5px; background: var(--q-fill); }
+.gt-bar > i { position: absolute; top: 0; bottom: 0; border-radius: 5px; }
+.gt-bar > i.gt-now { top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--q-label); }
+.gt .gt-pre { background: color-mix(in srgb, var(--q-accent) 38%, transparent); }
+.gt .gt-open { background: var(--q-accent); }
+.gt .gt-auction { background: var(--q-orange); }
+.gt .gt-after { background: var(--q-indigo); }
+.gt-ends { display: flex; justify-content: space-between; margin-top: 4px; color: var(--q-label-2); font-size: 12px; }
+.gt-key { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.gt-key li { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; }
+.gt-key li > i { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 3px; }
+.gt-key li > span { flex: 1; min-width: 0; }
+.gt-key li > b { font-weight: 600; }
+.gt-tw { margin: 8px 0 0; color: var(--q-label-2); font-size: 13px; white-space: nowrap; }
+.gt-tw b { color: var(--q-label); font-weight: 600; }

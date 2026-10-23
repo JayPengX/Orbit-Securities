@@ -260,7 +260,7 @@ export const CATEGORIES = [
 const tw = s => /\.TW$/.test(s);
 const two = s => /\.TWO$/.test(s);
 const GOLD = new Set(['XAU', 'XAG', 'GLD', 'SLV', '00635U.TW']);
-export const PRODUCTS = [
+const PRODUCT_LIST = [
   {
     id: 'tw', zh: '台股', en: 'Taiwan', short: { zh: '台股', en: 'Taiwan' },
     subs: [
@@ -320,6 +320,10 @@ export const PRODUCTS = [
   },
   { id: 'crypto', zh: '加密貨幣', en: 'Crypto', short: { zh: '加密', en: 'Crypto' }, subs: [{ id: 'crypto', zh: '加密貨幣', en: 'Crypto', cat: 'crypto' }] }
 ];
+// In the order people use them (Jay 2026-10-23: 期權 is no one's first stop):
+// Taiwan's shares and ETFs, overseas shares, funds, then the rest; futures and options last.
+const PRODUCT_ORDER = ['tw', 'intl', 'fund', 'fx', 'gold', 'bonds', 'crypto', 'deriv'];
+export const PRODUCTS = PRODUCT_ORDER.map(id => PRODUCT_LIST.find(p => p.id === id));
 export const SUBS = new Map(PRODUCTS.flatMap(p => p.subs.map(s => [s.id, { ...s, product: p.id }])));
 // A list's curated picks: its list's symbols it takes, then its extras.
 export const subPicks = sub => [...new Set([...(CATEGORIES.find(c => c.id === sub.cat)?.items || []).map(i => i[0]).filter(s => !sub.only || sub.only(s)), ...(sub.extra || [])])];
