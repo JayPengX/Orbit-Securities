@@ -3993,9 +3993,11 @@ function positionRow(p, sort = 'value') {
   const net = netPl(p);
   const [x, xPct] = sort === 'day' ? [p.dayTWD, p.dayPct] : [net.pl, net.pct];
   const end = `<strong class="num ${dirClass(x)}">${h(money(x, BASE, { sign: true }))}</strong><span class="q-tag chg-tag ${dirClass(x)} num">${h(pct(xPct))}</span>`;
+  // (A future's English name without "futures" here: "Mini-TAIEX futures Nov" was cut at 320 px, and the line under it says contracts.)
+  const rowName = locale === 'en' && stockMarkets.isFuture?.(p.symbol) ? nameOf(p.symbol, q).replace(/ futures\b/, '') : nameOf(p.symbol, q);
   return `<button class="q-ritem position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(p.symbol, q))}</span><small class="num q-fit">${h(`${qty} · ${t('marketValue')} ${compactMoney(p.valueTWD, BASE)}`)}</small>${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(rowName)}</span><small class="num q-fit">${h(`${qty} · ${t('marketValue')} ${compactMoney(p.valueTWD, BASE)}`)}</small>${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
     <span class="q-ritem-end">${end}</span>
   </button>`;
 }
@@ -4011,10 +4013,12 @@ function walletRow(c, reserved = 0, settling = 0, settleAt = 0) {
       ? `<span class="blue-ink">${h(t('settlingShort', { amount: money(settling, c.currency), date: settleAt ? shortDate(settleAt) : '' }).trim())}</span>`
       : reserved > 1e-9
         ? `<span class="orange-ink">${h(t('reservedShort', { amount: money(reserved, c.currency) }))}</span>`
-        : h(twd ? t('cashMonthly', { amount: money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE) }) : c.currency);
+        : h(twd ? t('cashMonthly', { amount: money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE) }) : locale === 'en' ? L(info) : c.currency);
+  // (English names are long: "Taiwan dollar" was cut beside NT$117,000 at 320 px. The code there, the name under it.)
+  const title = locale === 'en' ? c.currency : L(info);
   return `<button class="q-ritem chevron wallet" type="button" data-action="fx-from" data-cur="${h(c.currency)}">
     ${tileHtml(curMark(c.currency), TINT.teal, 'soft flag')}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(L(info))}</span><small class="num q-fit">${small}</small></span>
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span><small class="num q-fit">${small}</small></span>
     <span class="q-ritem-end"><strong class="num${c.amount < 0 ? ' down-ink' : ''}">${h(money(c.amount, c.currency))}</strong>${twd ? '' : `<small class="num">≈ ${h(money(c.twd, BASE))}</small>`}</span>
   </button>`;
 }
@@ -4501,7 +4505,7 @@ function exchangeHtml() {
         <div class="fx-side-row">${currencySelect('fx-to', f.to)}${getBox}</div>
         <div class="fx-side-foot"><span class="num">${h(t('fxYouHave', { amount: money(haveTo, f.to) }))}</span></div>
       </div>
-      <span class="hc-tags">
+      <span class="hc-tags fx-tags">
         <span class="q-tag hc-tag num">${q ? h(rateLine(f.from, f.to, q.rate)) : mid ? h(rateLine(f.from, f.to, mid)) : '—'}</span>
         <span class="q-tag hc-tag num">${h(t('spread'))} ${h(pct(spread, { digits: 2, sign: false }))}${state.fxOpen ? '' : ` ${h(t('closedDouble'))}`}</span>
         ${q ? `<span class="q-tag hc-tag num">${h(t('fxCost'))} ${h(money(q.spreadTWD, BASE, { digits: q.spreadTWD < 10 ? 2 : 0 }))}</span>` : ''}
