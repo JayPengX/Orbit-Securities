@@ -30,7 +30,7 @@ import {
   APPS, appUrl, describeEntry, installGate, watchUpdates, orbitSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, nextPayday as orbitPayday, affinityPatch, workerJson,
   keepOffline, onlineOnly, proxyJson, worthOf, WEALTH_RANKS, moneySides, poolBalance, errorText as passError
 } from '#kit/orbit.mjs';
-import { LOAN, RELIEF, PAY_WEEK, activeLoan, loanOwed, payoffAmount, canBorrow, loanOffer, maxFor, dueCount, reliefCheck, openStakes, schedule, totalApr } from '#kit/loan.mjs';
+import { LOAN, RELIEF, PAY_WEEK, activeLoan, loanOwed, payoffAmount, canBorrow, loanOffer, maxFor, dueCount, reliefCheck, schedule, totalApr } from '#kit/loan.mjs';
 import { STOCK, roundTrip, overdraftYear, overdraftPaid } from './lib/truth.mjs';
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
@@ -4136,7 +4136,7 @@ function rankOf(w) {
   return { worth, at, next: WEALTH_RANKS[at + 1] || null };
 }
 // Relief is asked on what's owned, at cost (the Worker's own count, eco.js).
-const reliefWorth = w => poolBalance(w) + (Number(w?.snap?.stock?.held) || 0) + openStakes(w);
+const reliefWorth = w => poolBalance(w) + (Number(w?.snap?.stock?.held) || 0);
 
 // 你的帳戶 on 資金: the loan, relief when it's needed, wealth levels, 真相.
 function acctHtml() {
