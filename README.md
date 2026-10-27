@@ -27,12 +27,6 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
   <img src="docs/screenshots/securities-6.webp" width="30%" alt="Exchange at bank rates">
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/securities-4.webp" width="30%" alt="Your whole portfolio">
-  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Markets worldwide">
-  <img src="docs/screenshots/securities-6.webp" width="30%" alt="Exchange currencies">
-</p>
-
 ## Features
 
 - **Every market a Taiwan investor reaches:** 上市, 上櫃 and 興櫃 stocks, ETFs, warrants, convertibles, futures and options, 複委託 (US, Hong Kong, Tokyo and more), funds, bonds, forex, gold and crypto, each list complete, 50 rows at a time.
