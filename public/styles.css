@@ -926,13 +926,32 @@ body .q-move.solid.flat { color: var(--q-label-2); }
 .rec-why { display: block; padding: 0; background: none; color: var(--q-label-2); font: var(--q-t-footnote); }
 body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 13px/18px var(--q-font); color: var(--q-label-2); }
 /* 資產 and 紀錄's headline figure, on its card (kit .q-focus). */
-.pf-hero, .stats-hero { margin-bottom: var(--q-s-5); }
+.pf-hero, .stats-hero { margin-bottom: var(--q-s-4); }
 .pf-hero .q-seg { margin-top: var(--q-s-2); }
-.hc-note { color: var(--q-label-3); font-weight: 400; }
+.hc-note { color: rgba(255, 255, 255, 0.62); font-weight: 400; }
+/* The chart and its switch on the focus card's colour: white lines, as before 0b33ab6. */
+.q-focus .hc-chart .first-day { color: rgba(255, 255, 255, 0.8); }
+.q-focus .hc-chart .chart-svg .grid { stroke: rgba(255, 255, 255, 0.14); }
+.q-focus .hc-chart .chart-svg .axis-label { fill: rgba(255, 255, 255, 0.72); }
+.q-focus .hc-chart .chart-svg .line, .q-focus .hc-chart .chart-svg .line.up, .q-focus .hc-chart .chart-svg .line.down { stroke: #fff; }
+.q-focus .hc-chart .chart-svg .line.ref { stroke: rgba(255, 255, 255, 0.6); }
+.q-focus .hc-chart .chart-svg .area, .q-focus .hc-chart .chart-svg .area.up, .q-focus .hc-chart .chart-svg .area.down { fill: #fff; opacity: 0.14; }
+.q-focus .hc-chart .chart-svg .base-line { stroke: rgba(255, 255, 255, 0.45); }
+.q-focus .hc-chart .chart-svg :is(.end-dot, .hover-dot) { fill: #fff; stroke: transparent; }
+.q-focus .hc-chart .chart-svg .cross { stroke: rgba(255, 255, 255, 0.7); }
+.q-focus .hc-chart .legend-inline { color: rgba(255, 255, 255, 0.85); }
+.q-focus .hc-chart .sw { background: #fff; }
+.q-focus .hc-chart .sw.ref { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.8) 0 4px, transparent 4px 7px); }
+.q-focus .q-seg { background: rgba(255, 255, 255, 0.16); }
+.q-focus .q-seg::before { background: rgba(255, 255, 255, 0.3) !important; box-shadow: none; }
+.q-focus .q-seg > button, .q-focus .q-seg > button[aria-pressed] { color: #fff; }
 .q-focus-sub .up { color: var(--up); }
 .q-focus-sub .down { color: var(--down); }
 .q-focus-value.up { color: var(--up); }
 .q-focus-value.down { color: var(--down); }
+/* (On the focus card's colour: the same meaning, lightened to read on it.) */
+.q-focus .q-focus-sub .up, .q-focus .q-focus-value.up { color: color-mix(in srgb, var(--up) 45%, #fff); }
+.q-focus .q-focus-sub .down, .q-focus .q-focus-value.down { color: color-mix(in srgb, var(--down) 45%, #fff); }
 /* The exchange is the action on 資金: one coloured card, no shadow on the swap. */
 .fx-swap { box-shadow: none; }
 .q-ritem-end > strong { font-weight: 500; }
