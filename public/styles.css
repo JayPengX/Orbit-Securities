@@ -603,18 +603,59 @@ a.act-row { color: inherit; }
 #home-body .mover-groups { margin-bottom: 12px; }
 
 /* ==== Round 3: the sheets ==== */
-.q-sheet-hero .q-sh-logos .sym-badge { width: 56px; height: 56px; }
-.q-sheet-hero .q-sh-big { white-space: nowrap; }
-.q-sheet-hero .mkt-status { background: rgba(255, 255, 255, 0.2); color: #fff; }
-.q-sheet-hero .mkt-status.open { background: rgba(255, 255, 255, 0.28); color: #fff; }
-.q-sheet-hero .q-sh-row .q-tag { background: rgba(255, 255, 255, 0.2); color: #fff; }
+/* A symbol's hero: the app's focus card (sheetHeroHtml), its picture small beside its name. */
+.sym-hero { margin: 4px 0 var(--q-s-5); }
+.sym-hero-name { display: flex; align-items: center; gap: 10px; min-width: 0; margin-bottom: 4px; }
+.sym-hero-name .q-focus-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sym-hero-name :is(.sym-badge, .q-logo) { --s: 32px; flex: none; width: 32px; height: 32px; }
+.sym-hero .q-focus-sub { white-space: nowrap; }
+/* The market's state as one plain line on the card: words, not capsules (a 漲停 tag stays one). */
+.sym-hero-status { margin: 0; color: var(--q-focus-2); font: var(--q-t-footnote); }
+.sym-hero-status > :is(.mkt-status, .q-tag:not(.solid)) { display: inline; min-height: 0; padding: 0; border-radius: 0; background: none; color: inherit; font: inherit; white-space: normal; }
+.sym-hero-status > .mkt-status small { font-weight: 400; white-space: normal; }
+.sym-hero-status > .q-tag { white-space: nowrap; }
+.sym-hero-status > :not(:last-child)::after { content: ' · '; }
+.sym-hero-status .mkt-dot { width: 6px; height: 6px; margin: 0 6px 2px 0; vertical-align: middle; background: rgba(255, 255, 255, 0.5); }
+.sym-hero-status .mkt-dot.open { background: #fff; }
+.sym-hero-status > .q-tag.solid { background: rgba(255, 255, 255, 0.24); color: #fff; }
+/* The ticket's: a size down, the order is what it's about. */
+.sym-hero.compact { margin-bottom: var(--q-s-4); padding: 14px 16px; }
+.sym-hero.compact .q-focus-value { font-size: 34px; line-height: 40px; }
+/* The chart on the card, as 資產's: white lines, the ranges and tools in white. */
+.sym-hero .chart-area { margin-top: var(--q-s-3); }
+.sym-hero .range-bar button { color: rgba(255, 255, 255, 0.72); }
+.sym-hero .range-bar button[aria-pressed='true'] { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.sym-hero .chart-top { margin-top: 2px; }
+.sym-hero .chart-change { display: flex; align-items: center; gap: 14px; min-width: 0; color: var(--q-focus-2); }
+.sym-hero .chart-change .legend-inline { margin: 0; }
+.sym-hero .chart-change .chg.up { color: color-mix(in srgb, var(--up) 45%, #fff); }
+.sym-hero .chart-change .chg.down { color: color-mix(in srgb, var(--down) 45%, #fff); }
+.sym-hero .chart-tools .tool { color: rgba(255, 255, 255, 0.72); }
+.sym-hero .chart-tools .tool[aria-pressed='true'] { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.sym-hero .chart-box { margin: 0 -6px; }
+.sym-hero .chart-box > .empty, .sym-hero .chart-box .foot-note { color: var(--q-focus-2); }
+.sym-hero .chart-svg .grid { stroke: rgba(255, 255, 255, 0.14); }
+.sym-hero .chart-svg .axis-label { fill: rgba(255, 255, 255, 0.72); }
+.sym-hero .chart-svg :is(.line, .line.up, .line.down) { stroke: #fff; }
+.sym-hero .chart-svg .area, .sym-hero .chart-svg .area.up, .sym-hero .chart-svg .area.down { fill: #fff; opacity: 0.14; }
+.sym-hero .chart-svg .base-line { stroke: rgba(255, 255, 255, 0.45); }
+.sym-hero .chart-svg :is(.end-dot, .hover-dot, .end-dot.up, .end-dot.down, .hover-dot.up, .hover-dot.down) { fill: #fff; stroke: transparent; }
+.sym-hero .chart-svg .cross { stroke: rgba(255, 255, 255, 0.7); }
+/* (Averages and candles keep their meaning, lightened to read on the colour.) */
+.sym-hero .chart-svg .line.ma1 { stroke: color-mix(in srgb, var(--c4) 55%, #fff); }
+.sym-hero .chart-svg .line.ma2 { stroke: color-mix(in srgb, var(--c1) 45%, #fff); }
+.sym-hero .chart-svg .line.ma3 { stroke: color-mix(in srgb, var(--c7) 45%, #fff); }
+.sym-hero .chart-svg .candle line, .sym-hero .chart-svg .candle rect { stroke: rgba(255, 255, 255, 0.8); fill: rgba(255, 255, 255, 0.8); }
+.sym-hero .chart-svg .candle.up line { stroke: color-mix(in srgb, var(--up) 45%, #fff); }
+.sym-hero .chart-svg .candle.up rect { fill: color-mix(in srgb, var(--up) 45%, #fff); }
+.sym-hero .chart-svg .candle.down line { stroke: color-mix(in srgb, var(--down) 40%, #fff); }
+.sym-hero .chart-svg .candle.down rect { fill: color-mix(in srgb, var(--down) 40%, #fff); }
+.sym-hero .chart-svg .vol, .sym-hero .chart-svg .vol.up, .sym-hero .chart-svg .vol.down { fill: #fff; opacity: 0.22; }
+.sym-hero .legend-inline { color: var(--q-focus-2); }
+.sym-hero .sw.ma1 { background: color-mix(in srgb, var(--c4) 55%, #fff); }
+.sym-hero .sw.ma2 { background: color-mix(in srgb, var(--c1) 45%, #fff); }
+.sym-hero .sw.ma3 { background: color-mix(in srgb, var(--c7) 45%, #fff); }
 .place-bar.q-sheet-foot { display: flex; align-items: center; gap: 12px; }
-.place-bar.q-sheet-foot .q-btn { flex: 1; min-height: 50px; }
-/* (The total shrinks to fit beside the button, never under it: the kit's fitNumbers.) */
-.place-bar .q-sf-sum { flex: 0 1 auto; min-width: 0; }
-.place-bar .q-sf-sum small { white-space: nowrap; }
-.place-bar .q-sf-sum b { display: block; white-space: nowrap; }
-.place-bar.q-sheet-foot .q-btn { flex: 1 0 auto; min-width: 108px; }
 .ticket-stake .q-stake-presets button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .ticket-stake .q-stake-amt small { white-space: nowrap; }
 /* The ticket's sizes stay one row on a narrow phone (the kit drops to three a row there: a fourth sat alone). */
@@ -698,22 +739,21 @@ a.act-row { color: inherit; }
 .tool-sheet .tool-page .q-btn.primary:disabled { box-shadow: none; }
 .big-field > span { white-space: nowrap; }
 .tool-page { grid-template-columns: minmax(0, 1fr); }
-/* The ticket's button floats over its sheet: no band, no line behind it. */
-.q-sheet-foot.q-sf.place-bar { border-top: 0; background: transparent; box-shadow: none; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); pointer-events: none; }
+/* The ticket's one button floats over its sheet: no band or line, the page fading out under it
+   (so what scrolls beneath never collides with it), the total on the button's second line
+   (Jay 2026-10-28: a capsule of its own beside it sat over the card that says it too). */
+.q-sheet-foot.q-sf.place-bar { --sheet-pb: calc(16px + max(env(safe-area-inset-bottom) - 8px, 0px)); bottom: calc(-1 * var(--sheet-pb)); margin-bottom: calc(-24px - env(safe-area-inset-bottom) - var(--sheet-pb)); border-top: 0; background: linear-gradient(to bottom, transparent, var(--q-sheet) 28px); box-shadow: none; padding-top: 28px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); pointer-events: none; }
 .q-sheet-foot.q-sf.place-bar > * { pointer-events: auto; }
-.q-sheet-foot.q-sf.place-bar .q-btn { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); }
-/* 買進/賣出: a slim bar docked along the detail's foot (the kit's sheet foot: its band and hairline), the price on its left, two compact buttons (Jay 2026-10-23: no big floating pills). */
-.q-sheet-foot.q-sf.trade-bar { gap: 8px; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+.q-sheet-foot.q-sf.place-bar .q-btn { display: grid; place-content: center; gap: 2px; flex: 1 1 auto; min-width: 0; min-height: 56px; padding: 6px 16px; border-radius: 999px; box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.32); }
+.place-bar .place-do { font: 600 17px/22px var(--q-font); }
+.place-bar .place-sum { overflow: hidden; font: 500 13px/17px var(--q-font); opacity: 0.86; text-overflow: ellipsis; white-space: nowrap; }
+/* 買進/賣出: docked along the detail's foot (the kit's sheet foot: its band and hairline), two even buttons the bar's width (Jay 2026-10-23: no big floating pills; 2026-10-28: the price beside them, said twice, didn't fit). */
+.q-sheet-foot.q-sf.trade-bar { gap: 12px; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
 /* (Edge to edge and flush with the bottom: it sits in #detail-body, inside the sheet's own padding,
    which at the foot is the kit's 16 + max(safe area − 8, 0); a flat 16 left a phone with a home bar
    26 px of page showing under the bar.) */
 #detail-body > .q-sheet-foot.trade-bar { --sheet-pb: calc(16px + max(env(safe-area-inset-bottom) - 8px, 0px)); bottom: calc(-1 * var(--sheet-pb)); margin: 16px calc(-1 * var(--q-margin)) calc(-24px - env(safe-area-inset-bottom) - var(--sheet-pb)); padding-left: var(--q-margin); padding-right: var(--q-margin); }
-.q-sheet-foot.q-sf.trade-bar .q-sf-sum { flex: 1; }
-.q-sheet-foot.q-sf.trade-bar .q-sf-sum b { font-size: 18px; }
-.q-sheet-foot.q-sf.trade-bar .q-sf-sum small.up { color: var(--up); }
-.q-sheet-foot.q-sf.trade-bar .q-sf-sum small.down { color: var(--down); }
-.q-sheet-foot.q-sf.trade-bar .q-btn { flex: 0 0 auto; width: 92px; min-height: 40px; border-radius: 10px; font-size: 16px; box-shadow: none; }
-.q-sheet-foot.q-sf.place-bar .q-sf-sum { padding: 6px 12px; border-radius: 14px; background: var(--q-sheet); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+.q-sheet-foot.q-sf.trade-bar .q-btn { flex: 1 1 0; min-width: 0; min-height: 48px; font-size: 17px; box-shadow: none; }
 /* A range (今日區間, 52 週) breaks after its dash when the column is narrow, never inside a number. */
 .facts-grid div.range dd { white-space: normal; }
 .facts-grid div.range dd span.keep { display: inline-block; white-space: nowrap; }

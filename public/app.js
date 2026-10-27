@@ -2135,11 +2135,21 @@ function closeDetail() {
   if ($('detail')?.open) $('detail').close();
 }
 
-// The kit's sheetHero with this app's own picture in it (`logo`: a symbol's picture) and its status row (`status`: the market and quote tags), plus the live price.
-function sheetHeroHtml({ badge, eyebrow, big, sub, tint, tagsHtml = '', bigAttr = '' }) {
-  const html = kitUI.sheetHeroHtml({ eyebrow, big, sub, tint, logoHtml: badge, statusHtml: tagsHtml });
-  return bigAttr ? html.replace('class="q-sh-big"', `class="q-sh-big num" ${bigAttr}`) : html;
+// A symbol's sheet opens on the app's focus card (DESIGN.md: the app's colour, one big number,
+// calm content), as 資產's: its picture beside its name, the price, the day's move in its
+// up/down colour, and the market's state as one plain line (`tagsHtml`: no capsules but a
+// real exception, 漲停/跌停). `compact`: the order ticket's, a size down; `innerHtml`: what
+// else sits on the card (the detail's chart).
+function sheetHeroHtml({ badge, eyebrow, big, unit = '', move = '', dir = '', tagsHtml = '', bigAttr = '', compact = false, innerHtml = '' }) {
+  return `<div class="q-focus sym-hero${compact ? ' compact q-kb-hide' : ''}">
+    <div class="sym-hero-name">${badge}<span class="q-focus-label">${h(eyebrow)}</span></div>
+    <strong class="q-focus-value num" ${bigAttr}>${h(big)}</strong>
+    <span class="q-focus-sub num">${unit ? `${h(unit)} · ` : ''}<span class="${dir}">${h(move)}</span></span>
+    ${tagsHtml ? `<p class="sym-hero-status">${tagsHtml}</p>` : ''}${innerHtml}
+  </div>`;
 }
+// The day's move as the hero writes it: ▲3.50 (+2.21%).
+const heroMove = (q, amt = qAmt(q, Math.abs(q.change))) => `${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${amt} (${pct(q.pct)})`;
 function renderDetail() {
   const d = state.detail;
   if (!d) return;
@@ -2164,16 +2174,32 @@ function renderDetail() {
   const opt = stockMarkets.isOption?.(d.symbol);
   // A government bond by its name (美國公債 2 年 4.5%), its due date over the price; never its id.
   const due = BONDS[d.symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(d.symbol, q)) : null;
-  const upDown = q ? (q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)') : '';
+  // The chart sits on the hero, as 資產's does: white on the app's colour.
+  const chartHtml = `<section class="chart-area">
+      <div class="range-bar" role="group" style="--n:${rangesOf(kind).length}">${rangesOf(kind)
+        .map(r => `<button type="button" data-action="range" data-range="${r}" aria-pressed="${d.range === r}">${h(t(`range_${r}`))}</button>`)
+        .join('')}</div>
+      <div id="detail-chart" class="chart-box" data-own></div>
+      <div class="chart-top">
+        <p id="detail-chart-head" class="chart-change" data-own></p>
+        <div class="chart-tools" role="group">
+          <button class="tool" type="button" data-action="chart-style" data-v="line" aria-pressed="${state.settings.chart === 'line'}" aria-label="${h(t('chartLine'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3 4-7 5 5"/></svg></button>
+          <button class="tool" type="button" data-action="chart-style" data-v="candle" aria-pressed="${state.settings.chart === 'candle'}" aria-label="${h(t('chartCandle'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v4M8 15v6M16 3v7M16 17v4"/><rect x="5.5" y="7" width="5" height="8" rx="1"/><rect x="13.5" y="10" width="5" height="7" rx="1"/></svg></button>
+          <button class="tool text" type="button" data-action="chart-ma" aria-pressed="${state.settings.ma}">${h(t('chartMa'))}</button>
+        </div>
+      </div>
+    </section>`;
   const hero = q
     ? sheetHeroHtml({
         badge: heroLogo(d.symbol, q || info),
         eyebrow: opt ? optSeriesName(d.symbol) : due ? due[2] : nameOf(d.symbol, q),
         big: qPrice(q),
-        sub: `${qUnit(q)}${METALS[d.symbol] ? ` / ${unitOf(d.symbol)}` : ''} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${qAmt(q, Math.abs(q.change))} (${pct(q.pct)})`,
-        tint: upDown,
+        unit: `${qUnit(q)}${METALS[d.symbol] ? ` / ${unitOf(d.symbol)}` : ''}`,
+        move: heroMove(q),
+        dir: dirClass(q.change),
         tagsHtml: `${marketStatus(q)}${tags}`,
-        bigAttr: `data-q-live="big:${h(d.symbol)}"`
+        bigAttr: `data-q-live="big:${h(d.symbol)}"`,
+        innerHtml: chartHtml
       })
     : '';
   // (A future or an option by its name, never its TAIFEX code; an option's series under its contract.)
@@ -2194,20 +2220,7 @@ function renderDetail() {
     </div>`
         : `${plainEmpty(t('loadingQuote'))}`)
     }
-    <section class="chart-area">
-      <div class="range-bar" role="group" style="--n:${rangesOf(kind).length}">${rangesOf(kind)
-        .map(r => `<button type="button" data-action="range" data-range="${r}" aria-pressed="${d.range === r}">${h(t(`range_${r}`))}</button>`)
-        .join('')}</div>
-      <div class="chart-top">
-        <p id="detail-chart-head" class="chart-change" data-own></p>
-        <div class="chart-tools" role="group">
-          <button class="tool" type="button" data-action="chart-style" data-v="line" aria-pressed="${state.settings.chart === 'line'}" aria-label="${h(t('chartLine'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-6 4 3 4-7 5 5"/></svg></button>
-          <button class="tool" type="button" data-action="chart-style" data-v="candle" aria-pressed="${state.settings.chart === 'candle'}" aria-label="${h(t('chartCandle'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v4M8 15v6M16 3v7M16 17v4"/><rect x="5.5" y="7" width="5" height="8" rx="1"/><rect x="13.5" y="10" width="5" height="7" rx="1"/></svg></button>
-          <button class="tool text" type="button" data-action="chart-ma" aria-pressed="${state.settings.ma}">${h(t('chartMa'))}</button>
-        </div>
-      </div>
-      <div id="detail-chart" class="chart-box" data-own></div>
-    </section>
+    ${hero ? '' : chartHtml}
     ${positionHtml(d.symbol)}
     ${q && !tradable ? trackersHtml(d.symbol) : ''}
     ${q ? sectionHtml(t('factsTitle'), factsHtml(q)) : ''}
@@ -2216,9 +2229,10 @@ function renderDetail() {
     ${q ? aboutHtml(d.symbol, q) : ''}
     ${ownTradesHtml(d.symbol)}
     ${
-      // 買進/賣出 docked along the sheet's foot (not floating over it), beside the price they'd trade at.
+      // 買進/賣出 docked along the sheet's foot (not floating over it): two even buttons, the width
+      // between them (the price is the hero's, not said twice).
       tradable
-        ? `<div class="trade-bar q-sheet-foot q-sf"><span class="q-sf-sum"><b class="num">${qPrice(q)}</b><small class="num ${dirClass(q.change)}">${h(pct(q.pct))}</small></span><button class="q-btn trade buy" type="button" data-action="trade" data-side="buy">${h(t('buy'))}</button><button class="q-btn trade sell" type="button" data-action="trade" data-side="sell">${h(t('sell'))}</button></div>`
+        ? `<div class="trade-bar q-sheet-foot q-sf"><button class="q-btn trade buy" type="button" data-action="trade" data-side="buy">${h(t('buy'))}</button><button class="q-btn trade sell" type="button" data-action="trade" data-side="sell">${h(t('sell'))}</button></div>`
         : ''
     }
   `
@@ -2269,14 +2283,14 @@ function renderChart() {
   const closes = bars ? bars.map(b => [b.t, b.c]) : points;
   const mas = state.settings.ma ? MA_PERIODS.filter(n => closes.length > n + 2).map((n, i) => ({ n, points: movingAverage(closes, n), cls: `ma${i + 1}` })) : [];
   const legend = mas.length ? `<ul class="legend-inline">${mas.map(m => `<li><i class="sw ${m.cls}"></i>MA${m.n}</li>`).join('')}</ul>` : '';
-  // The range's change sits on the row above, beside the chart's tools.
   const headBox = $('detail-chart-head');
-  if (headBox) headBox.innerHTML = `${h(d.lastDay && d.range === '1d' ? t('lastDayChange', { date: shortDate(d.lastDay, tz) }) : t('rangeChange', { range: t(`range_${d.range}`) }))} <span class="chg ${dir}">${pct(change)}</span>`;
+  // (Under the chart beside its tools, with the averages' key; not a live day's change: the hero's move says it already.)
+  if (headBox) headBox.innerHTML = `${d.range === '1d' && !d.lastDay ? '' : `<span>${h(d.lastDay && d.range === '1d' ? t('lastDayChange', { date: shortDate(d.lastDay, tz) }) : t('rangeChange', { range: t(`range_${d.range}`) }))} <span class="chg ${dir}">${pct(change)}</span></span>`}${legend}`;
   const head = '';
   const height = width < 480 ? 220 : 260;
   if (state.settings.chart === 'candle' && bars) {
     const { svg, frame } = candleChart(bars, { width, height, lines: mas, yFormat: v => (pts ? pts(v) : fmtPrice(v, cur)), xFormat });
-    box.innerHTML = `${head}${svg}${legend}`;
+    box.innerHTML = `${head}${svg}`;
     delete box.dataset.drawn;
     attachCandleHover(box, bars, frame, b => {
       const ma = mas.map(m => {
@@ -2292,7 +2306,7 @@ function renderChart() {
   if (box.dataset.drawn === drawn && box.querySelector('svg')) return;
   const series = [{ points }, ...mas.map(m => ({ points: m.points, cls: m.cls }))];
   const { svg, frame } = lineChart(series, { width, height, base: d.range === '1d' ? base : null, dir, yFormat: v => (pts ? pts(v) : fmtPrice(v, cur)), xFormat });
-  box.innerHTML = `${head}${svg}${legend}${state.settings.chart === 'candle' && !bars ? `<p class="foot-note">${h(t('noCandles'))}</p>` : ''}`;
+  box.innerHTML = `${head}${svg}${state.settings.chart === 'candle' && !bars ? `<p class="foot-note">${h(t('noCandles'))}</p>` : ''}`;
   box.dataset.drawn = drawn;
   attachHover(box, series, frame, (i, tt, [v, ...ma]) => `<strong class="num">${fmtPrice(v, cur)}</strong><span>${h(when(tt))}</span><span class="chg ${dirClass(v - base)}">${pct(v / base - 1)}</span>${ma.map((x, k) => (x != null ? `<span>MA${mas[k].n} ${fmtPrice(x, cur)}</span>` : '')).join('')}`);
 }
@@ -3016,6 +3030,9 @@ function ticketInfo() {
   return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
 }
 
+// The ticket's one floating button: what it does, and under it what it comes to (總共付出
+// NT$162,500), so the total rides with the button instead of a second capsule beside it.
+const placeLabel = (label, sum) => `<span class="place-do">${h(label)}</span>${sum ? `<small class="place-sum num">${h(sum[0])} ${h(sum[1])}</small>` : ''}`;
 // The order ticket: a sheet of its own over the stock's, opened by 買進 / 賣出.
 function openTrade(side) {
   const d = state.detail;
@@ -3166,8 +3183,10 @@ function renderTicket() {
           badge: heroLogo(d.symbol, q),
           eyebrow: bareSymbol(d.symbol),
           big: qPrice(q),
-          sub: `${qUnit(q)} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${qAmt(q, Math.abs(q.change))} (${pct(q.pct)})`,
-          tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)'
+          unit: qUnit(q),
+          move: heroMove(q),
+          dir: dirClass(q.change),
+          compact: true
         })
       }
       <div class="q-seg side-toggle" role="group">
@@ -3207,11 +3226,9 @@ function renderTicket() {
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
       <div class="place-bar q-sheet-foot q-sf">${
-        est ? `<div class="q-sf-sum"><small>${h(d.side === 'buy' ? t('totalCost') : t('totalProceeds'))}</small><b class="num">${h(money(est.total, q.currency))}</b></div>` : ''
-      }${
         topUp?.enough && est && !problems.length
-          ? `<button class="q-btn primary place ${d.side}" type="button" data-action="place-fx" data-from="${h(topUp.from)}" data-need="${topUp.need}" ${pricesLive() ? '' : 'disabled'}>${h(t('autoFx'))}</button>`
-          : `<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(d.side === 'buy' ? t('placeBuy') : t('placeSell'))}</button>`
+          ? `<button class="q-btn primary place ${d.side}" type="button" data-action="place-fx" data-from="${h(topUp.from)}" data-need="${topUp.need}" ${pricesLive() ? '' : 'disabled'}>${placeLabel(t('autoFx'), est && [d.side === 'buy' ? t('totalCost') : t('totalProceeds'), money(est.total, q.currency)])}</button>`
+          : `<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${placeLabel(d.side === 'buy' ? t('placeBuy') : t('placeSell'), est && [d.side === 'buy' ? t('totalCost') : t('totalProceeds'), money(est.total, q.currency)])}</button>`
       }</div>
     </div>`
   );
@@ -3275,7 +3292,7 @@ function renderFutTicket(box, d, q) {
   morph(
     box,
     `<div class="ticket">
-      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: bareSymbol(d.symbol), big: qPrice(q), sub: `${qUnit(q)} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${qAmt(q, Math.abs(q.change))} (${pct(q.pct)})`, tint: q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)' })}
+      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: bareSymbol(d.symbol), big: qPrice(q), unit: qUnit(q), move: heroMove(q), dir: dirClass(q.change), compact: true })}
       <div class="q-seg side-toggle" role="group">
         <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(futSide('buy', held))}</button>
         <button type="button" data-action="side" data-side="sell" class="sell" aria-pressed="${d.side === 'sell'}">${h(futSide('sell', held))}</button>
@@ -3302,7 +3319,7 @@ function renderFutTicket(box, d, q) {
       ${notes.length ? `<ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
-      <div class="place-bar q-sheet-foot q-sf">${est ? `<div class="q-sf-sum"><small>${h(t('futNeed'))}</small><b class="num">${h(money(need, BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(futSide(d.side, held))}</button></div>
+      <div class="place-bar q-sheet-foot q-sf"><button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${placeLabel(futSide(d.side, held), est && [t('futNeed'), money(need, BASE)])}</button></div>
     </div>`
   );
 }
@@ -3423,11 +3440,10 @@ function renderOptTicket(box, d, q) {
   const money1 = gap == null ? '' : Math.abs(gap) < 1 ? t('optAtm') : t(gap > 0 ? 'optItm' : 'optOtm', { n: num(Math.abs(gap), 0, 0) });
   const notes = [d.side === 'sell' && (write > 0 || written) ? t('optWriteNote') : t('optBuyNote'), !isOpen(q) ? t('closedQueue') : ''].filter(Boolean);
   const canPlace = est && !problems.length;
-  const dir = q.pct > 0 ? 'var(--up)' : q.pct < 0 ? 'var(--down)' : 'var(--q-gray)';
   morph(
     box,
     `<div class="ticket">
-      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: optSeriesName(d.symbol), big: qPrice(q), sub: `${t('futPoints')} · ${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${num(Math.abs(q.change), 1, 0)} (${pct(q.pct)})`, tint: dir })}
+      ${sheetHeroHtml({ badge: heroLogo(d.symbol, q), eyebrow: optSeriesName(d.symbol), big: qPrice(q), unit: t('futPoints'), move: heroMove(q, num(Math.abs(q.change), 1, 0)), dir: dirClass(q.change), compact: true })}
       ${optContractHtml(d)}
       <div class="q-seg side-toggle" role="group">
         <button type="button" data-action="side" data-side="buy" class="buy" aria-pressed="${d.side === 'buy'}">${h(t(written ? 'optBuyClose' : 'optBuy'))}</button>
@@ -3457,7 +3473,7 @@ function renderOptTicket(box, d, q) {
       <ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}
       ${d.msg ? `<p class="${d.msg.kind === 'bad' ? 'warn' : 'ok-msg'}">${h(d.msg.text)}</p>` : ''}
-      <div class="place-bar q-sheet-foot q-sf">${sum ? `<div class="q-sf-sum"><small>${h(sum[0])}</small><b class="num">${h(money(sum[1], BASE))}</b></div>` : ''}<button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${h(side)}</button></div>
+      <div class="place-bar q-sheet-foot q-sf"><button class="q-btn primary place ${d.side}" type="button" data-action="place" ${canPlace && pricesLive() ? '' : 'disabled'}>${placeLabel(side, sum && [sum[0], money(sum[1], BASE)])}</button></div>
     </div>`
   );
 }
