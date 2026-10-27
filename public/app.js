@@ -268,7 +268,17 @@ function fundParts(name) {
   return { base: name.slice(0, at + 2), cls };
 }
 // (A Taiwan fund by its class, else its house (its logo shows that): its 統編 means nothing to a reader.)
-const fundLine = s => fundParts(state.quotes.get(s)?.name || listingName.get(s) || '').cls || (fundHouseOf(s) ? `${fundHouseOf(s)}投信` : s.slice(0, -4));
+const fundLine = s => fundClass(fundParts(state.quotes.get(s)?.name || listingName.get(s) || '').cls) || (fundHouseOf(s) ? houseName(fundHouseOf(s)) : s.slice(0, -4));
+// A fund's class in English (A類型・美元 → Class A · USD); a word with no English is left out.
+const CLASS_EN = [[/後收/g, ' back-load '], [/避險/g, ' hedged'], [/不配息/g, ' accumulating'], [/累積(類)?型?/g, ' accumulating '], [/月配(息)?(類)?型?/g, ' monthly income '], [/配息(類)?型?/g, ' income '], [/新[臺台]幣|台幣/g, 'NTD '], [/美元|美金/g, 'USD '], [/人民幣/g, 'CNY '], [/南非幣/g, 'ZAR '], [/澳幣/g, 'AUD '], [/日幣|日圓/g, 'JPY '], [/歐元/g, 'EUR '], [/英鎊/g, 'GBP '], [/紐幣/g, 'NZD '], [/計價/g, ''], [/([A-Z][A-Z0-9]*)類型?/g, 'Class $1 '], [/類型|型/g, '']];
+function fundClass(cls) {
+  if (locale === 'zh' || !cls) return cls;
+  const parts = cls.split('・').map(p => CLASS_EN.reduce((x, [re, to]) => x.replace(re, to), p).replace(/\s+/g, ' ').trim()).filter(p => p && !/\p{Script=Han}/u.test(p));
+  return parts.join(' · ');
+}
+// A fund house by its name in English (元大投信 → Yuanta); one the table doesn't know, as SITCA writes it.
+const HOUSE_EN = { 大都會: 'MetLife', 東方匯理: 'Amundi', 野村: 'Nomura', 台新: 'Taishin', 群益: 'Capital', 宏利: 'Manulife', 富邦: 'Fubon', 富蘭克林華美: 'Franklin Templeton SinoAm', 路博邁: 'Neuberger Berman', 瀚亞: 'Eastspring', 凱基: 'KGI', 合庫: 'TCB', 國泰: 'Cathay', 元大: 'Yuanta', 第一金: 'First', 安聯: 'Allianz', 滙豐: 'HSBC', 玉山: 'E.SUN', 復華: 'Fuh Hwa', 兆豐: 'Mega', 永豐: 'SinoPac', 聯博: 'AllianceBernstein', 摩根: 'JPMorgan', 聯邦: 'Union', 中國信託: 'CTBC', 富達: 'Fidelity', 統一: 'Uni-President', 大華銀: 'UOB', 瑞銀: 'UBS', 施羅德: 'Schroders', 景順: 'Invesco', 華南永昌: 'Hua Nan', 貝萊德: 'BlackRock', 台中銀: 'Taichung Bank', 街口: 'JKO', 德銀遠東: 'DWS' };
+const houseName = house => (locale === 'zh' ? `${house}投信` : HOUSE_EN[house] || `${house}投信`);
 const bareSymbol = s => (METALS[s] ? s : stockMarkets.isFuture?.(s) || stockMarkets.isOption?.(s) ? s.slice(0, -3) : stockMarkets.isTwFund?.(s) ? fundLine(s) : s.replace(/\.(TW|TWO)$/, '').replace(/^([A-Z0-9]{2,10})-USD$/, '$1').replace(/^([A-Z]{3})([A-Z]{3})=X$/, '$1/$2'));
 const kindLabel = kind => t(`kind_${kind}`);
 const marketLabel = id => L(MARKETS[id] || MARKETS.INTL);
@@ -2138,7 +2148,7 @@ function renderDetail() {
   const starred = watched(state.account).includes(d.symbol);
   const kind = q?.kind || info?.kind;
   // (A Taiwan fund under its house, unless its title is that already.)
-  const house = q?.market === 'TWFUND' ? q.exchange : '';
+  const house = q?.market === 'TWFUND' ? houseName(String(q.exchange || '').replace(/投信$/, '')) : '';
   const sub =
     kind === 'fut' || kind === 'opt'
       ? `${kindLabel(kind)} · ${futLastDay(d.symbol)}`
