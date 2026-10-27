@@ -925,8 +925,8 @@ body .q-move.solid.flat { color: var(--q-label-2); }
 .open-now .open-dot { flex: none; color: var(--q-live); }
 .rec-why { display: block; padding: 0; background: none; color: var(--q-label-2); font: var(--q-t-footnote); }
 body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 13px/18px var(--q-font); color: var(--q-label-2); }
-/* 資產 and 紀錄's headline figure is open on the page. */
-.pf-hero, .stats-hero { padding-inline: 4px; margin-bottom: var(--q-s-5); }
+/* 資產 and 紀錄's headline figure, on its card (kit .q-focus). */
+.pf-hero, .stats-hero { margin-bottom: var(--q-s-5); }
 .pf-hero .q-seg { margin-top: var(--q-s-2); }
 .hc-note { color: var(--q-label-3); font-weight: 400; }
 .q-focus-sub .up { color: var(--up); }
