@@ -159,7 +159,7 @@ test('monthly pay: NT$5,000 on the 1st, until Orbit pays it into the pool itself
   assert.equal(nextPayday(created), Date.parse('2026-07-01T00:00:00+08:00'));
   const a = newAccount(1_000_000, created, 'inc');
   assert.equal(applyIncome(a, created + DAY).added.length, 0);
-  // From 2026-10 Orbit pays the month (Shared-Proxy's eco.js), not Securities.
+  // From 2026-10 Orbit pays the month (Orbit-Core's eco.js), not Securities.
   const r = applyIncome(a, Date.parse('2026-12-15T09:00:00+08:00'));
   assert.deepEqual(r.added.map(e => [e.id, e.amount]), [['pay:2026-07', 5000], ['pay:2026-08', 5000], ['pay:2026-09', 5000]]);
   assert.equal(applyIncome(r.account, Date.parse('2026-12-15T09:00:00+08:00')).added.length, 0);

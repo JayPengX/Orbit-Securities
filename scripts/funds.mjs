@@ -1,6 +1,6 @@
 // Builds public/data/listings-fund.json: every fund Taiwan's fund houses
 // (投信) sell here, from SITCA's daily NAV list (投信投顧公會, the same the
-// proxy prices them from: Shared-Proxy fund-nav.js). Each row is
+// proxy prices them from: Orbit-Core fund-nav.js). Each row is
 // [`${基金統編}.TWF`, name, kind, fund house]; kinds by SITCA's type:
 // q equity, y bond, l balanced, u multi-asset, o fund of funds, i index (and
 // ETF feeder), k money market, z other (REIT funds, principal-protected).

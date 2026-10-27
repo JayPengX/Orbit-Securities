@@ -1,5 +1,5 @@
 // When an order past its end may lapse. The proxy fills every order
-// (Shared-Proxy stock-fill.js) from the price bars since it last looked, so
+// (Orbit-Core stock-fill.js) from the price bars since it last looked, so
 // an order that reached its price just before its end (or while the page was
 // closed, or while the proxy couldn't be reached) is only known to have
 // filled once the proxy has been asked after that end. Until then it stays

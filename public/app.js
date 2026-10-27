@@ -592,7 +592,7 @@ function afterPrices() {
   let account = matureDeposits(state.account, now);
   if (lendClosesReady(account, now)) account = matureLending(account, now, { closesOf: lendClosesOf });
   for (const e of account.events.filter(e => e.type === 'tdend' && !state.account.events.some(x => x.id === e.id))) accountNotice('income', t('tdMatured', { v: money(e.amount + e.net, BASE) }), { tag: e.id, hash: 'fx' });
-  // Filled by the proxy at its own quote (Shared-Proxy stock-fill.js; the
+  // Filled by the proxy at its own quote (Orbit-Core stock-fill.js; the
   // owner, 2026-10-14): its fills applied here (one from a session the page
   // wasn't open for, dated then, before its order could lapse), the open
   // orders asked about (askFills). An older kit without it: filled here.

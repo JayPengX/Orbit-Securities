@@ -35,7 +35,7 @@ Live: https://jaypengx.com/securities/
 - **The account is a log** (`lib/account.mjs`): immutable events, orders
   whose status only moves forward. Cash, holdings, cost and loans come from
   replaying it. Two devices merge by uniting logs.
-- **The proxy fills orders** (`Shared-Proxy/stock-fill.js`): first at a
+- **The proxy fills orders** (`Orbit-Core/stock-fill.js`): first at a
   fresh quote, then from 5-minute bars at the order's terms, dated when it
   happened. The app applies exactly that fill. Orders waiting while the
   app was closed fill the same way.
@@ -174,7 +174,7 @@ npm test
 ```
 
 ```bash
-node ../Shared-Proxy/tools/preview.mjs securities --live --width 375
+node ../Orbit-Core/tools/preview.mjs securities --live --width 375
 ```
 
 A push to `main` tests, stamps versions and deploys to Pages.
@@ -185,4 +185,4 @@ A push to `main` tests, stamps versions and deploys to Pages.
 | --- | --- |
 | A fee, tax, spread or rate | The kit's `help.mjs` and `truth.mjs`, `tools/economy.mjs` |
 | The log or replay | Merging, the pool (`applyPool`), `snap.stock`, `stock-check.js` |
-| A Yahoo read | Shared-Proxy's Yahoo tiers, `push.js` price checks |
+| A Yahoo read | Orbit-Core's Yahoo tiers, `push.js` price checks |

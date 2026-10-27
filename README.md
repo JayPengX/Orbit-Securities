@@ -38,7 +38,7 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 | --- | --- |
 | App | Plain JavaScript (ES modules), HTML and CSS; no framework, no build step, no dependencies |
 | Platform | Installable web app with a service worker; covered when offline (never trades on old prices) |
-| Shared | Look, Orbit Pass and notices from the kit in [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy); the broker rules are the kit's `stock-*.mjs`, one copy for the app and the server |
+| Shared | Look, Orbit Pass and notices from the kit in [Orbit-Core](https://github.com/JayPengX/Orbit-Core); the broker rules are the kit's `stock-*.mjs`, one copy for the app and the server |
 | Prices | Yahoo Finance through the Orbit proxy, refreshed every 45 s while on screen |
 | Orders | Filled by the proxy (`stock-fill.js`, Cloudflare Workers) at a fresh quote or from 5-minute bars, never by the phone |
 | Lists | Every listing, fund, logo and Chinese name generated from TWSE, TPEx, HKEX and JPX open data by scripts |
@@ -84,10 +84,10 @@ MAP.md                   how it works
 
 ## Getting started
 
-The app loads the shared kit from a sibling folder, so clone this repo next to [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy):
+The app loads the shared kit from a sibling folder, so clone this repo next to [Orbit-Core](https://github.com/JayPengX/Orbit-Core):
 
 ```bash
-git clone https://github.com/JayPengX/Shared-Proxy.git
+git clone https://github.com/JayPengX/Orbit-Core.git
 git clone https://github.com/JayPengX/Orbit-Securities.git
 cd Orbit-Securities
 ```
@@ -95,19 +95,19 @@ cd Orbit-Securities
 Requirements: Node.js 22 or newer. There is nothing to install: no framework, no `node_modules`.
 
 ```bash
-npm test   # links ../Shared-Proxy/kit as .kit, then runs node --test
+npm test   # links ../Orbit-Core/kit as .kit, then runs node --test
 ```
 
 See it on a phone-sized screen, signed in with a made-up wallet and real data (needs Playwright):
 
 ```bash
 # a screenshot, saved in /tmp/orbit-preview
-node ../Shared-Proxy/tools/preview.mjs securities --live --width 375
+node ../Orbit-Core/tools/preview.mjs securities --live --width 375
 # serve it, then open http://localhost:8123/Orbit-Securities/
-node ../Shared-Proxy/tools/preview.mjs securities --live --serve --port 8123
+node ../Orbit-Core/tools/preview.mjs securities --live --serve --port 8123
 ```
 
-`--dark`, `--lang en`, `--webkit` (Safari's engine) and the other flags are listed in [Shared-Proxy/tools/README.md](https://github.com/JayPengX/Shared-Proxy/blob/main/tools/README.md).
+`--dark`, `--lang en`, `--webkit` (Safari's engine) and the other flags are listed in [Orbit-Core/tools/README.md](https://github.com/JayPengX/Orbit-Core/blob/main/tools/README.md).
 
 Add `--fake-yahoo` when Yahoo answers 429. The logo and name tables are generated (`scripts/brand-logos.mjs`, `tv-logos.mjs`, `tv-round.mjs`, `tw-names.mjs`): never edit them by hand.
 
@@ -128,6 +128,6 @@ Push to `main`. GitHub Actions runs the tests, stamps every file with its conten
 | [Orbit Beats](https://github.com/JayPengX/Orbit-Beats) | Endless music and your own beats |
 | [Orbit Law](https://github.com/JayPengX/Orbit-Law) | Laws, rulings and bills, linked |
 | [Orbit Money](https://github.com/JayPengX/Orbit-Money) | Your own books |
-| [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy) | The kit, the Orbit Pass and the Workers behind them all |
+| [Orbit-Core](https://github.com/JayPengX/Orbit-Core) | The kit, the Orbit Pass and the Workers behind them all |
 
 How it was all built, in pictures and numbers: [jaypengx.com/showcase](https://jaypengx.com/showcase/).
