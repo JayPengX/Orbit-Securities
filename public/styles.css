@@ -42,9 +42,8 @@
   --axis: #34445e;
   --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #e66767;
 }
-/* Which way is red: Taiwan's red-up (the default in Chinese) or green-up. */
-body { --up: var(--rise); --down: var(--fall); }
-body[data-updown='us'] { --up: var(--fall); --down: var(--rise); }
+/* Which way is red: the kit's --q-up / --q-down (Taiwan's red-up; <html data-updown="us"> flips them). */
+body { --up: var(--q-up); --down: var(--q-down); }
 
 /* ==== Base ==== */
 * { box-sizing: border-box; }
@@ -104,7 +103,7 @@ button.q-tag { border: 0; font-family: inherit; cursor: pointer; }
 .q-tile.flag { font-size: 22px; }
 .q-tile.flag.sm { font-size: 18px; }
 .chg-tag { min-width: 64px; justify-content: center; font-variant-numeric: tabular-nums; }
-.chg { font-weight: 700; font-variant-numeric: tabular-nums; }
+.chg { font-weight: 500; font-variant-numeric: tabular-nums; }
 .chg.up { color: var(--up); }
 .chg.down { color: var(--down); }
 .chg.flat { color: var(--q-label-2); }
@@ -153,12 +152,12 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .sym-badge.k-bond { background: #0369a1; }
 .sym-badge.k-fund { background: #9333ea; }
 .sym-badge.k-crypto { background: #ea580c; }
-.sym-badge.k-metal { background: linear-gradient(135deg, #f59e0b, #b45309); }
+.sym-badge.k-metal { background: #b45309; }
 .sym-badge.k-index { background: #334155; }
 .sym-badge.k-future { background: #57534e; }
 .sym-badge.k-fx { background: #0f766e; }
-.sym-badge.k-fut { background: linear-gradient(135deg, #d97706, #92400e); }
-.sym-badge.k-opt { background: linear-gradient(135deg, #db2777, #9d174d); }
+.sym-badge.k-fut { background: #92400e; }
+.sym-badge.k-opt { background: #9d174d; }
 .sym-badge.k-warrant { background: #4f46e5; }
 .sym-badge.k-cb { background: #0e7490; }
 .sym-badge.zh { font-size: 13px; letter-spacing: 0; }
@@ -215,7 +214,7 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .hc-tags { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; } /* whole tags; on a narrow phone the last ones move to a second row, never cut */
 /* The exchange's rate, spread and cost: three that can't share a phone's line, one under another (the owner: no ragged second row). */
 .hc-tags.fx-tags { flex-direction: column; align-items: flex-start; }
-.q-tag.hc-tag { min-height: 26px; padding: 0 10px; background: rgba(255, 255, 255, 0.2); color: #fff; font-size: 13px; }
+.hc-fact { color: rgba(255, 255, 255, 0.78); font: 500 14px/20px var(--q-font); }
 .q-hc-sub b { color: #fff; font-weight: 700; }
 .open-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: open-breathe 2.4s ease-in-out infinite; }
 @keyframes open-breathe { 50% { opacity: 0.4; } }
@@ -234,7 +233,7 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .rec-name { overflow: hidden; font: 600 16px/21px var(--q-font); white-space: nowrap; text-overflow: ellipsis; }
 .rec-card > small { overflow: hidden; color: var(--q-label-2); font: var(--q-t-footnote); white-space: nowrap; text-overflow: ellipsis; }
 .rec-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
-.rec-foot strong { min-width: 0; overflow: hidden; font: 700 20px/24px var(--q-font-rounded); white-space: nowrap; }
+.rec-foot strong { min-width: 0; overflow: hidden; font: 600 20px/24px var(--q-font-rounded); white-space: nowrap; }
 .rec-foot .q-tag { min-width: 0; }
 /* 新股申購 */
 .ipo-item .q-ritem-title { white-space: normal; }
@@ -244,7 +243,7 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 #panel-markets > .q-search { margin-bottom: 4px; }
 .mover-groups { margin-bottom: 4px; }
 .quote .q-ritem-title { font-weight: 600; }
-.q-ritem-text .held { margin-right: 6px; padding: 0 5px; border-radius: 5px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 11px; font-weight: 700; }
+.q-ritem-text .held { margin-right: 6px; padding: 0 5px; border-radius: 5px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 11px; font-weight: 600; }
 /* The product bar: every product a tile and its name, the open one on a card; it scrolls sideways on a phone. */
 .prod-bar { display: flex; gap: 4px; margin: 4px calc(-1 * var(--q-margin)) 8px; padding: 2px var(--q-margin) 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .prod-bar::-webkit-scrollbar { display: none; }
@@ -332,7 +331,7 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .q-stat .stat-sub.down { color: var(--down); }
 .q-stat strong.up { color: var(--up); }
 .q-stat strong.down { color: var(--down); }
-.q-stat strong { font: var(--q-t-headline); font-weight: 700; white-space: nowrap; }
+.q-stat strong { font: var(--q-t-headline); font-weight: 600; white-space: nowrap; }
 /* Facts: a card of them, two a row; a long one takes the row, each part a line. */
 .facts-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; padding: 4px 16px; border-radius: 18px; background: var(--q-surface); }
 .facts-grid div { min-width: 0; padding: 10px 0; border-top: var(--q-hairline) solid var(--q-sep); }
@@ -422,22 +421,8 @@ html .q-stats.about-returns { grid-template-columns: repeat(var(--n, 3), minmax(
 .q-btn.place { width: 100%; min-height: 52px; font-size: 17px; }
 
 /* ==== 資產 ==== */
-.pf-hero .hc-chart { min-height: 150px; margin: 4px -6px 0; }
-.hc-chart .first-day { display: grid; place-items: center; min-height: 120px; color: rgba(255, 255, 255, 0.8); font: var(--q-t-subhead); text-align: center; }
-.hc-chart .chart-svg .grid { stroke: rgba(255, 255, 255, 0.14); }
-.hc-chart .chart-svg .axis-label { fill: rgba(255, 255, 255, 0.72); }
-.hc-chart .chart-svg .line, .hc-chart .chart-svg .line.up, .hc-chart .chart-svg .line.down { stroke: #fff; }
-.hc-chart .chart-svg .line.ref { stroke: rgba(255, 255, 255, 0.6); }
-.hc-chart .chart-svg .area, .hc-chart .chart-svg .area.up, .hc-chart .chart-svg .area.down { fill: #fff; opacity: 0.14; }
-.hc-chart .chart-svg .base-line { stroke: rgba(255, 255, 255, 0.45); }
-.hc-chart .chart-svg :is(.end-dot, .hover-dot) { fill: #fff; stroke: transparent; }
-.hc-chart .chart-svg .cross { stroke: rgba(255, 255, 255, 0.7); }
-.hc-chart .legend-inline { color: rgba(255, 255, 255, 0.85); }
-.hc-chart .sw { background: #fff; }
-.hc-chart .sw.ref { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.8) 0 4px, transparent 4px 7px); }
-.hc-seg { background: rgba(255, 255, 255, 0.16); }
-.hc-seg::before { background: rgba(255, 255, 255, 0.3) !important; box-shadow: none; }
-.q-seg.hc-seg > button, .q-seg.hc-seg > button[aria-pressed] { color: #fff; }
+.pf-hero .hc-chart { min-height: 150px; margin: var(--q-s-3) -6px var(--q-s-3); }
+.hc-chart .first-day { display: grid; place-items: center; min-height: 120px; color: var(--q-label-2); font: var(--q-t-subhead); text-align: center; }
 .position-row .q-ritem-title { font-weight: 600; }
 .plan-edit-row { align-items: flex-start; }
 .plan-edit-row .q-ritem-text { gap: 10px; }
@@ -605,11 +590,10 @@ a.act-row { color: inherit; }
 .hold-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
 .hold-card .sym-badge, .rec-card .sym-badge { width: 48px; height: 48px; }
 .hold-card > small { color: var(--q-label-2); font: var(--q-t-footnote); }
-.hold-val { margin-top: 2px; font: 700 18px/22px var(--q-font-rounded); white-space: nowrap; }
+.hold-val { margin-top: 2px; font: 600 18px/22px var(--q-font-rounded); white-space: nowrap; }
 .hold-card .card-spark { margin-top: 6px; }
 /* Apple Stocks' pill: solid, white on red or green. */
-.rec-why { display: block; padding: 0; border-radius: 0; background: none; color: var(--accent); white-space: normal; }
-.rec-price { margin-top: 2px; font: 700 20px/24px var(--q-font-rounded); white-space: nowrap; }
+.rec-price { margin-top: 2px; font: 600 20px/24px var(--q-font-rounded); white-space: nowrap; }
 .rec-rail { --q-rail-w: 190px; }
 .empty-card { padding: 8px 16px 16px; }
 .empty-card .q-empty { padding: 12px 8px; }
@@ -652,9 +636,9 @@ a.act-row { color: inherit; }
 .tool-sheet .tool-page .q-btn.primary:not(.small) { position: sticky; bottom: calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)); z-index: 1; min-height: 50px; box-shadow: 0 0 0 12px var(--q-sheet), 0 calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)) 0 12px var(--q-sheet); }
 
 :is(.q-chips, .chip-row, .tool-page, .ticket) .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
-.q-stats .q-stat strong { font: var(--q-t-headline); font-weight: 700; overflow: visible; text-overflow: clip; white-space: nowrap; }
+.q-stats .q-stat strong { font: var(--q-t-headline); font-weight: 600; overflow: visible; text-overflow: clip; white-space: nowrap; }
 /* Market tag before a symbol, and a currency's letters on its tile (no flag emoji). */
-.mkt-tag { display: inline-block; margin-right: 4px; padding: 0 5px; border-radius: 5px; background: var(--q-fill-3); color: var(--q-label-2); font: 600 11px/16px var(--q-font); vertical-align: 1px; }
+.mkt-tag { display: inline; margin-right: 6px; color: var(--q-label-2); font-weight: 500; }
 .q-tile .cur-mark { font: 700 14px/1 var(--q-font-rounded); letter-spacing: 0.02em; }
 .q-tile:has(> .cur-flag), .q-tile.soft:has(> .cur-flag) { background: none; }
 .q-tile .cur-flag { width: 100%; height: 100%; border-radius: 50%; }
@@ -925,3 +909,30 @@ html.q-kb .tool-sheet .tool-page .q-btn.primary:not(.small) { position: static; 
 .acc-go {
   margin-top: 8px;
 }
+
+/* ==== Design pass (docs/DESIGN.md): facts are grey text, moves are coloured text, one tag only where it is the exception ==== */
+/* A tag that is only a fact (no state colour, not a button) is plain grey text. */
+body .q-tag:not(button, .orange, .red, .solid) { min-width: 0; min-height: 0; padding: 0; border-radius: 0; background: none; color: var(--q-label-2); font: 500 13px/18px var(--q-font); }
+body .q-tag.up:not(button, .solid) { color: var(--up); }
+body .q-tag.down:not(button, .solid) { color: var(--down); }
+.q-tags { gap: 4px 12px; }
+/* The kit's solid move pill on every stock row: just the coloured figure. */
+body .q-move.solid { min-width: 0; padding: 0; border-radius: 0; background: none; color: var(--c); font-weight: 500; }
+body .q-move.solid.flat { color: var(--q-label-2); }
+.hold-top, .rec-top { align-items: flex-start; }
+/* Open markets: a quiet grey line with a live dot, still a tap. */
+.open-now { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 0; border: 0; background: none; color: var(--q-label-2); font: 500 13px/18px var(--q-font); white-space: nowrap; overflow: hidden; }
+.open-now .open-dot { flex: none; color: var(--q-live); }
+.rec-why { display: block; padding: 0; background: none; color: var(--q-label-2); font: var(--q-t-footnote); }
+body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 13px/18px var(--q-font); color: var(--q-label-2); }
+/* 資產 and 紀錄's headline figure is open on the page. */
+.pf-hero, .stats-hero { padding-inline: 4px; margin-bottom: var(--q-s-5); }
+.pf-hero .q-seg { margin-top: var(--q-s-2); }
+.hc-note { color: var(--q-label-3); font-weight: 400; }
+.q-focus-sub .up { color: var(--up); }
+.q-focus-sub .down { color: var(--down); }
+.q-focus-value.up { color: var(--up); }
+.q-focus-value.down { color: var(--down); }
+/* The exchange is the action on 資金: one coloured card, no shadow on the swap. */
+.fx-swap { box-shadow: none; }
+.q-ritem-end > strong { font-weight: 500; }
