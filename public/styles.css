@@ -169,9 +169,10 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .sym-badge .sym-logo.fresh { opacity: 0; transition: opacity 0.2s; }
 .sym-badge .sym-logo.fresh.in { opacity: 1; }
 .sym-badge.pair { overflow: visible; background: transparent; }
-.sym-badge.pair .sym-logo { width: 72%; height: 72%; inset: auto; }
-.sym-badge.pair .sym-logo:first-child { top: 0; left: 0; z-index: 1; box-shadow: 0 0 0 2px var(--q-surface); }
-.sym-badge.pair .sym-logo:last-child { right: 0; bottom: 0; }
+.sym-badge.pair .sym-logo { width: 66%; height: 66%; inset: auto; }
+/* (The quote's flag in front: behind, Taiwan's showed only its red corner.) */
+.sym-badge.pair .sym-logo:first-child { top: 0; left: 0; }
+.sym-badge.pair .sym-logo:last-child { right: 0; bottom: 0; z-index: 1; box-shadow: 0 0 0 2px var(--q-surface); }
 .mkt-dot { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--axis); }
 .mkt-dot.open { background: var(--q-green); }
 /* 漲停 / 跌停: the price on a red or green fill, white figures, as Taiwan's apps show it. */
@@ -199,7 +200,8 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .tool-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 6px 12px; border-radius: 12px; background: var(--q-fill-3); font: var(--q-t-subhead); }
 .tool-list li.done { color: var(--q-label-2); }
 /* Sheets: the kit's, at its tall size; the stock's sheet pads its body (its head runs edge to edge). */
-#detail-body, #trade-body, #tool-body { padding: 0 var(--q-margin) calc(24px + env(safe-area-inset-bottom)); }
+/* (The sheet already keeps 16 from its sides: no second margin inside it.) */
+#detail-body, #trade-body, #tool-body { padding: 0 0 calc(24px + env(safe-area-inset-bottom)); }
 .icon-button { flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: var(--q-fill-3); color: var(--q-label-2); }
 .icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .icon-button.star.on { color: #eab308; }
@@ -702,8 +704,10 @@ a.act-row { color: inherit; }
 .q-sheet-foot.q-sf.place-bar .q-btn { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); }
 /* 買進/賣出: a slim bar docked along the detail's foot (the kit's sheet foot: its band and hairline), the price on its left, two compact buttons (Jay 2026-10-23: no big floating pills). */
 .q-sheet-foot.q-sf.trade-bar { gap: 8px; padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-/* (Edge to edge and flush with the bottom: it sits in #detail-body, inside the sheet's own padding.) */
-#detail-body > .q-sheet-foot.trade-bar { bottom: calc(-1 * var(--sheet-pb, 16px)); margin: 16px calc(-2 * var(--q-margin)) calc(-24px - env(safe-area-inset-bottom) - var(--sheet-pb, 16px)); padding-left: calc(2 * var(--q-margin)); padding-right: calc(2 * var(--q-margin)); }
+/* (Edge to edge and flush with the bottom: it sits in #detail-body, inside the sheet's own padding,
+   which at the foot is the kit's 16 + max(safe area − 8, 0); a flat 16 left a phone with a home bar
+   26 px of page showing under the bar.) */
+#detail-body > .q-sheet-foot.trade-bar { --sheet-pb: calc(16px + max(env(safe-area-inset-bottom) - 8px, 0px)); bottom: calc(-1 * var(--sheet-pb)); margin: 16px calc(-1 * var(--q-margin)) calc(-24px - env(safe-area-inset-bottom) - var(--sheet-pb)); padding-left: var(--q-margin); padding-right: var(--q-margin); }
 .q-sheet-foot.q-sf.trade-bar .q-sf-sum { flex: 1; }
 .q-sheet-foot.q-sf.trade-bar .q-sf-sum b { font-size: 18px; }
 .q-sheet-foot.q-sf.trade-bar .q-sf-sum small.up { color: var(--up); }
