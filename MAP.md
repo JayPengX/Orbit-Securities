@@ -6,7 +6,7 @@ gold; margin, shorts and Taiwan credit trading; time deposits, securities
 lending and 新股申購. Its NT$ cash is the account's money: the weekly pay,
 loans, relief and level rewards all land here.
 
-Live: https://jaypengx.com/securities/
+Live: https://orbit.jaypengx.com/securities/
 
 ## How it works
 
