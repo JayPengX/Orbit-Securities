@@ -1317,7 +1317,7 @@ export const STRINGS = {
     kind_future: 'Future',
     kind_fx: 'FX',
     kind_cash: 'Cash',
-    moversTitle: 'Today’s movers', indexesTitle: 'Indexes', tagEmerging: 'Emerging', productsTitle: 'Products', prodSub_tw: 'Listed, emerging, ETFs, warrants', prodSub_deriv: 'Index and stock futures, options', prodSub_intl: 'US, Japan, HK, China, Korea, Europe', prodSub_fund: 'Every Taiwan fund house’s funds', prodSub_bonds: 'Governments, bond ETFs', prodSub_fx: 'USD, JPY, EUR and 15 more', prodSub_gold: 'Gold and silver passbooks, commodities', prodSub_crypto: 'Bitcoin, Ether and 14 more', 
+    moversTitle: 'Today’s movers', indexesTitle: 'Indexes', tagEmerging: 'Emerging', productsTitle: 'Products', prodSub_tw: 'Stocks, ETFs, warrants', prodSub_deriv: 'Futures and options', prodSub_intl: 'US, Japan, HK and more', prodSub_fund: 'Every fund sold in Taiwan', prodSub_bonds: 'Governments, bond ETFs', prodSub_fx: 'USD, JPY, EUR and 15 more', prodSub_gold: 'Gold, silver, commodities', prodSub_crypto: 'Bitcoin, Ether and 14 more', 
     browseLoading: 'Loading the list…', browseFailed: 'Couldn’t load the list. Try again later.', browseMore: 'Show {n} more ({left} left)', 
     odTitle: 'Overdrawn by {v}', odSub: 'Overdrafts cost 1% a month.', odNothing: 'Nothing to sell: the weekly pay covers the overdraft first.', coverSell: 'Sell {qty}', coverAll: 'all', coverGo: 'Sell to cover', coverGoPart: 'Sell these (not quite enough)', coverDone: '{n} sell order(s) placed', odStrip: 'Overdrawn {v}: sell to cover', odPending: 'Sell orders placed: the overdraft is covered once they fill.',
     buyingPower: 'Cash to spend',

@@ -111,7 +111,7 @@ const BOND_ETFS = [
   ['BND', '美國整體債券', 'Vanguard Total Bond Market', 'bond'], ['AGG', 'iShares 美國綜合債', 'iShares Core US Agg Bond', 'bond'],
   ['LQD', '投資級公司債', 'iShares IG Corporate Bond', 'bond'], ['HYG', '高收益債', 'iShares High Yield Corp Bond', 'bond'],
   ['TIP', '抗通膨公債', 'iShares TIPS Bond', 'bond'], ['EMB', '新興市場債', 'iShares JPM EM Bond', 'bond'], ['BNDX', '國際債券', 'Vanguard Total Intl Bond', 'bond'],
-  ['^IRX', '美債13週殖利率', 'US 13-week T-bill yield'], ['^FVX', '美債5年殖利率', 'US 5-year yield'],
+  ['^IRX', '美債13週殖利率', 'US 3-month yield'], ['^FVX', '美債5年殖利率', 'US 5-year yield'],
   ['^TNX', '美債10年殖利率', 'US 10-year yield'], ['^TYX', '美債30年殖利率', 'US 30-year yield']
 ];
 
