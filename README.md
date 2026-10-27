@@ -16,9 +16,9 @@
 A Taiwan brokerage on play money, with real prices and a real broker's rules. Part of **Orbit**, a family of phone apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [jaypengx.com](https://jaypengx.com/).
 
 <p align="center">
-  <img src="docs/screenshots/securities-1.webp" width="240" alt="Home">
-  <img src="docs/screenshots/securities-2.webp" width="240" alt="Markets">
-  <img src="docs/screenshots/securities-3.webp" width="240" alt="Cash and FX">
+  <img src="docs/screenshots/securities-1.webp" width="30%" alt="Home">
+  <img src="docs/screenshots/securities-2.webp" width="30%" alt="Markets">
+  <img src="docs/screenshots/securities-3.webp" width="30%" alt="Cash and FX">
 </p>
 
 ## Features
