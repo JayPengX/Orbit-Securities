@@ -709,9 +709,7 @@ a.act-row { color: inherit; }
 .tool-sheet .q-sheet-hero { margin: 4px 0 14px; }
 /* A disabled main button reads as off (grey), not as a dim accent. */
 .q-btn.primary:disabled { opacity: 1; background: var(--q-fill-3); color: var(--q-label-2); box-shadow: none; }
-/* 信貸's terms: four equal buttons across; a sheet's figures, then their list or tags, a step apart. */
-.q-seg.bank-terms { display: flex; width: 100%; }
-.q-seg.bank-terms > button { flex: 1; white-space: nowrap; }
+/* A sheet's figures, then their list or tags, a step apart. */
 .tool-page .q-stats + :is(.q-rowcard, .q-tags) { margin-top: 10px; }
 /* Picker tiles (定存 terms, 信用 limits): equal columns, the picked one filled. */
 .term-grid, .tier-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
@@ -818,7 +816,7 @@ html .q-logo.disc img { transform: scale(1.02); }
 .opt-step small { color: var(--q-label-2); font: 500 10px/12px var(--q-font); white-space: nowrap; }
 .opt-step b { color: var(--q-label); font: 700 15px/18px var(--q-font-rounded); white-space: nowrap; }
 
-/* Typing in a tool sheet (定存, 信貸, 融資's repay, 借券's ask): the sheet keeps
+/* Typing in a tool sheet (定存, 融資's repay, 借券's ask): the sheet keeps
    to the form, so it fits above the keys whole, never scrolling or drawing
    past its edge. The hero, the sections that aren't being typed in and what's
    marked .kb-hide wait behind the keys and come back as they go down. Its

@@ -31,7 +31,7 @@ import {
   APPS, appUrl, describeEntry, installGate, watchUpdates, orbitSession, tabBar, topActions, recordAffinity, affinity, notify, kindOn, schedulePush, ask, translate, paydayFor, nextPayday as orbitPayday, affinityPatch, workerJson,
   keepOffline, onlineOnly, proxyJson, worthOf, WEALTH_RANKS, moneySides, poolBalance, errorText as passError
 } from '#kit/orbit.mjs';
-import { LOAN, RELIEF, PAY_WEEK, activeLoan, loanOwed, payoffAmount, canBorrow, loanOffer, maxFor, dueCount, reliefCheck, schedule, totalApr } from '#kit/loan.mjs';
+import { RELIEF, reliefCheck } from '#kit/pay.mjs';
 import { STOCK, roundTrip, overdraftYear, overdraftPaid } from './lib/truth.mjs';
 import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
 import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
@@ -92,8 +92,6 @@ const state = {
   // mode 'pay': the amount is what you give; 'get': what you want to receive.
   fx: { from: BASE, to: 'USD', amount: '', mode: 'pay', view: 'exchange' },
   loan: { currency: BASE, amount: '', mode: 'borrow' },
-  // 信貸's application: the term in weeks and the amount typed (blank: the base amount).
-  bank: { weeks: 52, amount: '' },
   td: { amount: '', months: 12, renew: false },
   // 期貨保證金專戶's 入金 ('in') or 出金 ('out') and the amount typed.
   futx: { dir: 'in', amount: '' },
@@ -4308,10 +4306,11 @@ function moneyToolsHtml(v) {
 
 // ---- The account's money (the Pass holds none: it's all here) -------------------------
 //
-// The Worker pays the weekly pay, lends (信貸), helps (急難紓困) and rewards
-// wealth levels, all into the pass's wallet, whose NT$ is this account's
-// cash (applyPool). The rules are the kit's loan.mjs, shared with the Worker;
-// a loan or relief is asked for through the Pass session (q.loan, q.relief).
+// The Worker pays the weekly pay, helps (急難紓困) and rewards wealth levels,
+// all into the pass's wallet, whose NT$ is this account's cash (applyPool).
+// The rules are the kit's pay.mjs, shared with the Worker; relief is asked
+// for through the Pass session (q.relief). No personal loan: a broker
+// doesn't make one (the only borrowing is 融資).
 const passWallet = () => state.wallet || q.wallet || {};
 const rankName = r => (locale === 'en' ? r.en : r.zh);
 function rankOf(w) {
@@ -4323,120 +4322,30 @@ function rankOf(w) {
 // Relief is asked on what's owned, at cost (the Worker's own count, eco.js).
 const reliefWorth = w => poolBalance(w) + (Number(w?.snap?.stock?.held) || 0);
 
-// 你的帳戶 on 資金: the loan, relief when it's needed, wealth levels, 真相.
+// 你的帳戶 on 資金: relief when it's needed, wealth levels, 真相.
 function acctHtml() {
   const w = passWallet();
-  const now = Date.now();
-  const loan = activeLoan(w);
-  const c = canBorrow(w, now).credit;
-  const late = loan ? Math.max(0, dueCount(loan, now) - loan.paid) : 0;
   const { worth, at, next } = rankOf(w);
   const row = (tool, glyph, color, title, small, end = '') => `<button class="q-ritem chevron" type="button" data-action="tool" data-tool="${tool}">${tileHtml(glyph, color)}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span><small class="num">${h(small)}</small></span>${end}</button>`;
-  const bankTag = loan?.bad ? `<span class="q-tag red">${h(t('bankBadTag'))}</span>` : late ? `<span class="q-tag orange">${h(t('bankLateTag', { n: late }))}</span>` : '';
-  const relief = reliefWorth(w) < RELIEF.under ? `<button class="callout" type="button" data-action="tool" data-tool="bank">${h(t('reliefCallout', { v: money(RELIEF.under, BASE) }))}</button>` : '';
+  const relief = reliefWorth(w) < RELIEF.under ? `<button class="callout" type="button" data-action="tool" data-tool="relief">${h(t('reliefCallout', { v: money(RELIEF.under, BASE) }))}</button>` : '';
   return `${relief}<div class="q-rowcard">
-    ${row('bank', svgIcon('bank'), TINT.indigo, t('bankTitle'), loan ? t('bankLeftSub', { v: money(loanOwed(loan, now), BASE), each: money(loan.bad ? Math.round(PAY_WEEK * LOAN.garnish) : loan.installment, BASE) }) : t('bankCanSub', { v: money(c.limit, BASE), rate: rateText(c.apr) }), bankTag)}
     ${row('ranks', ico('trophy'), TINT.orange, t('ranksTitle'), `${WEALTH_RANKS[at].icon} ${rankName(WEALTH_RANKS[at])}${next ? ` · ${t('rankToGo', { v: money(next.min - worth, BASE) })}` : ''}`)}
     ${row('truth', ico('spark'), TINT.teal, t('truthTitle'), t('truthSub'))}
   </div>`;
 }
 
-// 信貸 (a sheet): the loan as a bank shows it (what's left, the weekly
-// payment, late weeks or 催收, paying it off), or the application (term,
-// amount, every cost before signing); 急難紓困 when the account has nothing;
-// what borrowing costs.
-function bankHtml() {
+// 急難紓困 (a sheet, its hero the amount): ask for it, or why not now, and the rules.
+function reliefSheetHtml() {
   const w = passWallet();
-  const now = Date.now();
-  const loan = activeLoan(w);
-  const fact = (label, value, dir = '') => stat(label, value, '', dir);
-  let main;
-  if (loan) {
-    const owed = loanOwed(loan, now);
-    const late = Math.max(0, dueCount(loan, now) - loan.paid);
-    const payoff = payoffAmount(loan, now);
-    main = `<div class="q-stats">
-        ${loan.bad ? fact(t('bankGarnish'), money(Math.round(PAY_WEEK * LOAN.garnish), BASE)) : fact(t('bankEach'), money(loan.installment, BASE))}
-        ${fact(t('bankNext'), shortDate(orbitPayday(now)))}
-      </div>
-      ${loan.bad ? '' : `<div class="q-tags"><span class="q-tag num">${h(t('bankPaidN', { paid: loan.paid, weeks: loan.weeks }))}</span></div>`}
-      ${loan.bad ? `<p class="warn">${h(t('bankBadWarn'))}</p>` : late ? `<p class="warn">${h(t('bankLateWarn', { n: late, max: LOAN.missesToDefault }))}</p>` : ''}
-      <button class="q-btn block" type="button" data-action="bank-payoff" data-v="${payoff}" data-owed="${owed}">${h(t('bankPayoff', { v: money(payoff, BASE) }))}</button>`;
-  } else {
-    const can = canBorrow(w, now);
-    if (!can.ok) main = `<p class="foot-note">${h(t(`bankWhy_${can.why}`, { d: can.until ? shortDate(can.until) : '' }))}</p>`;
-    else {
-      const b = state.bank;
-      const max = maxFor(can.credit.apr, b.weeks, can.credit.limit);
-      const typed = Math.round(Number(b.amount) || 0);
-      const amount = typed > 0 ? typed : Math.min(max, LOAN.base);
-      const offer = loanOffer(w, amount, b.weeks, now);
-      main = `<div class="q-seg bank-terms" role="group" aria-label="${h(t('bankTerm'))}">${LOAN.terms.map(n => `<button type="button" data-action="bank-term" data-weeks="${n}" aria-pressed="${n === b.weeks}">${h(t('bankYears', { n: n / 52 }))}</button>`).join('')}</div>
-        <label class="big-field"><span>${h(t('bankAmount'))}<em class="num">${h(t('bankMax', { v: money(max, BASE) }))}</em></span><input id="bank-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(typed > 0 ? num(typed) : '')}" placeholder="${h(num(amount))}" /></label>
-        ${offer.ok ? `<div class="q-stats">${fact(t('bankEach'), money(offer.installment, BASE))}${fact(t('bankCost'), money(offer.cost, BASE))}</div><div class="q-tags kb-hide"><span class="q-tag num">${h(t('bankApr'))} ${h(rateText(offer.totalApr))}</span></div>` : `<p class="warn">${h(t(`bankWhy_${offer.why}`, { min: money(LOAN.min, BASE), max: money(max, BASE) }))}</p>`}
-        <button class="q-btn primary block" type="button" data-action="bank-sign" data-amount="${amount}" ${offer.ok ? '' : 'disabled'}>${h(offer.ok ? t('bankSign', { v: money(offer.principal - offer.fee, BASE) }) : t('bankApply'))}</button>`;
-    }
-  }
-  return `${main}${reliefHtml(w, now)}${sectionHtml(t('costTitle'), loanCostHtml(w))}`;
-}
-function reliefHtml(w, now) {
-  if (!(reliefWorth(w) < RELIEF.under)) return '';
-  const check = reliefCheck(w, reliefWorth(w), now);
-  return sectionHtml(
-    t('reliefTitle'),
-    check.ok
-      ? `<button class="q-btn primary block" type="button" data-action="relief">${h(t('reliefApply', { v: money(RELIEF.amount, BASE) }))}</button>`
-      : `<p class="foot-note">${h(t(`reliefWhy_${check.why}`, { v: money(RELIEF.under, BASE), d: check.until ? shortDate(check.until) : '' }))}</p>`,
-    { side: `<strong class="sec-value num">${h(money(RELIEF.amount, BASE))}</strong>` }
-  );
+  const worth = reliefWorth(w);
+  const check = reliefCheck(w, worth, Date.now());
+  const main = check.ok
+    ? `<button class="q-btn primary block" type="button" data-action="relief">${h(t('reliefApply', { v: money(RELIEF.amount, BASE) }))}</button>`
+    : `<p class="foot-note">${h(t(`reliefWhy_${check.why}`, { v: money(RELIEF.under, BASE), d: check.until ? shortDate(check.until) : '' }))}</p>`;
+  return `${main}<p class="foot-note">${h(t('reliefRules', { under: money(RELIEF.under, BASE), weeks: RELIEF.everyWeeks, year: RELIEF.perYear }))}</p>`;
 }
 // A row of facts: a title over a line, its figure on the right.
 const factRow = (title, value, small = '', dir = '') => `<div class="q-ritem"><span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span>${small ? `<small>${h(small)}</small>` : ''}</span><span class="q-ritem-end"><strong class="num ${dir}">${h(value)}</strong></span></div>`;
-// What borrowing costs: a typical loan (NT$100,000 over a year at the first rate) worked through.
-function loanCostHtml() {
-  const amount = LOAN.base;
-  const weeks = LOAN.terms[0];
-  const plan = schedule(amount, LOAN.apr.start, weeks);
-  const paid = plan.rows.reduce((sum, r) => sum + r.amount, 0);
-  return `<div class="q-rowcard">
-    ${factRow(t('costFee'), money(LOAN.fee, BASE), t('costFeeSub'))}
-    ${factRow(t('costRate'), `${rateText(LOAN.apr.best)}–${rateText(LOAN.apr.max)}`, t('costRateSub', { start: rateText(LOAN.apr.start), best: rateText(LOAN.apr.best) }))}
-    ${factRow(t('costLoan', { amount: money(amount, BASE), weeks }), money(paid - amount + LOAN.fee, BASE), t('costLoanSub', { each: money(plan.installment, BASE), apr: rateText(totalApr(amount, LOAN.apr.start, weeks)) }))}
-    ${factRow(t('costEarly'), rateText(LOAN.earlyFee), t('costEarlySub', { weeks: LOAN.earlyWeeks, fee: rateText(LOAN.earlyFee) }))}
-    ${factRow(t('costLate'), `${LOAN.missesToDefault}×`, t('costLateSub', { misses: LOAN.missesToDefault, garnish: rateText(LOAN.garnish), ban: LOAN.banWeeks }))}
-    ${factRow(t('costCap'), money(LOAN.cap, BASE), t('costCapSub', { share: rateText(LOAN.shareOfPay), pay: money(PAY_WEEK, BASE) }))}
-  </div><p class="foot-note">${h(t('costFoot'))}</p>`;
-}
-async function doBorrow(amount) {
-  const w = passWallet();
-  const offer = loanOffer(w, amount, state.bank.weeks, Date.now());
-  if (!offer.ok) return;
-  const points = [
-    ['📅', t('bankPtEach', { v: money(offer.installment, BASE) }), t('bankPtEachSub', { rate: rateText(offer.apr), n: offer.weeks })],
-    ['💸', t('bankPtTotal', { v: money(offer.total, BASE) }), t('bankPtTotalSub', { fee: money(offer.fee, BASE) })],
-    ['🔒', t('bankPtLate'), t('bankPtLateSub')],
-    ['💰', t('bankPtEarly'), t('bankPtEarlySub')]
-  ];
-  if (!(await askKit({ lang: locale, icon: '🏦', title: t('bankSignAsk', { v: money(offer.principal, BASE) }), points, ok: t('bankSignOk'), cancel: t('bankSignNo') }))) return;
-  try {
-    await q.loan('borrow', { amount: offer.principal, weeks: offer.weeks });
-    state.bank.amount = '';
-    toast(t('bankSignDone', { v: money(offer.principal - offer.fee, BASE) }), 'good');
-  } catch (e) {
-    toast(passRefusal(e), 'bad');
-  }
-  render();
-}
-async function doPayoff(payoff, owed) {
-  if (!(await askKit({ lang: locale, icon: '🏦', title: t('bankPayoffAsk', { v: money(payoff, BASE) }), body: payoff > owed ? t('bankPayoffEarly', { v: money(payoff - owed, BASE) }) : t('bankPayoffBody'), ok: t('bankPayoffOk'), cancel: t('orderAskCancel') }))) return;
-  try {
-    await q.loan('payoff');
-    toast(t('bankPayoffDone'), 'good');
-  } catch (e) {
-    toast(passRefusal(e), 'bad');
-  }
-  render();
-}
 async function doRelief() {
   if (!(await askKit({ lang: locale, icon: '🤝', title: t('reliefAsk', { v: money(RELIEF.amount, BASE) }), body: t('reliefBody'), ok: t('reliefOk'), cancel: t('orderAskCancel') }))) return;
   try {
@@ -4447,13 +4356,11 @@ async function doRelief() {
   }
   render();
 }
-// The Worker's no to a loan or relief, in the app's words.
+// The Worker's no to relief, in the app's words.
 const passRefusal = e =>
-  e?.code === 'ECO_LOAN_REFUSED' && e.why
-    ? t(`bankWhy_${e.why}`, { min: money(LOAN.min, BASE), max: money(e.max || 0, BASE), d: e.until ? shortDate(e.until) : '' })
-    : e?.code === 'ECO_RELIEF_REFUSED' && e.why
-      ? t(`reliefWhy_${e.why}`, { v: money(RELIEF.under, BASE), d: e.until ? shortDate(e.until) : '' })
-      : passError(e, locale);
+  e?.code === 'ECO_RELIEF_REFUSED' && e.why
+    ? t(`reliefWhy_${e.why}`, { v: money(RELIEF.under, BASE), d: e.until ? shortDate(e.until) : '' })
+    : passError(e, locale);
 
 // 財富等級 (a sheet): every level, its one-time reward, and where the account is.
 function ranksHtml() {
@@ -5468,7 +5375,7 @@ function fold(tile, title, body, open = false, id = title, side = '') {
 // Signing in is required (orbit.mjs shows the sign-in screen). The account
 // is this app's data on the pass; the pass's wallet is the one Orbit money
 // pool, which this account's NT$ cash shows: the money the Worker moves
-// (the pay, 信貸, 紓困, overdraft interest) arrives as pool deposits, and this account's own NT$ goes back to the
+// (the pay, 紓困, overdraft interest) arrives as pool deposits, and this account's own NT$ goes back to the
 // wallet as its figure.
 
 const q = orbitSession('stock', { lang: locale });
@@ -5652,7 +5559,7 @@ const TOOLS = {
   td: () => [t('tdTitle'), tdHtml()],
   futacct: () => [t('futAcctTitle'), futAcctHtml()],
   lend: () => [t('lendTitle'), lendHtml()],
-  bank: () => [t('bankTitle'), bankHtml()],
+  relief: () => [t('reliefTitle'), reliefSheetHtml()],
   ranks: () => [t('ranksTitle'), ranksHtml()],
   truth: () => [t('truthTitle'), truthHtml()]
 };
@@ -5730,13 +5637,7 @@ function toolHero(kind) {
       return { eyebrow: t('plansTitle'), big: money(plans.reduce((a, p) => a + Number(p.amount || 0), 0), BASE), sub: t('plansMonthly', { n: plans.length }), tint: TINT.teal };
     },
     alerts: () => ({ eyebrow: t('alertsTitle'), big: String(Object.values(state.account.alerts || {}).filter(a => a.on).length), sub: t('alertsOnSub'), tint: TINT.red }),
-    bank: () => {
-      const w = passWallet();
-      const loan = activeLoan(w);
-      if (loan) return { eyebrow: t(loan.bad ? 'bankOwedBad' : 'bankOwed'), big: money(loanOwed(loan, now), BASE), tags: [t('bankRate', { rate: rateText(loan.apr) }), t('bankYears', { n: loan.weeks / 52 })], tint: loan.bad ? TINT.red : TINT.indigo };
-      const c = canBorrow(w, now).credit;
-      return { eyebrow: t('bankLimit'), big: money(c.limit, BASE), tags: [t('bankRate', { rate: rateText(c.apr) }), t('bankUpTo', { n: LOAN.terms.at(-1) / 52 })], tint: TINT.indigo };
-    },
+    relief: () => ({ eyebrow: t('reliefTitle'), big: money(RELIEF.amount, BASE), sub: t('reliefHeroSub', { v: money(RELIEF.under, BASE) }), tint: TINT.orange }),
     ranks: () => {
       const { worth, at, next } = rankOf(passWallet());
       return { eyebrow: t('ranksTitle'), big: `${WEALTH_RANKS[at].icon} ${rankName(WEALTH_RANKS[at])}`, sub: t('ranksWorth', { v: money(worth, BASE) }), tags: next ? [t('rankNext', { v: money(next.min - worth, BASE), rank: rankName(next) })] : [], tint: TINT.orange };
@@ -6185,16 +6086,6 @@ document.addEventListener('click', async event => {
       state.futx.amount = el.dataset.need || '';
       openTool('futacct');
       break;
-    case 'bank-term':
-      state.bank.weeks = Number(el.dataset.weeks);
-      renderTool();
-      break;
-    case 'bank-sign':
-      doBorrow(Number(el.dataset.amount));
-      break;
-    case 'bank-payoff':
-      doPayoff(Number(el.dataset.v), Number(el.dataset.owed));
-      break;
     case 'relief':
       doRelief();
       break;
@@ -6381,7 +6272,7 @@ function patchElement(o, n) {
 // A second point typed into a number field ends the number: that point and
 // what's typed after it are refused (1.2.3.4 key by key stays 1.2, as pasted),
 // until a deletion or the field is left.
-const NUMBER_FIELDS = new Set(['t-qty', 't-limit', 't-stop', 'fx-amount', 'loan-amount', 'td-amount', 'futx-amount', 'bank-amount', 'alert-price', 'plan-amount', 'plan-row-amount', 'lend-rate']);
+const NUMBER_FIELDS = new Set(['t-qty', 't-limit', 't-stop', 'fx-amount', 'loan-amount', 'td-amount', 'futx-amount', 'alert-price', 'plan-amount', 'plan-row-amount', 'lend-rate']);
 const numberJam = new WeakMap();
 function refuseExtraPoint(el, event) {
   const kept = numberJam.get(el);
@@ -6433,10 +6324,6 @@ document.addEventListener('input', event => {
       break;
     case 'futx-amount':
       state.futx.amount = cleanNumber(el.value).replace(/\..*/, '');
-      keepCaret(renderTool);
-      break;
-    case 'bank-amount':
-      state.bank.amount = cleanNumber(el.value).replace(/\..*/, '');
       keepCaret(renderTool);
       break;
     case 'alert-price':

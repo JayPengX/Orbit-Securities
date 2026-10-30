@@ -24,9 +24,10 @@ Live: https://orbit.jaypengx.com/securities/
     its index's day, one tap to that country's list.
   - **資產:** net worth over time, allocation, positions, cash in every
     currency, income.
-  - **資金:** exchange, the rates board, margin loans; then 你的帳戶: 信貸
-    and 急難紓困 (the kit's `loan.mjs` rules, asked through the Pass session),
-    財富等級, and 真相 (where the money came from, the government's side,
+  - **資金:** exchange, the rates board, margin loans; then 你的帳戶: 急難紓困
+    when broke (the kit's `pay.mjs` rules, asked through the Pass session),
+    財富等級. No personal loan (a broker doesn't make one; removed 10-30),
+    and 真相 (where the money came from, the government's side,
     what trading costs: `lib/truth.mjs`). The Orbit Pass holds no money:
     all of it is shown here.
   - **紀錄:** activity, orders, stats (against 0050, VOO, BTC and gold).
