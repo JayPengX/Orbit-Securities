@@ -19,7 +19,9 @@ Live: https://orbit.jaypengx.com/securities/
     可轉債, 特別股・REITs…; 期權: 台指期貨, 個股期貨, ETF 期貨,
     台指選擇權). Every list is the same: the curated picks, then
     everything that market lists (`public/data/listings-*.json`), 50 rows at
-    a time. Home's tiles open the same places.
+    a time. Home's tiles open the same places. 總覽 opens with 各國市場: a flag per
+    country (台、美、日、港、陸、韓、歐, `COUNTRIES` in `lib/catalog.mjs`) with
+    its index's day, one tap to that country's list.
   - **資產:** net worth over time, allocation, positions, cash in every
     currency, income.
   - **資金:** exchange, the rates board, margin loans; then 你的帳戶: 信貸
