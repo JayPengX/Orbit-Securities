@@ -1450,11 +1450,18 @@ function eventRows(v) {
   return rows.slice(0, 5);
 }
 
+// What 為你推薦 showed and what was opened from it (kit feedback.mjs, on the
+// device). (Loaded on the side: an older kit without it ranks as before.)
+let feedback = null;
+import('#kit/feedback.mjs').then(m => (feedback = m)).catch(() => {});
 function renderHome() {
   const box = $('home-body');
   const v = state.account ? valuation() : null;
   const held = Object.keys(snap()?.positions || {});
-  const recs = forYou({ quotes: state.quotes, held, watched: watched(state.account), wallet: state.wallet, aff: affinityMap(), n: 10 });
+  const recs = forYou({ quotes: state.quotes, held, watched: watched(state.account), wallet: state.wallet, aff: affinityMap(), n: 10, lift: feedback?.lifter('stock') });
+  state.recs = recs;
+  // (The first few are what's in view on the rail.)
+  feedback?.shown('stock', recs.slice(0, 4));
   // No balance here: it's 資產's (Jay 2026-10-21). Home is the market; an
   // overdraft still says so, as it needs doing.
   const hero = v && overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))}</button>` : '';
@@ -5850,6 +5857,7 @@ document.addEventListener('click', async event => {
       break;
     }
     case 'open':
+      if (el.closest('.rec-rail')) feedback?.picked('stock', state.recs?.find(r => r.symbol === el.dataset.symbol));
       openDetail(el.dataset.symbol);
       break;
     case 'close':

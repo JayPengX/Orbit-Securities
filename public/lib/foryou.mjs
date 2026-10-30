@@ -11,6 +11,8 @@
 //   - movement: a big move today is worth a look;
 //   - popularity: a small prior for the well-known names.
 // Held and watched symbols are left out (they're on the portfolio already).
+// `lift`: what the person opened and passed over among the picks shown
+// before (the kit's feedback.mjs): a pick passed over day after day sinks.
 import { CATEGORIES, catalogInfo } from './catalog.mjs';
 import { isTradable, localDayOf } from './markets.mjs';
 import { isTradingDay } from './holidays.mjs';
@@ -50,7 +52,7 @@ export function wantedSymbols({ aff = {}, held = [], watched = [], max = 80 } = 
 }
 
 // [{ symbol, why: { key, what } }], best first.
-export function forYou({ quotes, held = [], watched = [], wallet = null, aff, n = 10, now = Date.now() }) {
+export function forYou({ quotes, held = [], watched = [], wallet = null, aff, n = 10, now = Date.now(), lift = null }) {
   const own = new Set([...held, ...watched]);
   const heldKinds = new Set(held.map(s => quotes.get(s)?.kind || catalogInfo(s)?.kind).filter(Boolean));
   const heldCats = new Set(held.map(s => catalogInfo(s)?.category).filter(Boolean));
@@ -109,7 +111,7 @@ export function forYou({ quotes, held = [], watched = [], wallet = null, aff, n 
     });
   }
   // Never one market only: at most 60% from any one.
-  const ranked = rank(items, { wallet, n: n * 3, now, diversity: 0.45, ...(aff ? { aff } : {}) });
+  const ranked = rank(items, { wallet, n: n * 3, now, diversity: 0.45, lift, ...(aff ? { aff } : {}) });
   const cap = Math.max(2, Math.ceil(n * 0.6));
   const per = new Map();
   const out = [];
@@ -120,7 +122,7 @@ export function forYou({ quotes, held = [], watched = [], wallet = null, aff, n 
     out.push(item);
     if (out.length >= n) break;
   }
-  return out.map(item => ({ symbol: item.symbol, why: whyOf(item) }));
+  return out.map(item => ({ symbol: item.symbol, why: whyOf(item), id: item.id, keys: item.keys }));
 }
 
 function whyOf(item) {
