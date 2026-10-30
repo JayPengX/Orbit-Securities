@@ -327,6 +327,20 @@ export const PRODUCTS = PRODUCT_ORDER.map(id => PRODUCT_LIST.find(p => p.id === 
 export const SUBS = new Map(PRODUCTS.flatMap(p => p.subs.map(s => [s.id, { ...s, product: p.id }])));
 // A list's curated picks: its list's symbols it takes, then its extras.
 export const subPicks = sub => [...new Set([...(CATEGORIES.find(c => c.id === sub.cat)?.items || []).map(i => i[0]).filter(s => !sub.only || sub.only(s)), ...(sub.extra || [])])];
+// Each country's market one tap from 總覽 (Jay 2026-10-30: they were all
+// under 複委託): its flag, the list it opens (`sub`, or Taiwan's whole
+// product) and the index that says how its day is going.
+export const COUNTRIES = [
+  { id: 'tw', flag: 'TW', zh: '台股', en: 'Taiwan', product: 'tw', index: '^TWII' },
+  { id: 'us', flag: 'US', zh: '美股', en: 'US', sub: 'us', index: '^GSPC' },
+  { id: 'jp', flag: 'JP', zh: '日股', en: 'Japan', sub: 'jp', index: '^N225' },
+  { id: 'hk', flag: 'HK', zh: '港股', en: 'Hong Kong', sub: 'hk', index: '^HSI' },
+  { id: 'cn', flag: 'CN', zh: '陸股', en: 'China', sub: 'cn', index: '000001.SS' },
+  { id: 'kr', flag: 'KR', zh: '韓股', en: 'Korea', sub: 'kr', index: '^KS11' },
+  { id: 'eu', flag: 'EU', zh: '歐股', en: 'Europe', sub: 'eu', index: '^STOXX50E' }
+];
+// A 複委託 list's flag (its chip's), by its id.
+export const SUB_FLAGS = { us: 'US', usetf: 'US', jp: 'JP', hk: 'HK', cn: 'CN', kr: 'KR', eu: 'EU' };
 // 總覽's indexes: the world's, then the yields.
 export const MARKET_INDEXES = [...INDEXES.map(i => i[0]), '^IRX', '^FVX', '^TNX', '^TYX'];
 

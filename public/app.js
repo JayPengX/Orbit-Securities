@@ -10,7 +10,7 @@ import {
 import { BONDS } from './lib/bonds.mjs';
 import { nextTradingStart, upcomingHolidays, localDay } from './lib/holidays.mjs';
 import { fetchQuotes, fetchChart, fetchBars, fetchCorporateActions, fetchFundamentals, searchSymbols, fxSymbol } from './lib/quotes.mjs';
-import { CATEGORIES, MARKET_INDEXES, OVERVIEW, PRODUCTS, SUBS, TRACKERS, catalogInfo, searchCatalog, subPicks } from './lib/catalog.mjs';
+import { CATEGORIES, COUNTRIES, MARKET_INDEXES, OVERVIEW, PRODUCTS, SUB_FLAGS, SUBS, TRACKERS, catalogInfo, searchCatalog, subPicks } from './lib/catalog.mjs';
 import { brandIcon, brandLogo } from './lib/brands.mjs';
 import { tvLogos } from './lib/tvlogos.mjs';
 import { TV_ROUND } from './lib/tvround.mjs';
@@ -1771,7 +1771,7 @@ function renderMarkets() {
   const product = productOf(sub.product);
   const subs =
     product.subs.length > 1
-      ? `<div class="q-chips bleed sub-chips">${product.subs.map(s => `<button class="q-chip" type="button" data-action="sub" data-id="${h(s.id)}" aria-pressed="${s.id === sub.id}">${h(L(s))}</button>`).join('')}</div>`
+      ? `<div class="q-chips bleed sub-chips">${product.subs.map(s => `<button class="q-chip" type="button" data-action="sub" data-id="${h(s.id)}" aria-pressed="${s.id === sub.id}">${SUB_FLAGS[s.id] ? `<img class="chip-flag" src="flags/${FLAGS[SUB_FLAGS[s.id]]}.svg" alt="" onerror="this.remove()">` : ''}${h(L(s))}</button>`).join('')}</div>`
       : '';
   morph(box, `${productBar(product.id)}${subs}${sub.view === 'opt' ? optChainHtml() : listHtml(sub)}`);
 }
@@ -1809,8 +1809,14 @@ function overviewHtml() {
     p =>
       `<button class="q-ritem chevron" type="button" data-action="product" data-id="${h(p.id)}">${productTile(p.id)}<span class="q-ritem-text"><span class="q-ritem-title">${h(L(p))}</span><small>${h(t(`prodSub_${p.id}`))}</small></span></button>`
   ).join('');
+  // Every country's market, a tap each, with its index's day under its name.
+  const countries = COUNTRIES.map(c => {
+    const q = state.quotes.get(c.index);
+    return `<button class="country q-press" type="button" data-action="${c.sub ? 'sub' : 'product'}" data-id="${h(c.sub || c.product)}">${tileHtml(curMark(c.flag), TINT.gray, 'prod-tile')}<span>${h(L(c))}</span>${pctTag(q)}</button>`;
+  }).join('');
   const mv = moversHtml();
-  return `${sectionHtml(t('indexesTitle'), `<div class="q-rail small idx-rail">${idx}</div>`)}
+  return `${sectionHtml(t('countriesTitle'), `<div class="country-row">${countries}</div>`)}
+    ${sectionHtml(t('indexesTitle'), `<div class="q-rail small idx-rail">${idx}</div>`)}
     ${sectionHtml(t('productsTitle'), `<div class="q-rowcard prod-dir">${dir}</div>`)}
     ${mv ? sectionHtml(t('moversTitle'), mv) : ''}`;
 }
@@ -5902,6 +5908,12 @@ document.addEventListener('click', async event => {
       goMarket(el.dataset.id, { sub: a === 'sub' });
       renderMarkets();
       window.scrollTo(0, 0);
+      {
+        // (A list picked from 各國市場 may sit past the phone's edge: its chip brought into view.)
+        const row = $('markets-body').querySelector('.sub-chips');
+        const on = row?.querySelector('[aria-pressed="true"]');
+        if (on) row.scrollLeft = Math.max(0, on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2);
+      }
       refresh({ list: true });
       break;
     case 'cover': {
