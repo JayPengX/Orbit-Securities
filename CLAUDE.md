@@ -6,3 +6,4 @@ MAP.md is this repo's map (README.md is the short public front page).
 - `npm test`, then `git push origin HEAD:main`.
 - Orders are filled and cash counted by the proxy (`stock-fill.js`), never the phone.
 - See it on a phone: `node ../Orbit-Core/tools/preview.mjs securities --live --width 375`.
+- Screenshots for a change: `node ../Orbit-Core/tools/shots.mjs securities --before main` (320/390, light/dark, live data, a diff against what's live; `../Orbit-Core/tools/README.md`).
