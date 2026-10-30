@@ -683,7 +683,7 @@ a.act-row { color: inherit; }
 #home-body .q-section-head .q-tag { margin-left: auto; }
 .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 /* A tool's main button stays in reach as a band docked to the sheet's foot (the sheet's own colour around it), never a button floating over the fields. */
-.tool-sheet .tool-page .q-btn.primary:not(.small) { position: sticky; bottom: calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)); z-index: 1; min-height: 50px; box-shadow: 0 0 0 12px var(--q-sheet), 0 calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)) 0 12px var(--q-sheet); }
+.tool-sheet .tool-page > .q-btn.primary:not(.small):last-child { position: sticky; bottom: calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)); z-index: 1; min-height: 50px; box-shadow: 0 0 0 12px var(--q-sheet), 0 calc(24px + max(env(safe-area-inset-bottom) - 8px, 0px)) 0 24px var(--q-sheet); }
 
 :is(.q-chips, .chip-row, .tool-page, .ticket) .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .q-stats .q-stat strong { font: var(--q-t-headline); font-weight: 600; overflow: visible; text-overflow: clip; white-space: nowrap; }
@@ -743,7 +743,8 @@ a.act-row { color: inherit; }
   .rates-head, .rate-row.board { grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 14px; }
   .rates-head span:last-child, .rate-row.board > :last-child { display: none; }
 }
-.tool-sheet .tool-page .q-btn.primary:disabled { box-shadow: none; }
+/* Disabled, it stays solid on its band (a faded button would show the page scrolling under it). */
+.tool-sheet .tool-page > .q-btn.primary:not(.small):last-child:disabled { opacity: 1; background: linear-gradient(var(--q-fill), var(--q-fill)) var(--q-sheet); color: var(--q-label-3); }
 .big-field > span { white-space: nowrap; }
 .tool-page { grid-template-columns: minmax(0, 1fr); }
 /* The ticket's one button floats over its sheet: no band or line, the page fading out under it
@@ -825,7 +826,7 @@ html .q-logo.disc img { transform: scale(1.02); }
 html.q-kb .tool-sheet :is(.q-sheet-hero, .kb-hide, .tool-page > .q-section:not(:focus-within)) { display: none; }
 html.q-kb dialog.q-sheet.tool-sheet[open] { max-height: calc(var(--q-vvh) + var(--q-kb) - 8px); margin-bottom: 0; padding-bottom: var(--q-kb); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 html.q-kb .tool-sheet #tool-body { padding-bottom: 12px; }
-html.q-kb .tool-sheet .tool-page .q-btn.primary:not(.small) { position: static; box-shadow: none; }
+html.q-kb .tool-sheet .tool-page > .q-btn.primary:not(.small):last-child { position: static; box-shadow: none; }
 /* What an amount earns, on the amount's own line (定存). */
 .big-field:has(.big-field-end) { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; }
 .big-field:has(.big-field-end) > span { grid-column: 1 / -1; }
@@ -1006,3 +1007,5 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
 /* The exchange is the action on 資金: one coloured card, no shadow on the swap. */
 .fx-swap { box-shadow: none; }
 .q-ritem-end > strong { font-weight: 500; }
+/* What's still needed is read whole: a long requirement wraps instead of ending in an ellipsis. */
+.acc-needs .q-ritem-title, .credit-checks .q-ritem-title { white-space: normal; overflow: visible; text-overflow: clip; }

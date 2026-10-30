@@ -4654,12 +4654,12 @@ function futAcctHtml() {
   const free = futFree(snap());
   const stat2 = (label, value) => `<div class="q-ritem"><span class="q-ritem-text"><span class="q-ritem-title">${h(label)}</span></span><strong class="num">${h(value)}</strong></div>`;
   return `<div class="q-rowcard">${stat2(t('futCashWord'), money(v.futCash || 0, BASE))}${stat2(t('futOpenPl'), money(v.futTWD || 0, BASE))}${stat2(t('futMarginWord'), money(v.futMarginTWD || 0, BASE))}${stat2(t('futFreeWord'), money(free, BASE))}</div>
+    <p class="foot-note">${h(t('futAcctFoot'))}</p>
     ${open.open ? '' : `${open.pending ? `<p class="foot-note">${h(t('accessPendingLine', { date: dateTime(open.pending) }))}</p>` : ''}<button class="q-btn primary block" type="button" data-action="access-open" data-key="futures">${h(t(open.pending ? 'accessSee' : 'futAcctOpen'))}</button>`}
     ${open.open ? `${seg([['in', t('futIn')], ['out', t('futOut')]], 'futx-dir', 'dir', x => d.dir === x)}
     <label class="big-field"><span>${h(t('amount'))}<em class="num">${h(t(isIn ? 'futInHave' : 'futOutHave', { v: money(room, BASE) }))}${room >= 1 ? `<button class="q-tag tint" type="button" data-action="futx-max">${h(t('tdAll'))}</button>` : ''}</em></span><input id="futx-amount" class="num" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${h(amount > 0 ? num(amount) : '')}" placeholder="0" /></label>
     ${amount > room ? `<p class="warn">${h(t(isIn ? 'tdTooMuch' : 'err_futOut', { have: money(room, BASE) }))}</p>` : ''}
-    <button class="q-btn primary block" type="button" data-action="futx-go" ${ok ? '' : 'disabled'}>${h(t(isIn ? 'futIn' : 'futOut'))}</button>` : ''}
-    <p class="foot-note">${h(t('futAcctFoot'))}</p>`;
+    <button class="q-btn primary block" type="button" data-action="futx-go" ${ok ? '' : 'disabled'}>${h(t(isIn ? 'futIn' : 'futOut'))}</button>` : ''}`;
 }
 function doFutTransfer() {
   const d = state.futx;
@@ -4874,9 +4874,10 @@ function creditCardHtml(v) {
         ${pick > CREDIT_TIERS[0] ? row('means', t('creditMeansT'), compactMoney(pick * CREDIT_PROOF, BASE)) : ''}
       </div>`
       )}
+      <div class="q-rowcard"><div class="q-ritem">${tileHtml(dayOk ? ico('check') : ico('clock'), dayOk ? TINT.green : TINT.gray, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('dayTradeTitle'))}</span><small class="num">${h(dayOk ? (dayRoom ? t('dayTradeLeftShort', { left: money(dayRoom.left, BASE) }) : '') : t('dayTradeNeed'))}</small></span>${dayOk ? `<span class="q-tag green">${h(t('dayTradeYes'))}</span>` : `<button class="q-btn small" type="button" data-action="access-open" data-key="daytrade">${h(t('accessGo'))}</button>`}</div></div>
       ${credit.pending ? `<p class="foot-note">${h(t('creditPendingLine', { v: compactMoney(credit.pending.limit, BASE), date: dateTime(credit.pending.from) }))}</p>` : `${sectionHtml(t('accessDocs'), docsHtml(stockCredit.CREDIT_DOCS || [], accessUi().docs))}
-      <button class="q-btn primary block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok && (stockCredit.CREDIT_DOCS || []).every(x => accessUi().docs.has(x)) ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>`}
-      <div class="q-rowcard"><div class="q-ritem">${tileHtml(dayOk ? ico('check') : ico('clock'), dayOk ? TINT.green : TINT.gray, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('dayTradeTitle'))}</span><small class="num">${h(dayOk ? (dayRoom ? t('dayTradeLeftShort', { left: money(dayRoom.left, BASE) }) : '') : t('dayTradeNeed'))}</small></span>${dayOk ? `<span class="q-tag green">${h(t('dayTradeYes'))}</span>` : `<button class="q-btn small" type="button" data-action="access-open" data-key="daytrade">${h(t('accessGo'))}</button>`}</div></div>`;
+      <button class="q-btn primary block" type="button" data-action="credit-open" data-limit="${pick}" ${check.ok && (stockCredit.CREDIT_DOCS || []).every(x => accessUi().docs.has(x)) ? '' : 'disabled'}>${h(t('creditOpen', { v: compactMoney(pick, BASE) }))}</button>`}`;
+
   }
   const used = creditUsed(v);
   const better = bestTier(state.account, v.netWorth, now);
@@ -4952,7 +4953,7 @@ function accessKeyHtml(key) {
   // Open (KYC can be taken again any time), or waiting for the broker: nothing to sign.
   if ((a.open || a.pending) && key !== 'kyc') return `${back}${head}${a.pending ? `<p class="foot-note">${h(t('accessPendingLine', { date: dateTime(a.pending) }))}</p>` : ''}`;
   const needs = stockAccess.accessNeeds(state.account, key, { netWorthTWD: valuation()?.netWorth || 0 }, now);
-  const needRows = needs.length ? sectionHtml(t('accessNeeds'), `<div class="q-rowcard">${needs.map(n => `<div class="q-ritem">${tileHtml(svgIcon('alert'), TINT.orange, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(accessNeedText(n))}</span></span>${n.key === 'kyc' ? `<button class="q-btn small" type="button" data-action="access-key" data-key="kyc">${h(t('accessGo'))}</button>` : ''}</div>`).join('')}</div>`) : '';
+  const needRows = needs.length ? sectionHtml(t('accessNeeds'), `<div class="q-rowcard acc-needs">${needs.map(n => `<div class="q-ritem">${tileHtml(svgIcon('alert'), TINT.orange, 'sm')}<span class="q-ritem-text"><span class="q-ritem-title">${h(accessNeedText(n))}</span></span>${n.key === 'kyc' ? `<button class="q-btn small" type="button" data-action="access-key" data-key="kyc">${h(t('accessGo'))}</button>` : ''}</div>`).join('')}</div>`) : '';
   let kyc = '';
   let result = null;
   if (key === 'kyc') {
