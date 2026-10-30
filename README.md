@@ -35,6 +35,7 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 - **Taiwan credit trading:** 融資, 融券, day trading, margin calls at 130% and forced sales, as a Taiwan broker does them.
 - **Account opening and eligibility:** KYC, 當沖, warrants, futures and professional-investor status before a product can be bought.
 - **Savings and income:** 定存 at Bank of Taiwan's rates, 定期定額 plans, securities lending, dividends on the real pay day, 新股申購 from TWSE's real list.
+- **各國市場:** every country's market one tap from 市場's 總覽: its flag, name and index's day; 為你推薦 learns what you open and what you pass over.
 - **Your portfolio:** net worth over time, allocation, positions, cash in every currency, income, and how you did against 0050, VOO, BTC and gold.
 - **Detail pages:** line or candle charts with moving averages, the facts, your position, price alerts and a plain-language read of the company or fund.
 
