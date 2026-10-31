@@ -33,6 +33,13 @@ Live: https://orbit.jaypengx.com/securities/
     what trading costs: `lib/truth.mjs`). The Orbit Pass holds no money:
     all of it is shown here.
   - **紀錄:** activity, orders, stats (against 0050, VOO, BTC and gold).
+- **Every screen** (the kit's `q-wide`/`q-w3` marks, `styles.css` "Every screen"):
+  with room for two columns each tab is two phone-width columns (首頁: the
+  world across the top, markets and movers left, yours and picks right;
+  資產: the account left, positions right; 資金: exchange and rates left,
+  tools and account right; 紀錄's orders and stats side by side), quote lists
+  run in two (three) columns, sheets stay a phone's width. A phone on its
+  side gets shorter charts and focus cards. Charts redraw on `onScreen()`.
 - **The detail sheet:** charts (line or candles, MA5/20/60), the facts,
   your position, the ticket (market, limit, stop; quick sizes; a cost
   preview; one-tap exchange or 融資買進 when short), price alerts, 定期定額,

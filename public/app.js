@@ -1536,15 +1536,21 @@ function renderHome() {
     : '';
   morph(
     box,
+    // (Wide: the world across the top; the markets and today's movers on the
+    // left, what's yours and what to look at next on the right. A phone reads
+    // it as one column, in the same order.)
     `${hero}
-    ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip() })}
+    ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip(), cls: 'home-world' })}
+    <div class="q-cols home-cols"><div>
     ${quick}
+    ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'home-movers' })}
+    </div><div>
     ${holdings}
     ${watchlist}
-    ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'home-movers' })}
     ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.indigo, title: t('forYouNone'), body: t('forYouNoneSub'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
     ${ipoHtml()}
-    ${eventsHtml}`
+    ${eventsHtml}
+    </div></div>`
   );
 }
 
@@ -1833,10 +1839,11 @@ function overviewHtml() {
     return `<button class="country q-press" type="button" data-action="${c.sub ? 'sub' : 'product'}" data-id="${h(c.sub || c.product)}">${tileHtml(curMark(c.flag), TINT.gray, 'prod-tile')}<span>${h(L(c))}</span>${pctTag(q)}</button>`;
   }).join('');
   const mv = moversHtml();
-  return `${sectionHtml(t('countriesTitle'), `<div class="country-row">${countries}</div>`)}
+  // (Wide: the countries, indexes and products on the left, today's movers beside them.)
+  return `<div class="q-cols mk-cols"><div>${sectionHtml(t('countriesTitle'), `<div class="country-row">${countries}</div>`)}
     ${sectionHtml(t('indexesTitle'), `<div class="q-rail small idx-rail">${idx}</div>`)}
-    ${sectionHtml(t('productsTitle'), `<div class="q-rowcard prod-dir">${dir}</div>`)}
-    ${mv ? sectionHtml(t('moversTitle'), mv) : ''}`;
+    ${sectionHtml(t('productsTitle'), `<div class="q-rowcard prod-dir">${dir}</div>`)}</div>
+    <div>${mv ? sectionHtml(t('moversTitle'), mv) : ''}</div></div>`;
 }
 
 // ---- 選擇權 (TXO): a series' chain (a weekly or a month), calls and puts by strike ----
@@ -2311,7 +2318,8 @@ function renderChart() {
   // (Under the chart beside its tools, with the averages' key; not a live day's change: the hero's move says it already.)
   if (headBox) headBox.innerHTML = `${d.range === '1d' && !d.lastDay ? '' : `<span>${h(d.lastDay && d.range === '1d' ? t('lastDayChange', { date: shortDate(d.lastDay, tz) }) : t('rangeChange', { range: t(`range_${d.range}`) }))} <span class="chg ${dir}">${pct(change)}</span></span>`}${legend}`;
   const head = '';
-  const height = width < 480 ? 220 : 260;
+  // (A phone on its side has half a phone's height: the chart and the hero over it stay under half of it.)
+  const height = window.innerHeight <= 520 ? 150 : width < 480 ? 220 : 260;
   if (state.settings.chart === 'candle' && bars) {
     const { svg, frame } = candleChart(bars, { width, height, lines: mas, yFormat: v => (pts ? pts(v) : fmtPrice(v, cur)), xFormat });
     box.innerHTML = `${head}${svg}`;
@@ -2490,7 +2498,7 @@ function sessionParts(q) {
 function hoursGuide(q) {
   const parts = sessionParts(q);
   if (!parts) return '';
-  if (!parts.length) return `<div class="guide-chips"><span class="q-tag">${h(t('allDay'))}</span></div>`;
+  if (!parts.length) return `<p class="guide-facts"><span>${h(t('allDay'))}</span></p>`;
   const bar = parts.filter(p => !p[4]);
   const lo = Math.min(...bar.map(p => p[0]));
   const hi = Math.max(...bar.map(p => p[1]));
@@ -2528,14 +2536,14 @@ function costChips(q) {
 }
 function guideHtml(q) {
   const block = (icon, title, body) => (body ? `<div class="guide-part"><h4>${ico(icon)}${h(title)}</h4>${body}</div>` : '');
-  const chips = (list, cls = '') => (list.length ? `<div class="guide-chips">${list.map(x => `<span class="q-tag ${cls}">${h(x)}</span>`).join('')}</div>` : '');
+  const facts = list => (list.length ? `<p class="guide-facts">${list.map(x => `<span>${h(x)}</span>`).join('<i> · </i>')}</p>` : '');
   const days = q.session ? holidayLine(q) : '';
   const tradable = isTradable(q.kind);
   const body = [
     block('clock', t('hours'), hoursGuide(q)),
-    block('calendar', t('holidaysNext'), days ? chips(days.split(/[、,] ?/), 'num') : ''),
-    block('coin', t('costs'), tradable || BONDS[q.symbol] ? chips(costChips(q), 'num') : ''),
-    block('list', t('rulesFact'), tradable && !BONDS[q.symbol] ? chips(ruleChips(marketRules(q))) : '')
+    block('calendar', t('holidaysNext'), days ? facts(days.split(/[、,] ?/)) : ''),
+    block('coin', t('costs'), tradable || BONDS[q.symbol] ? facts(costChips(q)) : ''),
+    block('list', t('rulesFact'), tradable && !BONDS[q.symbol] ? facts(ruleChips(marketRules(q))) : '')
   ].join('');
   return body ? `<div class="guide">${body}</div>` : '';
 }
@@ -3778,17 +3786,19 @@ function renderPortfolio() {
   const held = v.positions.length
     ? sectionHtml(t('positions'), `${plStats}<div class="q-rowcard positions">${positions.map(p => positionRow(p, sort)).join('')}</div>`, {
         more: v.positions.length > 1 ? t(`posSort_${sort}`) : '',
-        moreAction: 'data-action="pos-sort" class="sort-btn"'
+        moreAction: 'data-action="pos-sort" class="sort-btn"',
+        cls: 'pf-held'
       })
-    : sectionHtml(t('positions'), emptyHtml({ icon: 'chart', tint: TINT.gray, title: t('noPositions'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }));
+    : sectionHtml(t('positions'), emptyHtml({ icon: 'chart', tint: TINT.gray, title: t('noPositions'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { cls: 'pf-held' });
   morph(
     box,
-    `${hero}
+    // (Wide: the account down the left, the positions beside it, styles.css .pf-cols.)
+    `<div class="pf-cols">${hero}
     ${overdraftHtml(v)}
     ${marginCardHtml(v)}
     ${held}
     ${cashHtml(v)}
-    ${moreHtml(v)}`
+    ${moreHtml(v)}</div>`
   );
   renderNetWorthChart(v, s);
 }
@@ -4194,6 +4204,8 @@ async function loadNetWorthHistory() {
 }
 
 // The hero's chart, in white on the app's colour: 損益 or 總資產 since the account opened.
+// (A phone on its side: the hero, chart and all, under half its height.)
+const nwHeight = () => (window.innerHeight <= 520 ? 96 : 150);
 function renderNetWorthChart(v, s) {
   const box = $('nw-chart');
   if (!box) return;
@@ -4233,7 +4245,7 @@ function renderNetWorthChart(v, s) {
     };
     const pl = points.map(([tt, nw]) => [tt, nw - putInAt(tt)]);
     const span = Math.max(...pl.map(p => Math.abs(p[1])));
-    const { svg, frame } = lineChart([{ points: pl }], { width, height: 150, dir, base: 0, yFormat: x => (Math.abs(x) < 0.5 ? '0' : `${x > 0 ? '+' : '−'}${span < 10_000 ? num(Math.abs(x)) : compact(Math.abs(x))}`), xFormat: tt => shortDate(tt) });
+    const { svg, frame } = lineChart([{ points: pl }], { width, height: nwHeight(), dir, base: 0, yFormat: x => (Math.abs(x) < 0.5 ? '0' : `${x > 0 ? '+' : '−'}${span < 10_000 ? num(Math.abs(x)) : compact(Math.abs(x))}`), xFormat: tt => shortDate(tt) });
     box.innerHTML = svg;
     attachHover(box, [{ points: pl }], frame, (i, tt, [x]) => `<strong class="num">${money(x, BASE, { sign: true })}</strong><span>${h(fmtDate(tt))}</span><span class="num">${h(money(x + putInAt(tt), BASE))}</span>`);
     return;
@@ -4244,7 +4256,7 @@ function renderNetWorthChart(v, s) {
   const shownDeposits = deposits.filter(([dt], i) => i === deposits.length - 1 || deposits[i + 1][0] - dt > 3_600_000 || dt >= points[0][0]);
   const { svg, frame } = lineChart([{ points }, { points: shownDeposits, cls: 'ref' }], {
     width,
-    height: 150,
+    height: nwHeight(),
     dir,
     // A narrow range needs the full number (萬 would round it all alike).
     yFormat: x => (fine ? num(x) : compact(x)),
@@ -4300,11 +4312,12 @@ function renderFx() {
   const rates = Object.keys(CURRENCIES).filter(c => c !== BASE);
   morph(
     box,
-    `${exchangeHtml()}
+    // (Wide: the exchange and the rates on the left, the money tools and the account beside them.)
+    `<div class="q-cols fx-cols"><div>${exchangeHtml()}
     ${v.margin !== 'ok' || state.account.call ? `<button class="callout bad" type="button" data-action="tool" data-tool="loans">${h(t('maintenance'))} ${h(pct(v.ratio, { digits: 0, sign: false }))} · ${h(t(`margin_${v.margin}`))}</button>` : ''}
-    ${sectionHtml(t('fxViewRates'), `<div class="q-rowcard rates">${rates.slice(0, 6).map(c => rateRow(c)).join('')}</div>`, { more: t('seeAll'), moreAction: 'data-action="tool" data-tool="rates"', side: over, cls: 'fx-rates' })}
-    ${sectionHtml(t('moneyTools'), moneyToolsHtml(v))}
-    ${sectionHtml(t('acctTitle'), acctHtml())}`
+    ${sectionHtml(t('fxViewRates'), `<div class="q-rowcard rates">${rates.slice(0, 6).map(c => rateRow(c)).join('')}</div>`, { more: t('seeAll'), moreAction: 'data-action="tool" data-tool="rates"', side: over, cls: 'fx-rates' })}</div>
+    <div>${sectionHtml(t('moneyTools'), moneyToolsHtml(v))}
+    ${sectionHtml(t('acctTitle'), acctHtml())}</div></div>`
   );
 }
 
@@ -5180,8 +5193,8 @@ function renderHistory() {
     morph(
       box,
       `${head}
-      ${sectionHtml(t('openOrders'), open.length ? `<div class="q-rowcard">${open.map(orderRow).join('')}</div>` : `${plainEmpty(t('noOpenOrders'))}`)}
-      ${sectionHtml(t('pastOrders'), done.length ? `<div class="q-rowcard">${done.map(orderRow).join('')}</div>` : `${plainEmpty(t('nothingYet'))}`)}`
+      <div class="q-cols hi-cols"><div>${sectionHtml(t('openOrders'), open.length ? `<div class="q-rowcard">${open.map(orderRow).join('')}</div>` : `${plainEmpty(t('noOpenOrders'))}`)}</div>
+      <div>${sectionHtml(t('pastOrders'), done.length ? `<div class="q-rowcard">${done.map(orderRow).join('')}</div>` : `${plainEmpty(t('nothingYet'))}`)}</div></div>`
     );
     return;
   }
@@ -5204,7 +5217,7 @@ function renderHistory() {
     box,
     `${head}
     <div class="q-chips bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
-    ${days.length ? days.map(([day, g]) => `<p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.map(activityRow).join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
+    ${days.length ? `<div class="act-days">${days.map(([day, g]) => `<div class="act-day"><p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.map(activityRow).join('')}</div></div>`).join('')}</div>` : `${plainEmpty(t('nothingYet'))}`}
     ${own.length > shown.length ? `<button class="q-btn small tinted more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`
   );
 }
@@ -5302,7 +5315,8 @@ function statsHtml() {
   const tradeRow = (label, c) =>
     c ? `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(c.symbol)}">${symbolBadge(c.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(c.symbol))}</span><small>${h(label)}</small></span><span class="q-ritem-end"><strong class="num ${dirClass(c.realized)}">${h(money(c.realized, BASE, { sign: true }))}</strong><span class="chg num ${dirClass(c.pct)}">${h(pct(c.pct))}</span></span></button>` : '';
   const m30 = last30(state.account.events);
-  return `
+  // (Wide: the hero over the left column, what the trades made under it; the comparisons beside.)
+  return `<div class="q-cols st-cols"><div>
     <div class="q-focus stats-hero">
       <span class="q-focus-label">${h(t('realizedPl'))}</span>
       <strong class="q-focus-value num ${dirClass(v.realized)}">${h(money(v.realized, BASE, { sign: true }))}</strong>
@@ -5319,6 +5333,7 @@ function statsHtml() {
         : `${plainEmpty(t('noClosed'))}`,
       { side: `<span class="q-tag">${h(t('tradeCount', { n: closed.length }))}</span>` }
     )}
+    </div><div>
     ${sectionHtml(t('statsMovers'), movers.length ? `<div class="q-rowcard">${movers.map(([sym, x]) => `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(sym)}">${symbolBadge(sym)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(sym))}</span><small>${h(bareSymbol(sym))}</small></span><span class="q-ritem-value num ${dirClass(x)}">${h(money(x, BASE, { sign: true }))}</span></button>`).join('')}</div>` : '')}
     ${sectionHtml(t('byMarket'), marketRows.length ? `<div class="card-box"><ul class="bars-list">${marketRows.map(([m, x]) => `<li><span class="bar-label">${h(marketLabel(m))}</span><span class="bar-track"><span class="bar ${dirClass(x)}" style="width:${(Math.abs(x) / mMax) * 100}%"></span></span><strong class="num ${dirClass(x)}">${h(money(x, BASE, { sign: true }))}</strong></li>`).join('')}</ul></div>` : '')}
     ${sectionHtml(t('benchTitle'), '<div id="bench" class="card-box" data-own></div>')}
@@ -5326,7 +5341,8 @@ function statsHtml() {
       t('statsCosts'),
       costTotal >= 1 ? `<div class="card-box">${stackBar(costs.map(([label, x], i) => ({ label, value: x, color: SERIES[i % SERIES.length] })), { format: x => money(x, BASE) })}</div>${traded > 0 ? `<p class="foot-note">${h(t('statsCostShare', { pct: pct(costTotal / traded, { digits: 2, sign: false }), v: money(traded, BASE) }))}</p>` : ''}` : '',
       { side: `<strong class="sec-value num">${h(money(costTotal, BASE))}</strong>` }
-    )}`;
+    )}
+    </div></div>`;
 }
 
 // You against simply buying one index fund with the same money on the same days.
@@ -6408,18 +6424,25 @@ const FIT_SELECTOR = '.q-sf-sum b, .q-hc-big, .q-focus-value, .q-stat strong, .b
 // (The kit's watchFit: new, so a phone on an older kit just isn't fitted after a redraw.)
 kitOrbit.watchFit(FIT_SELECTOR);
 
-// Redraw charts when the width changes (not when a phone's address bar hides).
-let lastWidth = window.innerWidth;
-let resizeTimer;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    if (window.innerWidth === lastWidth) return;
-    lastWidth = window.innerWidth;
-    render();
-    if (state.detail) renderChart();
-  }, 150);
-});
+// Redraw the charts at their new size when the screen changes (turned on its
+// side, a window resized): the kit's onScreen, or the width where it's older.
+const redrawScreen = () => {
+  render();
+  if (state.detail) renderChart();
+};
+if (kitOrbit.onScreen) kitOrbit.onScreen(redrawScreen);
+else {
+  let lastWidth = window.innerWidth;
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      redrawScreen();
+    }, 150);
+  });
+}
 
 // ---- Start ----------------------------------------------------------------------------------
 
