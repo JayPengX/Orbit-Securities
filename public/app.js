@@ -1348,7 +1348,7 @@ function quoteRow(symbol, { note = '' } = {}) {
   const sub = [due ? due[2] : bareSymbol(symbol), note].filter(Boolean).join(' · ');
   return `<button class="q-ritem quote" type="button" data-action="open" data-symbol="${h(symbol)}">
     ${symbolBadge(symbol, q || info)}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(due ? due[1] : nameOf(symbol, q))}</span><small>${held ? `<b class="held">${h(t('heldTag'))}</b>` : ''}${flagOf(symbol, q)} ${h(sub)}</small></span>
+    <span class="q-ritem-text"><span class="q-ritem-title q-fit-wrap">${h(due ? due[1] : nameOf(symbol, q))}</span><small>${held ? `<b class="held">${h(t('heldTag'))}</b>` : ''}${flagOf(symbol, q)} ${h(sub)}</small></span>
     <span class="q-ritem-end"><strong class="num${limitClass(q)}" data-q-live="row:${h(symbol)}">${q ? qPrice(q) : '…'}</strong>${pctTag(q)}</span>
   </button>`;
 }

@@ -87,6 +87,8 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .q-ritem-end strong { overflow: hidden; text-overflow: ellipsis; }
 .q-ritem .q-tags { margin-top: 3px; }
 .q-ritem-title.wrap { white-space: normal; }
+/* A long name (a Tokyo fund's) shrinks, then takes two even lines rather than an ellipsis (kit fitNames). */
+.q-ritem-title.q-wrapped { white-space: normal; overflow: visible; }
 .q-ritem > .q-btn { flex: none; }
 /* A row whose text opens something of its own beside a button. */
 .link-text { min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
@@ -1032,9 +1034,9 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
 :root.q-wide.q-float .mk-cols .country-row { margin: 0; padding: 2px 0 4px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); overflow: visible; }
 :root.q-wide.q-float .mk-cols .country { min-width: 0; padding-inline: 2px; }
 /* (Down the first column, then the next: a list keeps its order and never leaves a hole.) */
-:root.q-wide .q-rowcard.quotes { columns: 2; column-gap: 0; }
+:root.q-wide .q-rowcard.quotes { display: block; columns: 2; column-gap: 0; }
 :root.q-w3 .q-rowcard.quotes { columns: 3; }
-:root.q-wide .q-rowcard.quotes > * { break-inside: avoid; }
+:root.q-wide .q-rowcard.quotes > * { break-inside: avoid; width: 100%; }
 :root.q-wide .q-rowcard.quotes > :not(.q-ritem) { column-span: all; }
 :root.q-wide .prod-bar { margin-inline: 0; padding-inline: 0; }
 /* 資產: the account down the left, the positions beside it (its own tall column). */
