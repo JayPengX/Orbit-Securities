@@ -585,6 +585,9 @@ a.act-row { color: inherit; }
 .hero-spark svg path { fill: none; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0.9; }
 .hero-spark svg .spark-base { display: none; }
 #home-body .q-actions-grid { margin-top: 16px; }
+/* 首頁's markets: a tile each, its day's move under its name (none for 基金 and 更多: an empty line keeps the rows even). */
+.prod-grid .q-action { gap: 4px; padding: 10px 4px 8px; }
+.prod-grid .chg { display: block; min-height: 14px; font-size: 12px; line-height: 14px; font-weight: 600; white-space: nowrap; }
 #home-body .q-section { margin-top: 28px; }
 #home-body .q-section-head { padding-bottom: 12px; }
 /* A holding: its picture at 48, name, size, worth, the day's line. */

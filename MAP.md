@@ -11,8 +11,10 @@ Live: https://orbit.jaypengx.com/securities/
 ## How it works
 
 - **Tabs:** 首頁, 市場, 資產, 資金, 紀錄.
-  - **首頁:** the world strip, the 8 product tiles, holdings, watchlist,
-    movers, 為你推薦, 新股申購, what's coming.
+  - **首頁:** the world strip; every market as a tile with its day's move
+    (台、美、日、港、陸、韓、歐, 加密, 基金, 黃金, 外匯, 更多 = 總覽:
+    `homeMarkets()`); holdings (no section while there are none),
+    watchlist, movers, 為你推薦, 新股申購, what's coming.
   - **市場:** search, then one product bar (總覽, 自選, 台股, 期權, 複委託,
     基金, 債券, 外匯, 黃金, 加密: `PRODUCTS` in `lib/catalog.mjs`) and the
     open product's lists under it (台股: 上市, 上櫃, 興櫃, ETF, 權證, 牛熊證,

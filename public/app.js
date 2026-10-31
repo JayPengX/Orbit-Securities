@@ -1371,7 +1371,7 @@ function valuation() {
 // What the home and the market tab read besides the lists: for you, and the
 // first of the popular lists (today's movers come from these).
 const homeSymbols = () => {
-  const out = new Set(forYouSymbols());
+  const out = new Set([...forYouSymbols(), ...COUNTRIES.map(c => c.index)]);
   for (const [id, n] of [['tw', 24], ['us', 24], ['twetf', 8], ['usetf', 8], ['crypto', 10], ['jp', 8], ['hk', 8], ['kr', 6], ['eu', 8]]) for (const [sym] of (CATEGORIES.find(c => c.id === id)?.items || []).slice(0, n)) out.add(sym);
   return out;
 };
@@ -1454,6 +1454,13 @@ function eventRows(v) {
 // device). (Loaded on the side: an older kit without it ranks as before.)
 let feedback = null;
 import('#kit/feedback.mjs').then(m => (feedback = m)).catch(() => {});
+// 首頁's markets: each country (catalog COUNTRIES), then the products that aren't a
+// country, by the price that says how their day went.
+const homeMarkets = () => [
+  ...COUNTRIES.map(c => ({ id: c.sub || c.product, sub: !!c.sub, name: L(c), index: c.index, tile: tileHtml(curMark(c.flag), TINT.gray, 'prod-tile') })),
+  ...[['crypto', 'BTC-USD'], ['fund', ''], ['gold', 'XAU'], ['fx', 'USDTWD=X']].map(([id, index]) => ({ id, name: L(PRODUCTS.find(p => p.id === id).short), index, tile: productTile(id) })),
+  { id: '', name: t('marketMore'), index: '', tile: productTile('all') }
+];
 function renderHome() {
   const box = $('home-body');
   const v = state.account ? valuation() : null;
@@ -1465,8 +1472,13 @@ function renderHome() {
   // No balance here: it's 資產's (Jay 2026-10-21). Home is the market; an
   // overdraft still says so, as it needs doing.
   const hero = v && overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))}</button>` : '';
-  // 商品: every product, the same tiles and order as 市場's bar; a tap opens it there.
-  const quick = `<div class="q-actions-grid prod-grid">${PRODUCTS.map(p => `<button class="q-action q-press" type="button" data-action="go-product" data-id="${h(p.id)}">${productTile(p.id)}<span>${h(L(p.short))}</span></button>`).join('')}</div>`;
+  // Every market a tap away, each with how its day is going (Jay 2026-10-31: a
+  // home whose only market was 台股 was useless): the countries by their flags
+  // (美股 was hidden under 複委託), then crypto, funds, gold and forex; 更多 is 總覽.
+  const quick = `<div class="q-actions-grid prod-grid">${homeMarkets().map(m => {
+    const q = m.index ? state.quotes.get(m.index) : null;
+    return `<button class="q-action q-press" type="button" data-action="go-product" data-id="${h(m.id)}"${m.sub ? ' data-sub="1"' : ''}>${m.tile}<span>${h(m.name)}</span>${m.index ? pctTag(q) : '<span class="chg"></span>'}</button>`;
+  }).join('')}</div>`;
   // 我的持股: a rail, each holding's picture, name, price and today's move.
   const positions = v ? [...v.positions].sort((a, b) => Math.abs(b.valueTWD) - Math.abs(a.valueTWD)).slice(0, 12) : [];
   const holdCard = p => {
@@ -1479,10 +1491,11 @@ function renderHome() {
       ${q?.line?.length > 1 ? `<span class="card-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 128, height: 28 })}</span>` : ''}
     </button>`;
   };
-  const holdings = v
-    ? sectionHtml(t('homeHoldings'), positions.length ? `<div class="q-rail small hold-rail">${positions.map(holdCard).join('')}</div>` : emptyHtml({ icon: 'chart', tint: TINT.blue, title: t('emptyHoldTitle'), body: t('emptyHoldBody'), go: t('emptyHoldGo'), attrs: 'data-action="goto" data-tab="markets"' }), {
-        count: positions.length || '',
-        more: positions.length ? t('seeAll') : '',
+  // (None yet: no section. The markets above are where to start, not a big empty card.)
+  const holdings = positions.length
+    ? sectionHtml(t('homeHoldings'), `<div class="q-rail small hold-rail">${positions.map(holdCard).join('')}</div>`, {
+        count: positions.length,
+        more: t('seeAll'),
         moreAction: 'data-action="goto" data-tab="portfolio"'
       })
     : '';
@@ -5767,7 +5780,7 @@ document.addEventListener('click', async event => {
       break;
     // The home's 「交易中」 tag: that market's movers on 市場.
     case 'go-product':
-      goMarket(el.dataset.id);
+      goMarket(el.dataset.id, { sub: !!el.dataset.sub });
       showTab('markets');
       refresh({ list: true });
       break;
