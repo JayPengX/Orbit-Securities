@@ -1044,11 +1044,9 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
 :root.q-wide .pf-cols > * { grid-column: 1; min-width: 0; }
 :root.q-wide .pf-cols > .pf-held { grid-column: 2; grid-row: 1 / -1; margin-top: 0; }
 :root.q-wide .pf-cols > .pf-hero { margin-bottom: 0; }
-/* 紀錄: the days in columns, each day kept whole (newest first, down then across). */
-:root.q-wide .act-days { columns: 2; column-gap: var(--q-s-5, 24px); }
-.act-day { break-inside: avoid; }
-:root.q-wide .act-day { display: inline-block; width: 100%; }
-:root.q-wide .act-days > .act-day:first-child .sub-head { margin-top: 4px; }
+/* 紀錄: the activity on the left, 統計分析 beside it; orders open beside past. */
+/* (統計分析 beside the activity: its own sections one under another, in its column.) */
+:root.q-wide .act-stats .st-cols { grid-template-columns: minmax(0, 1fr); }
 :root.q-wide .history-tabs { max-width: calc((100% - var(--q-s-5, 24px)) / 2); }
 /* A phone on its side (330-390 px tall): every focus card, on a tab or in a
    sheet, a size down, so none takes more than half the screen. */
@@ -1065,3 +1063,4 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
   .sym-hero .chart-change .legend-inline li { gap: 4px; }
   .sym-hero .chart-change .legend-inline .sw { width: 8px; }
 }
+:root.q-wide .act-cols .filter-chips { margin-inline: 0; padding-inline: 0; }

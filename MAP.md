@@ -37,7 +37,7 @@ Live: https://orbit.jaypengx.com/securities/
   with room for two columns each tab is two phone-width columns (首頁: the
   world across the top, markets and movers left, yours and picks right;
   資產: the account left, positions right; 資金: exchange and rates left,
-  tools and account right; 紀錄's orders and stats side by side), quote lists
+  tools and account right; 紀錄: the activity with 統計分析 beside it, open orders beside past ones), quote lists
   run in two (three) columns, sheets stay a phone's width. A phone on its
   side gets shorter charts and focus cards. Charts redraw on `onScreen()`.
 - **The detail sheet:** charts (line or candles, MA5/20/60), the facts,

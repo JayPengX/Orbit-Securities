@@ -5184,10 +5184,13 @@ const ACTIVITY_FILTERS = {
 
 function renderHistory() {
   const box = $('history-body');
-  const views = ['activity', 'orders', 'stats'];
-  const head = `<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${state.historyView === x}">${h(t(`hview_${x}`))}${x === 'orders' && state.account?.orders.some(o => o.status === 'open') ? ` <b class="seg-count">${state.account.orders.filter(o => o.status === 'open').length}</b>` : ''}</button>`).join('')}</div>`;
+  // (Wide: 統計分析 stands beside the activity, so it's no view of its own.)
+  const wide = Boolean(kitOrbit.screenFit?.().wide);
+  const views = wide ? ['activity', 'orders'] : ['activity', 'orders', 'stats'];
+  const view = wide && state.historyView === 'stats' ? 'activity' : state.historyView;
+  const head = `<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${view === x}">${h(t(`hview_${x}`))}${x === 'orders' && state.account?.orders.some(o => o.status === 'open') ? ` <b class="seg-count">${state.account.orders.filter(o => o.status === 'open').length}</b>` : ''}</button>`).join('')}</div>`;
   if (!state.account) return morph(box, `${head}<div class="empty"><div class="spinner"></div></div>`);
-  if (state.historyView === 'orders') {
+  if (view === 'orders') {
     const open = state.account.orders.filter(o => o.status === 'open').reverse();
     const done = state.account.orders.filter(o => o.status !== 'open').reverse().slice(0, 100);
     morph(
@@ -5198,7 +5201,7 @@ function renderHistory() {
     );
     return;
   }
-  if (state.historyView === 'stats') {
+  if (view === 'stats') {
     morph(box, `${head}${statsHtml()}`);
     renderBench();
     return;
@@ -5213,13 +5216,12 @@ function renderHistory() {
     groups.get(day).push(e);
   }
   const days = [...groups].sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  morph(
-    box,
-    `${head}
-    <div class="q-chips bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
-    ${days.length ? `<div class="act-days">${days.map(([day, g]) => `<div class="act-day"><p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.map(activityRow).join('')}</div></div>`).join('')}</div>` : `${plainEmpty(t('nothingYet'))}`}
-    ${own.length > shown.length ? `<button class="q-btn small tinted more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`
-  );
+  const list = `<div class="q-chips bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
+    ${days.length ? days.map(([day, g]) => `<p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.map(activityRow).join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
+    ${own.length > shown.length ? `<button class="q-btn small tinted more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`;
+  if (!wide) return morph(box, `${head}${list}`);
+  morph(box, `${head}<div class="q-cols act-cols"><div>${list}</div><div class="act-stats">${statsHtml()}</div></div>`);
+  renderBench();
 }
 
 function dayLabel(day) {
