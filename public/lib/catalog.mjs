@@ -87,7 +87,7 @@ const US = [
 
 const US_ETF = [
   ['SPY', 'SPDR 標普500', 'SPDR S&P 500'], ['VOO', 'Vanguard 標普500', 'Vanguard S&P 500'], ['IVV', 'iShares 標普500', 'iShares Core S&P 500'],
-  ['QQQ', '那斯達克100', 'Invesco QQQ (Nasdaq-100)'], ['VTI', '美國全市場', 'Vanguard Total Stock Market'], ['VT', '全世界股票', 'Vanguard Total World Stock'],
+  ['QQQ', '那斯達克100', 'Invesco QQQ'], ['VTI', '美國全市場', 'Vanguard Total Stock Market'], ['VT', '全世界股票', 'Vanguard Total World Stock'],
   ['VXUS', '美國以外全球', 'Vanguard Total International'], ['SCHD', '美國高股息', 'Schwab US Dividend Equity'], ['VYM', 'Vanguard 高股息', 'Vanguard High Div Yield'],
   ['DIA', '道瓊工業', 'SPDR Dow Jones'], ['IWM', '羅素2000小型股', 'iShares Russell 2000'], ['SOXX', '費城半導體', 'iShares Semiconductor'],
   ['SMH', 'VanEck 半導體', 'VanEck Semiconductor'], ['XLK', '科技類股', 'Technology Select Sector'], ['XLF', '金融類股', 'Financial Select Sector'],

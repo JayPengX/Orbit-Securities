@@ -1477,7 +1477,7 @@ function renderHome() {
   // (美股 was hidden under 複委託), then crypto, funds, gold and forex; 更多 is 總覽.
   const quick = `<div class="q-actions-grid prod-grid">${homeMarkets().map(m => {
     const q = m.index ? state.quotes.get(m.index) : null;
-    return `<button class="q-action q-press" type="button" data-action="go-product" data-id="${h(m.id)}"${m.sub ? ' data-sub="1"' : ''}>${m.tile}<span>${h(m.name)}</span>${m.index ? pctTag(q) : '<span class="chg"></span>'}</button>`;
+    return `<button class="q-action q-press" type="button" data-action="go-product" data-id="${h(m.id)}"${m.sub ? ' data-sub="1"' : ''}>${m.tile}<span class="q-fit">${h(m.name)}</span>${m.index ? pctTag(q) : '<span class="chg"></span>'}</button>`;
   }).join('')}</div>`;
   // 我的持股: a rail, each holding's picture, name, price and today's move.
   const positions = v ? [...v.positions].sort((a, b) => Math.abs(b.valueTWD) - Math.abs(a.valueTWD)).slice(0, 12) : [];
@@ -1836,7 +1836,7 @@ function overviewHtml() {
   // Every country's market, a tap each, with its index's day under its name.
   const countries = COUNTRIES.map(c => {
     const q = state.quotes.get(c.index);
-    return `<button class="country q-press" type="button" data-action="${c.sub ? 'sub' : 'product'}" data-id="${h(c.sub || c.product)}">${tileHtml(curMark(c.flag), TINT.gray, 'prod-tile')}<span>${h(L(c))}</span>${pctTag(q)}</button>`;
+    return `<button class="country q-press" type="button" data-action="${c.sub ? 'sub' : 'product'}" data-id="${h(c.sub || c.product)}">${tileHtml(curMark(c.flag), TINT.gray, 'prod-tile')}<span class="q-fit">${h(L(c))}</span>${pctTag(q)}</button>`;
   }).join('');
   const mv = moversHtml();
   // (Wide: the countries, indexes and products on the left, today's movers beside them.)

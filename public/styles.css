@@ -1064,3 +1064,7 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
   .sym-hero .chart-change .legend-inline .sw { width: 8px; }
 }
 :root.q-wide .act-cols .filter-chips { margin-inline: 0; padding-inline: 0; }
+/* 匯率's head: its tag and 全部 go under the title when a small phone (or English) has no room beside it. */
+.fx-rates .q-section-head { flex-wrap: wrap; row-gap: 6px; }
+.fx-rates .q-section-head h2 { flex: 0 0 auto; white-space: nowrap; }
+.fx-rates .q-section-head .q-tag { margin-left: auto; }
