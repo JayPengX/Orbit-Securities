@@ -13,7 +13,7 @@
   <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=000"> <img alt="PWA" src="https://img.shields.io/badge/PWA-works_offline-5A0FC8?logo=pwa&logoColor=fff"> <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=fff"> <img alt="Tests" src="https://img.shields.io/badge/Tests-node_--test-339933?logo=nodedotjs&logoColor=fff">
 </p>
 
-A Taiwan brokerage on play money, with real prices and a real broker's rules. Part of **Orbit**, a family of phone apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
+A Taiwan brokerage on play money, with real prices and a real broker's rules. Part of **Orbit**, a family of apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
 
 <p align="center">
   <img src="docs/screenshots/securities-1.webp" width="30%" alt="Your whole portfolio">
@@ -38,6 +38,7 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 - **各國市場:** every country's market one tap from 市場's 總覽: its flag, name and index's day; 為你推薦 learns what you open and what you pass over.
 - **Your portfolio:** net worth over time, allocation, positions, cash in every currency, income, and how you did against 0050, VOO, BTC and gold.
 - **Detail pages:** line or candle charts with moving averages, the facts, your position, price alerts and a plain-language read of the company or fund.
+- **Every screen, either way up:** on a phone on its side, a tablet or a computer each tab is two columns (markets beside yours, positions beside the account), quote lists in two or three columns, and a stock's chart beside its numbers.
 
 ## Tech stack
 
