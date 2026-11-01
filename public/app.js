@@ -2025,7 +2025,7 @@ async function openDetail(symbol) {
   star.setAttribute('aria-label', t('watchToggle'));
   star.innerHTML = ico('star');
   const dialog = kitSheet('detail', {
-    cls: 'q-full detail-sheet',
+    cls: 'q-full q-sheet-wide detail-sheet',
     lead: star,
     onClose: () => {
       state.detail = null;

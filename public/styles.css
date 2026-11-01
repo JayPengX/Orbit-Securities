@@ -1068,3 +1068,15 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
 .fx-rates .q-section-head { flex-wrap: wrap; row-gap: 6px; }
 .fx-rates .q-section-head h2 { flex: 0 0 auto; white-space: nowrap; }
 .fx-rates .q-section-head .q-tag { margin-left: auto; }
+
+/* A stock's page wide (Jay 2026-11-01: a page in a sheet shows more at a
+   glance on a phone on its side, a tablet, a computer): the kit's
+   .q-sheet-wide, and by the sheet's width the quote and its chart on the
+   left, staying in view, its numbers, guide, tools and trades beside it. */
+@container q-sheet (min-width: 720px) {
+  #detail-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); column-gap: 16px; align-items: start; }
+  #detail-body > * { grid-column: 2; min-width: 0; }
+  #detail-body > :first-child { grid-column: 1; grid-row: 1 / span 12; position: sticky; top: 64px; margin-top: 0; }
+  #detail-body > :nth-child(2) { margin-top: 0; }
+  #detail-body > .trade-bar { grid-column: 1 / -1; }
+}
