@@ -2232,7 +2232,14 @@ function renderDetail() {
         bigAttr: `data-q-live="big:${h(d.symbol)}"`,
         innerHtml: chartHtml
       })
-    : '';
+    : // No price yet: the hero as it will be, its figures shimmering, the chart
+      // already in it, so nothing moves when the price lands (was a line of
+      // 載入報價中… that the hero then pushed the chart down from).
+      `<div class="q-focus sym-hero" aria-busy="true" aria-label="${h(t('loadingQuote'))}">
+      <div class="sym-hero-name">${heroLogo(d.symbol, info)}<span class="q-focus-label">${h(nameOf(d.symbol))}</span></div>
+      <strong class="q-focus-value num"><span class="q-skel sym-skel big">&nbsp;</span></strong>
+      <span class="q-focus-sub num"><span class="q-skel sym-skel">&nbsp;</span></span>${chartHtml}
+    </div>`;
   // (A future or an option by its name, never its TAIFEX code; an option's series under its contract.)
   const title = opt ? optContract(d.symbol) : due ? due[1] : stockMarkets.isFuture?.(d.symbol) ? nameOf(d.symbol, q) : bareSymbol(d.symbol);
   const optSub = opt ? (stockMarkets.optionOf(d.symbol).week ? `${kindLabel('opt')} · ${optSeriesName(d.symbol)}` : `${optSeriesName(d.symbol)} · ${futLastDay(d.symbol)}`) : '';
@@ -2241,17 +2248,7 @@ function renderDetail() {
   morph(
     $('detail-body'),
     `
-    ${
-      hero ||
-      (q
-        ? `<div class="quote-head">
-      <div class="qh-price"><strong class="big-price num${limitClass(q)}" data-q-live="big:${h(d.symbol)}">${qPrice(q)}</strong><span class="cur">${h(q.currency)}${METALS[d.symbol] ? ` / ${h(unitOf(d.symbol))}` : ''}</span></div>
-      <div class="qh-change">${changeHtml(q, { big: true })}</div>
-      <div class="q-tags qh-tags">${marketStatus(q)}${tags}</div>
-    </div>`
-        : `${plainEmpty(t('loadingQuote'))}`)
-    }
-    ${hero ? '' : chartHtml}
+    ${hero}
     ${positionHtml(d.symbol)}
     ${q && !tradable ? trackersHtml(d.symbol) : ''}
     ${q ? sectionHtml(t('factsTitle'), factsHtml(q)) : ''}
@@ -6422,7 +6419,7 @@ topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 
 // Big numbers shrink (to 60% at most) to stay on one line (the kit's fitNumbers).
 // (And a fact or an order's hint, a line each.)
-const FIT_SELECTOR = '.q-sf-sum b, .q-hc-big, .q-focus-value, .q-stat strong, .big-price, .idx-card > strong, .rec-foot strong, .q-ritem-end > strong, .fx-result, .verdict strong, .facts-grid dd span, .about-fin .about-h';
+const FIT_SELECTOR = '.q-sf-sum b, .q-hc-big, .q-focus-value, .q-stat strong, .idx-card > strong, .rec-foot strong, .q-ritem-end > strong, .fx-result, .verdict strong, .facts-grid dd span, .about-fin .about-h';
 // (The kit's watchFit: new, so a phone on an older kit just isn't fitted after a redraw.)
 kitOrbit.watchFit(FIT_SELECTOR);
 
