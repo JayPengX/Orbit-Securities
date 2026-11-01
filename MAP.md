@@ -189,7 +189,7 @@ npm test
 node ../Orbit-Core/tools/preview.mjs securities --live --width 375
 ```
 
-A push to `main` tests, stamps versions and deploys to Pages.
+A push to `main` tests, stamps versions and deploys to Cloudflare.
 
 ## If you change…
 
