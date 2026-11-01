@@ -1021,7 +1021,16 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
    goes with it on the right; lists of like rows run in two (three) columns;
    like cards become a grid. Sheets stay a phone's width (the kit's). */
 :root.q-wide { --q-page-max: 1180px; }
-.page .q-cols > div > :first-child, #home-body .q-cols > div > .q-section:first-child { margin-top: 0; }
+.page .q-cols > div > :first-child, :root.q-wide #home-body .q-cols > div > .q-section:first-child,
+:root.q-wide #home-body .home-mine > .q-section:first-child,
+:root.q-wide #home-body .home-mine:empty + .home-next > .q-section:first-child { margin-top: 0; }
+/* A phone upright: one column, what's yours right under the market tiles,
+   then today's movers, then the rest (Jay 10-22: holdings first). */
+:root:not(.q-wide) #home-body .home-cols { display: flex; flex-direction: column; }
+:root:not(.q-wide) #home-body .home-cols > div { display: contents; }
+:root:not(.q-wide) #home-body .home-cols > div > * { min-width: 0; max-width: 100%; }
+:root:not(.q-wide) #home-body .home-movers { order: 1; }
+:root:not(.q-wide) #home-body .home-next { order: 2; }
 /* 首頁: the world across the top, a grid of its ten cards (two rows of five)
    where the screen is tall enough; on a phone on its side, the rail. */
 :root.q-wide #home-body .home-cols { margin-top: 28px; }

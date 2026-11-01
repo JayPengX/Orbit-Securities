@@ -1538,18 +1538,18 @@ function renderHome() {
     box,
     // (Wide: the world across the top; the markets and today's movers on the
     // left, what's yours and what to look at next on the right. A phone reads
-    // it as one column, in the same order.)
+    // it as one column with what's yours first, under the market tiles
+    // (Jay 10-22: holdings before stars and movers); styles.css orders it.)
     `${hero}
     ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip(), cls: 'home-world' })}
     <div class="q-cols home-cols"><div>
     ${quick}
     ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'home-movers' })}
     </div><div>
-    ${holdings}
-    ${watchlist}
-    ${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.indigo, title: t('forYouNone'), body: t('forYouNoneSub'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
+    <div class="home-mine">${holdings}${watchlist}</div>
+    <div class="home-next">${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.indigo, title: t('forYouNone'), body: t('forYouNoneSub'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
     ${ipoHtml()}
-    ${eventsHtml}
+    ${eventsHtml}</div>
     </div></div>`
   );
 }
