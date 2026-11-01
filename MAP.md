@@ -173,7 +173,7 @@ app and the Worker that checks it); the rules live in the kit.
 | `quotes.mjs`, `catalog.mjs` | Yahoo reads; the curated lists |
 | `chart.mjs`, `format.mjs`, `i18n.mjs`, `codec.mjs` | Charts; number formats; text; gzip saves |
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |
-| `foryou.mjs`, `series.mjs` | 為你推薦 (only what can be bought); a price series at a moment, moving averages |
+| `foryou.mjs`, `series.mjs` | 為你推薦 (only what can be bought; picks shown and never opened sink by sector and market, those opened rise: the kit's `feedback.mjs`, on the phone); a price series at a moment, moving averages |
 | `orders.mjs`, `preview.mjs` | When a day order expires; what a screen shows before it's done (the ticket's estimate, the most a short can sell, a 定存's end), by the same rules that then do it |
 | `twse.mjs`, `twsearch.mjs`, `alerts.mjs` | TWSE's sessions; finding Taiwan stocks by code or name; 處置 and 注意 lists |
 | `brands.mjs`, `tvlogos.mjs`, `tvround.mjs`, `twnames.mjs` | Generated logo and name tables |
