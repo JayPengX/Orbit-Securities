@@ -17,15 +17,32 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 
 <p align="center">
   <img src="docs/screenshots/securities-1.webp" width="30%" alt="Your whole portfolio">
-  <img src="docs/screenshots/securities-2.webp" width="30%" alt="Real TWSE rules, fees and tax">
-  <img src="docs/screenshots/securities-3.webp" width="30%" alt="Real prices, real charts">
+  <img src="docs/screenshots/securities-2.webp" width="30%" alt="Real prices, real charts">
+  <img src="docs/screenshots/securities-3.webp" width="30%" alt="Real TWSE rules, fees and tax">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/securities-4.webp" width="30%" alt="You against the market">
-  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Exchange at bank rates">
-  <img src="docs/screenshots/securities-6.webp" width="30%" alt="Taiwan, US, funds and more">
+  <img src="docs/screenshots/securities-4.webp" width="30%" alt="Taiwan, US, funds and more">
+  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Every trade you made">
+  <img src="docs/screenshots/securities-6.webp" width="30%" alt="Exchange at bank rates">
 </p>
+
+<details>
+<summary>中文畫面</summary>
+
+<p align="center">
+  <img src="docs/screenshots/securities-1.zh.webp" width="30%" alt="投資組合總覽">
+  <img src="docs/screenshots/securities-2.zh.webp" width="30%" alt="真實報價與 K 線">
+  <img src="docs/screenshots/securities-3.zh.webp" width="30%" alt="真實台股規則、手續費與稅">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/securities-4.zh.webp" width="30%" alt="台股、美股、基金一次看">
+  <img src="docs/screenshots/securities-5.zh.webp" width="30%" alt="你的交易紀錄">
+  <img src="docs/screenshots/securities-6.zh.webp" width="30%" alt="用銀行匯率換匯">
+</p>
+
+</details>
 
 ## Features
 
