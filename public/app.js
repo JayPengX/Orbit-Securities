@@ -3834,7 +3834,7 @@ function moreHtml(v) {
     inc.total || soon.length ? row('income', ico('coin'), TINT.orange, t('incomeTitle'), inc.last12 >= 0.5 || !soon.length ? `<span class="q-ritem-end"><strong class="num">${h(money(inc.last12, BASE))}</strong></span>` : `<span class="q-ritem-end"><strong class="num">+${h(money(soon.reduce((a, x) => a + x.net, 0), BASE))}</strong></span>`, soon.length ? t('incomeNextOn', { date: shortDate(soon[0].t) }) : t('income12')) : '',
     plans.length || plansEnded().length ? row('plans', ico('calendar'), TINT.teal, t('plansTitle'), `<span class="q-tag">${plans.length}</span>`) : '',
     alerts.length || alertsShown().length ? row('alerts', ico('bell'), TINT.red, t('alertsTitle'), `<span class="q-tag">${alerts.length}</span>`) : '',
-    open ? `<button class="q-ritem chevron" type="button" data-action="hview-go" data-view="orders">${tileHtml(ico('list'), TINT.blue)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('openOrders'))}</span></span><span class="q-tag orange">${open}</span></button>` : ''
+    open ? `<button class="q-ritem chevron" type="button" data-action="hview-go" data-view="orders">${tileHtml(ico('list'), TINT.blue)}<span class="q-ritem-text"><span class="q-ritem-title">${h(t('openOrders'))}</span></span><span class="q-ritem-value">${open}</span></button>` : ''
   ].join('');
   return sectionHtml(t('moreTitle'), `<div class="q-rowcard">${rows}</div>`, { cls: 'pf-more' });
 }
