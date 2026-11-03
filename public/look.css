@@ -1,0 +1,210 @@
+/* Orbit Securities' 首頁 in Orbit's own look (renderHome in app.js; DESIGN §11, RULEBOOK §3).
+   Today's dark page; every card the kit's graphite; colour only on a move: the move's text
+   (Taiwan's red up), a thin band of it at a row's edge. No sparklines, no pills, no flag tiles. */
+
+html[data-look='native'] .sc-home {
+  row-gap: var(--q-s-5);
+}
+html[data-look='native'] .sc-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--q-s-5);
+  min-width: 0;
+}
+html[data-look='native'] #home-body .sc-col > * {
+  margin-block: 0;
+}
+
+/* ---------- 我的: what's held and starred ---------- */
+html[data-look='native'] .sc-mine-card {
+  padding: 0;
+  overflow: hidden;
+}
+html[data-look='native'] .sc-mine-card > .q-rowcard {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+html[data-look='native'] .sc-day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--q-s-4) var(--q-s-4) var(--q-s-3);
+  border: 0;
+  border-bottom: 0.5px solid var(--q-sep);
+  background: none;
+  color: var(--q-label);
+  text-align: left;
+  font: inherit;
+}
+html[data-look='native'] .sc-day small {
+  color: var(--q-label-2);
+  font: 500 13px/18px var(--q-font);
+}
+html[data-look='native'] .sc-day-big {
+  font: 300 40px/46px var(--nv-display);
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+html[data-look='native'] .sc-day-amt {
+  font: 500 15px/20px var(--q-font);
+  white-space: nowrap;
+}
+
+/* A stock's row: its badge, name and code; on the right its price over today's move as text.
+   The move's colour also a 3px band at the row's left edge (none for a flat day). */
+html[data-look='native'] .sc-row {
+  position: relative;
+  gap: var(--q-s-3);
+}
+html[data-look='native'] .sc-row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+}
+html[data-look='native'] .sc-row.up::after {
+  background: var(--up);
+}
+html[data-look='native'] .sc-row.down::after {
+  background: var(--down);
+}
+html[data-look='native'] .sc-row .sym-badge {
+  flex: none;
+}
+html[data-look='native'] .sc-row .q-ritem-text {
+  min-width: 0;
+}
+html[data-look='native'] .sc-row .q-ritem-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-look='native'] .sc-row .q-ritem-text small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-look='native'] .sc-quote {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-left: auto;
+}
+html[data-look='native'] .sc-quote strong {
+  font: 500 17px/22px var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+html[data-look='native'] .sc-move {
+  font: 500 14px/18px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+html[data-look='native'] :is(.sc-move, .sc-day-amt).up {
+  color: var(--up);
+}
+html[data-look='native'] :is(.sc-move, .sc-day-amt).down {
+  color: var(--down);
+}
+html[data-look='native'] :is(.sc-move, .sc-day-amt).flat {
+  color: var(--q-label-2);
+}
+
+/* ---------- 各市場: compact rows, two to a line on a phone ---------- */
+html[data-look='native'] .sc-mkts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: var(--q-s-1) 0;
+}
+html[data-look='native'] .sc-mkt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0 var(--q-s-2);
+  min-height: 56px;
+  padding: var(--q-s-2) var(--q-s-4);
+  border: 0;
+  background: none;
+  color: var(--q-label);
+  text-align: left;
+  font: inherit;
+}
+html[data-look='native'] .sc-mkt:nth-child(odd) {
+  box-shadow: inset -0.5px 0 0 var(--q-sep);
+}
+html[data-look='native'] .sc-mkt:nth-child(n + 3) {
+  border-top: 0.5px solid var(--q-sep);
+}
+html[data-look='native'] .sc-mkt-name {
+  font: 500 16px/22px var(--q-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-look='native'] .sc-mkt small {
+  grid-column: 1 / -1;
+  color: var(--q-label-2);
+  font: 400 13px/18px var(--q-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-look='native'] .sc-mkt .sc-move {
+  font-size: 13px;
+}
+html[data-look='native'] .sc-tabs {
+  margin-bottom: var(--q-s-2);
+}
+html[data-look='native'].q-w3 .sc-mkts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+html[data-look='native'].q-w3 .sc-mkt:nth-child(odd) {
+  box-shadow: none;
+}
+html[data-look='native'].q-w3 .sc-mkt:not(:nth-child(3n)) {
+  box-shadow: inset -0.5px 0 0 var(--q-sep);
+}
+html[data-look='native'].q-w3 .sc-mkt:nth-child(n + 3) {
+  border-top: 0;
+}
+html[data-look='native'].q-w3 .sc-mkt:nth-child(n + 4) {
+  border-top: 0.5px solid var(--q-sep);
+}
+html[data-look='native'] .sc-row .sc-code {
+  display: none;
+}
+@media (max-width: 359px) {
+  html[data-look='native'] .sc-row .sc-why {
+    display: none;
+  }
+  html[data-look='native'] .sc-row .sc-code {
+    display: block;
+  }
+}
+
+/* The tool sheets' heroes (the kit's sheetHero: 匯率, 定存, 資產配置, 開戶與交易資格, 真相…) as
+   graphite cards like the rest, not filled with a colour (only Securities draws them). */
+html[data-look='native'] .q-sheet-hero {
+  background: var(--nv-card);
+  color: var(--q-label);
+  box-shadow: inset 0 0 0 0.5px var(--nv-edge), var(--nv-lift);
+}
+html[data-look='native'] .q-sheet-hero :is(.q-sh-eyebrow, .q-sh-sub) {
+  color: var(--q-label-2);
+  opacity: 1;
+}
+html[data-look='native'] .q-sheet-hero .q-sh-big {
+  font-family: var(--nv-display, var(--q-font));
+  font-weight: 300;
+}
+html[data-look='native'] .q-sheet-hero .q-sh-row .q-tag {
+  background: var(--q-fill-3);
+  color: var(--q-label);
+}

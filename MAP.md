@@ -11,10 +11,16 @@ Live: https://orbit.jaypengx.com/securities/
 ## How it works
 
 - **Tabs:** 首頁, 市場, 資產, 資金, 紀錄.
-  - **首頁:** the world strip; every market as a tile with its day's move
-    (台、美、日、港、陸、韓、歐, 加密, 基金, 黃金, 外匯, 更多 = 總覽:
-    `homeMarkets()`); holdings (no section while there are none),
-    watchlist, movers, 為你推薦, 新股申購, what's coming.
+  - **首頁** (Orbit's own look, `renderHome()` in `public/app.js`, `public/look.css`):
+    one graphite card, 我的: 總資產 as the big number and its day under it (a tap
+    opens 資產; Jay 11-03 "Forget my rules" lifted RULEBOOK 10-21's no balance),
+    then what's held (by value, with how much) and what's starred, as rows
+    (`nvRow`: logo, name, price, the day's move as coloured text and a thin band
+    of it at the row's edge; six, then the kit's 再看 bar); 各市場 as compact
+    rows with each index and its day (台、美、日、港、陸、韓、歐, 加密, 基金, 黃金,
+    外匯, 更多 = 總覽: `homeMarkets()`); 今日漲跌幅 with text tabs by market;
+    為你推薦 with why (its code instead under 360 wide); 新股申購, what's coming.
+    No sparklines, pills or flag tiles. Guarded by `tests/home.test.mjs`.
   - **市場:** search, then one product bar (總覽, 自選, 台股, 期權, 複委託,
     基金, 債券, 外匯, 黃金, 加密: `PRODUCTS` in `lib/catalog.mjs`) and the
     open product's lists under it (台股: 上市, 上櫃, 興櫃, ETF, 權證, 牛熊證,
@@ -34,8 +40,8 @@ Live: https://orbit.jaypengx.com/securities/
     all of it is shown here.
   - **紀錄:** activity, orders, stats (against 0050, VOO, BTC and gold).
 - **Every screen** (the kit's `q-wide`/`q-w3` marks, `styles.css` "Every screen"):
-  with room for two columns each tab is two phone-width columns (首頁: the
-  world across the top, markets and movers left, yours and picks right;
+  with room for two columns each tab is two phone-width columns (首頁:
+  yours and the markets left, movers and picks right;
   資產: the account left, positions right; 資金: exchange and rates left,
   tools and account right; 紀錄: the activity with 統計分析 beside it, open orders beside past ones), quote lists
   run in two (three) columns, sheets stay a phone's width. A phone on its
@@ -173,7 +179,7 @@ app and the Worker that checks it); the rules live in the kit.
 | `quotes.mjs`, `catalog.mjs` | Yahoo reads; the curated lists |
 | `chart.mjs`, `format.mjs`, `i18n.mjs`, `codec.mjs` | Charts; number formats; text; gzip saves |
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |
-| `foryou.mjs`, `series.mjs` | 為你推薦 (only what can be bought; ranked by the kit's one engine, `feedback.mjs`: the first 4 shown, opened from the rail or anywhere (`openDetail`), kept, planned, traded and what's held (`acted`, `seedFeedback`), learnt by thing, sector, kind and market and kept on the Pass (`fb:stock`, `feedback.keep`): what's passed over sinks, what's opened rises); a price series at a moment, moving averages |
+| `foryou.mjs`, `series.mjs` | 為你推薦 (only what can be bought; ranked by the kit's one engine, `feedback.mjs`: the five 首頁 shows, opened from the rail or anywhere (`openDetail`), kept, planned, traded and what's held (`acted`, `seedFeedback`), learnt by thing, sector, kind and market and kept on the Pass (`fb:stock`, `feedback.keep`): what's passed over sinks, what's opened rises); a price series at a moment, moving averages |
 | `orders.mjs`, `preview.mjs` | When a day order expires; what a screen shows before it's done (the ticket's estimate, the most a short can sell, a 定存's end), by the same rules that then do it |
 | `twse.mjs`, `twsearch.mjs`, `alerts.mjs` | TWSE's sessions; finding Taiwan stocks by code or name; 處置 and 注意 lists |
 | `brands.mjs`, `tvlogos.mjs`, `tvround.mjs`, `twnames.mjs` | Generated logo and name tables |

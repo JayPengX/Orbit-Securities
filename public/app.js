@@ -18,7 +18,7 @@ import { TW_NAMES } from './lib/twnames.mjs';
 import { twHits, twFirst } from './lib/twsearch.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, setFormatLocale, cleanNumber } from './lib/format.mjs';
-import { sparkline, lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
+import { lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
 import { shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit, cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, usHalt, ticketRound, ticketStepOk } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
@@ -1414,22 +1414,6 @@ const emptyHtml = ({ icon, tint = TINT.gray, title, body = '', go = '', attrs = 
   const node = kitUI.empty({ icon, tint, title, body }).outerHTML;
   return `<div class="q-rowcard empty-card">${node.replace(/<\/div>$/, `${btn}</div>`)}</div>`;
 };
-// The day's move as Apple Stocks draws it: a solid pill, white on red or green.
-// The day's move as the kit's solid pill (percent in, ours is a fraction).
-const movePill = q => kitUI.movePillHtml(q && Number.isFinite(q.pct) ? q.pct * 100 : null);
-// A watchlist row, Apple Stocks style, the kit's stockRow: logo, name and code, spark, the price over the pill.
-function stockRow(symbol, { sub = '' } = {}) {
-  const q = state.quotes.get(symbol);
-  const info = catalogInfo(symbol);
-  const kind = kindOf(symbol, q);
-  const held = snap()?.positions[symbol];
-  const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
-  const logo = logoUrls(symbol, kind);
-  const line = [held ? t('heldTag') : '', due ? due[2] : bareSymbol(symbol), sub].filter(Boolean).join(' · ');
-  return (
-    discTile(kitUI.stockRowHtml({ logo, name: due ? due[1] : nameOf(symbol, q), sub: line, spark: q?.line?.length > 1 ? q.line : [], price: q ? qPrice(q) : '…', changePct: q && Number.isFinite(q.pct) ? q.pct * 100 : null, open: symbol, data: { action: 'open', symbol } }), logo)
-  );
-}
 // What's coming that matters to this account: orders waiting, an ex-date today, a held stock on TWSE's lists, the next market holidays.
 function eventRows(v) {
   const rows = [];
@@ -1487,6 +1471,32 @@ const homeMarkets = () => [
   ...[['crypto', 'BTC-USD'], ['fund', ''], ['gold', 'XAU'], ['fx', 'USDTWD=X']].map(([id, index]) => ({ id, name: L(PRODUCTS.find(p => p.id === id).short), index, tile: productTile(id) })),
   { id: '', name: t('marketMore'), index: '', tile: productTile('all') }
 ];
+// ---- 首頁 (Orbit's own look, Jay 2026-11-03; look.css) ----
+// Yours first: one dark card, what you hold and what you starred, each a row with its
+// price and today's move (Taiwan's red up) as coloured text, a thin band of the move's
+// colour at the row's edge; over them how what you hold did today (a percent and the
+// day's NT$ move, under 總資產). Then every market as a compact
+// row (its index, its day), today's movers on the same rows, for you, 新股申購, what's
+// coming. No sparklines, pills or flag tiles; colour only on a move.
+// (No balance on the home was RULEBOOK 10-21; Jay 11-03 "Forget my rules": it opens on 總資產.)
+const nvMove = q => {
+  const p = q && Number.isFinite(q.pct) ? q.pct : null;
+  return `<span class="sc-move num ${p == null ? 'flat' : dirClass(p)}">${p == null ? '—' : `${arrow(p)}${pct(Math.abs(p)).replace(/^[+-]/, '')}`}</span>`;
+};
+function nvRow(symbol, { tag = '', why = '' } = {}) {
+  const q = state.quotes.get(symbol);
+  const p = q && Number.isFinite(q.pct) ? q.pct : 0;
+  const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
+  const code = due ? due[2] : bareSymbol(symbol);
+  // (Why it's picked, on a phone 360 wide or more; narrower, its code.)
+  const line = tag ? `<small class="num">${h(tag)}</small>` : why ? `<small class="sc-why">${h(why)}</small><small class="num sc-code">${h(code)}</small>` : `<small class="num">${h(code)}</small>`;
+  return `<button class="q-ritem sc-row ${q ? dirClass(p) : 'flat'}" type="button" data-action="open" data-symbol="${h(symbol)}">
+    ${symbolBadge(symbol, q)}
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(due ? due[1] : nameOf(symbol, q))}</span>${line}</span>
+    <span class="sc-quote"><strong class="num" data-q-live="nv:${h(symbol)}">${q ? qPrice(q) : '…'}</strong>${nvMove(q)}</span>
+  </button>`;
+}
+let nvMineOpen = false;
 function renderHome() {
   const box = $('home-body');
   const v = state.account ? valuation() : null;
@@ -1494,107 +1504,62 @@ function renderHome() {
   seedFeedback();
   const recs = forYou({ quotes: state.quotes, held, watched: watched(state.account), wallet: state.wallet, aff: affinityMap(), n: 10, lift: feedback?.lifter('stock') });
   state.recs = recs;
-  // (The first few are what's in view on the rail.)
-  feedback?.shown('stock', recs.slice(0, 4));
-  // No balance here: it's 資產's (Jay 2026-10-21). Home is the market; an
-  // overdraft still says so, as it needs doing.
+  // (首頁 shows five, as rows: all five were in view.)
+  feedback?.shown('stock', recs.slice(0, 5));
   const hero = v && overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))}</button>` : '';
-  // Every market a tap away, each with how its day is going (Jay 2026-10-31: a
-  // home whose only market was 台股 was useless): the countries by their flags
-  // (美股 was hidden under 複委託), then crypto, funds, gold and forex; 更多 is 總覽.
-  const quick = `<div class="q-actions-grid prod-grid">${homeMarkets().map(m => {
+  // 我的: what's held (by value), then the stars not held.
+  const positions = v ? [...v.positions].sort((a, b) => Math.abs(b.valueTWD) - Math.abs(a.valueTWD)) : [];
+  const stars = (state.account ? watched(state.account) : []).filter(s => !positions.some(p => p.symbol === s));
+  const mine = [...positions.map(p => nvRow(p.symbol, { tag: `${t('heldTag')} ${Math.abs(p.qty) < 1 ? Number(Math.abs(p.qty).toPrecision(3)) : fmtQty(Math.abs(p.qty))} ${unitOf(p.symbol)}` })), ...stars.map(s => nvRow(s))];
+  const SHOWN = 6;
+  // The account's value, and how it moved today (held at yesterday's close against now).
+  const dayAmt = v ? v.dayChange || 0 : 0;
+  const before = v ? v.netWorth - dayAmt : 0;
+  const dayRaw = before ? dayAmt / Math.abs(before) : 0;
+  // (Under 0.005%, or under a dollar: flat, no arrow.)
+  const dayPct = Math.abs(dayRaw) < 5e-5 || Math.abs(dayAmt) < 0.5 ? 0 : dayRaw;
+  const head = v
+    ? `<button class="sc-day" type="button" data-action="goto" data-tab="portfolio"><small>${h(t('netWorth'))}</small><strong class="sc-day-big num" data-q-live="nv:worth">${h(money(v.netWorth, BASE))}</strong><span class="sc-day-amt num ${dirClass(dayPct)}">${h(dayWord(v))} ${arrow(dayPct)}${h(money(Math.abs(dayAmt), BASE))} · ${h(pct(Math.abs(dayPct)).replace(/^[+-]/, ''))}</span></button>`
+    : '';
+  const mineCard = mine.length
+    ? sectionHtml(
+        L({ zh: '我的', en: 'Mine' }),
+        `<div class="q-card sc-mine-card">${head}<div class="q-rowcard sc-rows">${mine.slice(0, nvMineOpen ? mine.length : SHOWN).join('')}</div></div>${mine.length > SHOWN ? kitUI.moreHtml?.({ more: L({ zh: `再看 ${mine.length - SHOWN} 檔`, en: `${mine.length - SHOWN} more` }), less: L({ zh: '收起', en: 'Less' }), open: nvMineOpen, attr: 'data-action="nv-mine"' }) || '' : ''}`,
+        { count: mine.length, cls: 'sc-mine' }
+      )
+    : `<section class="q-section sc-mine">${emptyHtml({ icon: 'star', tint: TINT.gray, title: L({ zh: '還沒有自選股', en: 'Nothing starred yet' }), body: L({ zh: '在任何一檔的頁面按 ☆，它就會在這裡', en: 'Tap ☆ on any stock and it lands here' }), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' })}</section>`;
+  // Every market as a compact row: its name, its index's level, the index's day.
+  const mkts = homeMarkets().map(m => {
     const q = m.index ? state.quotes.get(m.index) : null;
-    return `<button class="q-action q-press" type="button" data-action="go-product" data-id="${h(m.id)}"${m.sub ? ' data-sub="1"' : ''}>${m.tile}<span class="q-fit">${h(m.name)}</span>${m.index ? pctTag(q) : '<span class="chg"></span>'}</button>`;
-  }).join('')}</div>`;
-  // 我的持股: a rail, each holding's picture, name, price and today's move.
-  const positions = v ? [...v.positions].sort((a, b) => Math.abs(b.valueTWD) - Math.abs(a.valueTWD)).slice(0, 12) : [];
-  const holdCard = p => {
-    const q = p.quote;
-    return `<button class="q-rail-card hold-card q-press" type="button" data-action="open" data-symbol="${h(p.symbol)}">
-      <span class="hold-top">${symbolBadge(p.symbol, q)}${movePill(q)}</span>
-      <span class="rec-name q-fit">${h(nameOf(p.symbol, q))}</span>
-      <small class="num">${h(fmtQty(Math.abs(p.qty)))} ${h(unitOf(p.symbol))}</small>
-      <strong class="num hold-val">${q ? qPrice(q) : '…'}</strong>
-      ${q?.line?.length > 1 ? `<span class="card-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 128, height: 28 })}</span>` : ''}
-    </button>`;
-  };
-  // (None yet: no section. The markets above are where to start, not a big empty card.)
-  const holdings = positions.length
-    ? sectionHtml(t('homeHoldings'), `<div class="q-rail small hold-rail">${positions.map(holdCard).join('')}</div>`, {
-        count: positions.length,
-        more: t('seeAll'),
-        moreAction: 'data-action="goto" data-tab="portfolio"'
-      })
-    : '';
-  // 自選股: under the holdings, one slim strip (name and today's move); gone while empty
-  // (Jay 2026-10-22: people look at their holdings far more than their stars).
-  const watch = state.account ? watched(state.account) : [];
-  const watchChip = s => {
-    const q = state.quotes.get(s);
-    return `<button class="q-rail-card watch-chip q-press" type="button" data-action="open" data-symbol="${h(s)}">${symbolBadge(s, q)}<span class="watch-name">${h(nameOf(s, q))}</span>${pctTag(q)}</button>`;
-  };
-  const watchlist = watch.length
-    ? sectionHtml(t('homeWatch'), `<div class="q-rail small watch-rail">${watch.slice(0, 12).map(watchChip).join('')}</div>`, {
-        count: watch.length,
-        more: t('seeAll'),
-        moreAction: 'data-action="open-watch"',
-        cls: 'home-watch'
-      })
-    : '';
-  const index = OVERVIEW.map(sym => {
-    const q = state.quotes.get(sym);
-    return `<button class="q-rail-card idx-card q-press" type="button" data-action="open" data-symbol="${h(sym)}">
-      <small>${h(nameOf(sym, q))}</small>
-      <strong class="num" data-q-live="tile:${h(sym)}">${q ? qPrice(q) : '…'}</strong>
-      ${pctTag(q)}${q ? `<span class="card-spark">${sparkline(q.line, q.kind === 'crypto' ? null : q.prev, { width: 128, height: 28 })}</span>` : ''}
+    return `<button class="sc-mkt q-press ${q ? dirClass(q.pct) : 'flat'}" type="button" data-action="go-product" data-id="${h(m.id)}"${m.sub ? ' data-sub="1"' : ''}>
+      <span class="sc-mkt-name">${h(m.name)}</span>${m.index ? nvMove(q) : ''}
+      <small class="num">${m.index ? (q ? h(qPrice(q)) : '…') : h(m.id === 'fund' ? L({ zh: '股票、債券、平衡', en: 'Equity, bond, balanced' }) : L({ zh: '總覽', en: 'Overview' }))}</small>
     </button>`;
   }).join('');
-  // 今日漲跌幅: the market that's trading now, its biggest risers and fallers.
+  const markets = sectionHtml(L({ zh: '各市場', en: 'Markets' }), `<div class="q-card sc-mkts">${mkts}</div>`, { side: homeOpenChip(), cls: 'sc-markets' });
   const { groups, group } = moverGroups();
   const up = group ? movers(state.quotes, { up: true, n: 4, group }) : [];
   const down = group ? movers(state.quotes, { up: false, n: 4, group }) : [];
-  const moversBody = up.length || down.length
-    ? `${moverSeg(groups, group)}
-      <div class="q-rowcard">${[...up, ...down].map(q => stockRow(q.symbol)).join('')}</div>`
-    : emptyHtml({ icon: 'chart', tint: TINT.orange, title: t('moversNone'), body: t('moversNoneSub') });
+  const tabsRow = groups.length > 1 ? `<div class="q-chips q-texttabs sc-tabs">${groups.map(g => `<button class="q-chip" type="button" data-action="mover-group" data-v="${h(g)}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : '';
+  const moversBody = up.length || down.length ? `${tabsRow}<div class="q-rowcard sc-rows">${[...up, ...down].map(q => nvRow(q.symbol)).join('')}</div>` : emptyHtml({ icon: 'chart', tint: TINT.gray, title: t('moversNone'), body: t('moversNoneSub') });
+  const recBody = recs.length
+    ? `<div class="q-rowcard sc-rows">${recs.slice(0, 5).map(r => {
+        const q = state.quotes.get(r.symbol);
+        const why = r.why ? t(r.why.key, { what: r.why.what ? (r.why.key === 'whyPeer' ? nameOf(r.why.what, state.quotes.get(r.why.what)) : kindOrCat(r.why.what)) : '' }) : '';
+        return nvRow(r.symbol, { why: r.why?.key === 'whyMover' && q && !dayOfChange({ positions: [{ quote: q }] }).today ? t('whyMoverOn', { day: dayWord({ positions: [{ quote: q }] }) }) : why });
+      }).join('')}</div>`
+    : emptyHtml({ icon: 'star', tint: TINT.gray, title: t('forYouNone'), body: t('forYouNoneSub') });
   const events = v ? eventRows(v) : [];
-  const eventsHtml = v
-    ? sectionHtml(t('homeEvents'), events.length ? `<div class="q-rowcard">${events.join('')}</div>` : emptyHtml({ icon: 'calendar', tint: TINT.gray, title: t('evNone'), body: t('evNoneSub') }))
-    : '';
+  const eventsHtml = v && events.length ? sectionHtml(t('homeEvents'), `<div class="q-rowcard">${events.join('')}</div>`) : '';
   morph(
     box,
-    // (Wide: the world across the top; the markets and today's movers on the
-    // left, what's yours and what to look at next on the right. A phone reads
-    // it as one column with what's yours first, under the market tiles
-    // (Jay 10-22: holdings before stars and movers); styles.css orders it.)
-    `${hero}
-    ${sectionHtml(t('overviewTitle'), `<div class="q-rail small idx-rail">${index}</div>`, { side: homeOpenChip(), cls: 'home-world' })}
-    <div class="q-cols home-cols"><div>
-    ${quick}
-    ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'home-movers' })}
-    </div><div>
-    <div class="home-mine">${holdings}${watchlist}</div>
-    <div class="home-next">${sectionHtml(t('forYou'), recs.length ? `<div class="q-rail rec-rail">${recs.map(r => recCard(r.symbol, r.why)).join('')}</div>` : emptyHtml({ icon: 'star', tint: TINT.indigo, title: t('forYouNone'), body: t('forYouNoneSub'), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' }), { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"' })}
-    ${ipoHtml()}
-    ${eventsHtml}</div>
-    </div></div>`
+    `${hero}<div class="q-cols sc-home"><div class="sc-col">${mineCard}${markets}</div><div class="sc-col">
+    ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'sc-movers' })}
+    ${sectionHtml(t('forYou'), recBody, { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"', cls: 'sc-foryou' })}
+    ${ipoHtml()}${eventsHtml}</div></div>`
   );
 }
 
-function recCard(symbol, why) {
-  const q = state.quotes.get(symbol);
-  const info = catalogInfo(symbol);
-  let whyText = why ? t(why.key, { what: why.what ? (why.key === 'whyPeer' ? nameOf(why.what, state.quotes.get(why.what)) : kindOrCat(why.what)) : '' }) : '';
-  // A closed market's big move was its last day's (週五波動大 on a weekend).
-  if (why?.key === 'whyMover' && q && !dayOfChange({ positions: [{ quote: q }] }).today) whyText = t('whyMoverOn', { day: dayWord({ positions: [{ quote: q }] }) });
-  return `<button class="q-rail-card rec-card q-press" type="button" data-action="open" data-symbol="${h(symbol)}">
-    <span class="rec-top">${symbolBadge(symbol, q || info)}${pctTag(q)}</span>
-    <span class="rec-name q-fit">${h(nameOf(symbol, q))}</span>
-    <small>${flagOf(symbol, q)} ${h(bareSymbol(symbol))}</small>
-    ${whyText ? `<small class="rec-why">${h(whyText)}</small>` : ''}
-    <strong class="num rec-price">${q ? fmtPrice(q.price, q.currency, { short: true }) : '…'}</strong>
-  </button>`;
-}
 // ---- 新股申購 (lib/ipo.mjs) ----
 // (TWSE's list of public subscriptions: ipoState, by the state above.)
 // TWSE's 處置 and 注意 lists (lib/alerts.mjs), flagged on a stock as brokers' apps do.
@@ -5835,6 +5800,10 @@ document.addEventListener('click', async event => {
       showTab('markets');
       refresh({ list: true });
       break;
+    case 'nv-mine':
+      nvMineOpen = !nvMineOpen;
+      renderHome();
+      break;
     case 'open-watch':
       goMarket('watch');
       showTab('markets');
@@ -5921,7 +5890,7 @@ document.addEventListener('click', async event => {
       break;
     }
     case 'open':
-      if (el.closest('.rec-rail')) feedback?.picked('stock', state.recs?.find(r => r.symbol === el.dataset.symbol), Date.now(), { from: 'list' });
+      if (el.closest('.sc-foryou')) feedback?.picked('stock', state.recs?.find(r => r.symbol === el.dataset.symbol), Date.now(), { from: 'list' });
       openDetail(el.dataset.symbol);
       break;
     case 'close':

@@ -213,14 +213,13 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .tool-page > .q-section { margin-top: 12px; }
 
 /* ==== 首頁 ==== */
-.home-hero { width: 100%; }
 .q-hero-card .q-hc-big { white-space: nowrap; }
-.hc-note { margin-left: auto; font-weight: 500; letter-spacing: 0; opacity: 0.8; }
+.hc-note { color: var(--q-label-3); font-weight: 400; }
 .hc-tags { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; } /* whole tags; on a narrow phone the last ones move to a second row, never cut */
 /* The exchange's rate, spread and cost: three that can't share a phone's line, one under another (the owner: no ragged second row). */
 .hc-tags.fx-tags { flex-direction: column; align-items: flex-start; }
-.hc-fact { color: rgba(255, 255, 255, 0.78); font: 500 14px/20px var(--q-font); }
-.q-hc-sub b { color: #fff; font-weight: 700; }
+.hc-fact { color: var(--q-label-2); font: 500 14px/20px var(--q-font); }
+.q-hc-sub b { color: var(--q-label); font-weight: 700; }
 .open-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: open-breathe 2.4s ease-in-out infinite; }
 @keyframes open-breathe { 50% { opacity: 0.4; } }
 @media (prefers-reduced-motion: reduce) { .open-dot { animation: none; } }
@@ -229,14 +228,6 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .idx-card { border: 0; font: inherit; text-align: left; }
 .idx-card > strong { font-size: 20px; line-height: 24px; white-space: nowrap; }
 .idx-card .q-tag { justify-self: start; }
-.card-spark svg { display: block; width: 100%; height: 28px; }
-/* 為你推薦: a rail of picks, why each on its card. */
-.rec-rail { --q-rail-w: min(62%, 220px); }
-.rec-card { gap: 8px; border: 0; font: inherit; text-align: left; }
-.rec-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.rec-why { min-width: 0; overflow: hidden; padding: 3px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); font: 600 12px/16px var(--q-font); white-space: nowrap; text-overflow: ellipsis; }
-.rec-name { overflow: hidden; font: 600 16px/21px var(--q-font); white-space: nowrap; text-overflow: ellipsis; }
-.rec-card > small { overflow: hidden; color: var(--q-label-2); font: var(--q-t-footnote); white-space: nowrap; text-overflow: ellipsis; }
 .rec-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
 .rec-foot strong { min-width: 0; overflow: hidden; font: 600 20px/24px var(--q-font-rounded); white-space: nowrap; }
 .rec-foot .q-tag { min-width: 0; }
@@ -448,25 +439,25 @@ html .q-stats.about-returns { grid-template-columns: repeat(var(--n, 3), minmax(
 .call-ways .q-ritem-title { white-space: normal; }
 
 /* ==== 資金 ==== */
-/* The exchange as the hero: what you pay over what you get, on the app's colour. */
+/* The exchange as the hero: what you pay over what you get, two quiet plates on the graphite card. */
 .fx-hero { gap: 10px; }
-.fx-side { display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, 0.13); }
-.fx-side-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 600 13px/18px var(--q-font); opacity: 0.92; }
-.fx-mode { padding: 0; border: 0; background: none; color: #fff; font: 600 13px/18px var(--q-font); text-decoration: underline; text-underline-offset: 3px; }
+.fx-side { display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px; background: var(--q-fill-4); }
+.fx-side-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 600 13px/18px var(--q-font); color: var(--q-label-2); }
+.fx-mode { padding: 0; border: 0; background: none; color: var(--accent); font: 600 13px/18px var(--q-font); text-decoration: underline; text-underline-offset: 3px; }
 .fx-side-row { display: flex; align-items: center; gap: 10px; }
-.fx-cur { position: relative; flex: none; display: inline-flex; align-items: center; padding: 8px 30px 8px 12px; border-radius: 999px; background: #fff; color: var(--q-hc-b, var(--accent)); font: 700 15px/1 var(--q-font); white-space: nowrap; }
+.fx-cur { position: relative; flex: none; display: inline-flex; align-items: center; padding: 8px 30px 8px 12px; border-radius: 999px; background: var(--q-fill-2); color: var(--q-label); font: 700 15px/1 var(--q-font); white-space: nowrap; }
 .fx-cur::after { content: ''; position: absolute; top: 50%; right: 13px; width: 7px; height: 7px; margin-top: -5px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); pointer-events: none; }
 .fx-cur select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
 .fx-input, .fx-result { flex: 1 1 0; min-width: 0; width: 100%; font: 700 26px/32px var(--q-font-rounded); text-align: right; white-space: nowrap; }
-.fx-input { padding: 0; border: 0; outline: 0; background: none; color: #fff; }
-.fx-input::placeholder { color: rgba(255, 255, 255, 0.55); }
-.fx-result { overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.92); }
-.fx-side-foot { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 8px; font: var(--q-t-footnote); opacity: 0.92; }
+.fx-input { padding: 0; border: 0; outline: 0; background: none; color: var(--q-label); }
+.fx-input::placeholder { color: var(--q-label-3); }
+.fx-result { overflow: hidden; text-overflow: ellipsis; color: var(--q-label); }
+.fx-side-foot { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 8px; font: var(--q-t-footnote); color: var(--q-label-2); }
 .fx-quick { display: flex; flex: none; gap: 6px; }
 .fx-side-foot > .num { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 340px) { .fx-quick button:first-child { display: none; } .fx-quick button { padding: 0 8px; } }
-.fx-quick button { min-height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.2); color: #fff; font: 600 12px/1 var(--q-font); }
-.fx-swap { justify-self: center; z-index: 1; display: grid; place-items: center; width: 40px; height: 40px; margin: -22px 0; border: 0; border-radius: 50%; background: #fff; color: var(--q-hc-b, var(--accent)); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18); }
+.fx-quick button { min-height: 26px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--q-fill-2); color: var(--q-label); font: 600 12px/1 var(--q-font); }
+.fx-swap { justify-self: center; z-index: 1; display: grid; place-items: center; width: 40px; height: 40px; margin: -22px 0; border: 0; border-radius: 50%; background: var(--q-bg); color: var(--accent); box-shadow: inset 0 0 0 0.5px var(--nv-edge, var(--q-separator)), 0 2px 8px rgba(0, 0, 0, 0.12); }
 .fx-swap svg { width: 20px; height: 20px; transform: rotate(90deg); }
 .fx-hero .q-hc-btn { width: 100%; min-height: 46px; }
 .fx-hero .q-hc-btn:disabled { opacity: 0.55; }
@@ -576,39 +567,10 @@ a.act-row { color: inherit; }
 .blue-ink { color: var(--q-blue, #0a84ff); }
 .orange-ink { color: var(--q-orange, #ff9f0a); }
 
-/* ==== Round 3: 首頁 as Apple Stocks (shelves of real data) ==== */
-.home-hero { gap: 6px; }
-.hero-spark { display: block; margin: 6px -2px 2px; }
-.hero-spark svg { display: block; width: 100%; height: 44px; }
-.hero-spark svg path { fill: none; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; opacity: 0.9; }
-.hero-spark svg .spark-base { display: none; }
-#home-body .q-actions-grid { margin-top: 16px; }
-/* 首頁's markets: a tile each, its day's move under its name (none for 基金 and 更多: an empty line keeps the rows even). */
-.prod-grid .q-action { gap: 4px; padding: 10px 4px 8px; }
-.prod-grid .chg { display: block; min-height: 14px; font-size: 12px; line-height: 14px; font-weight: 600; white-space: nowrap; }
-#home-body .q-section { margin-top: 28px; }
 #home-body .q-section-head { padding-bottom: 12px; }
-/* A holding: its picture at 48, name, size, worth, the day's line. */
-.hold-rail { --q-rail-w: 168px; }
-/* 自選股 on 首頁: one slim row of chips (picture, name, move). */
-.watch-rail { --q-rail-w: 156px; }
-.watch-chip { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 2px; padding: 10px 12px; border: 0; border-radius: 16px; font: inherit; text-align: left; }
-.watch-chip .sym-badge { grid-row: 1 / 3; width: 36px; height: 36px; border-radius: 10px; }
-.watch-name { overflow: hidden; font: 600 15px/20px var(--q-font); white-space: nowrap; text-overflow: ellipsis; }
-.watch-chip .q-tag { justify-self: start; }
-.hold-card { display: grid; gap: 4px; align-content: start; border: 0; font: inherit; text-align: left; }
-.hold-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
-.hold-card .sym-badge, .rec-card .sym-badge { width: 48px; height: 48px; }
-.hold-card > small { color: var(--q-label-2); font: var(--q-t-footnote); }
-.hold-val { margin-top: 2px; font: 600 18px/22px var(--q-font-rounded); white-space: nowrap; }
-.hold-card .card-spark { margin-top: 6px; }
-/* Apple Stocks' pill: solid, white on red or green. */
-.rec-price { margin-top: 2px; font: 600 20px/24px var(--q-font-rounded); white-space: nowrap; }
-.rec-rail { --q-rail-w: 190px; }
 .empty-card { padding: 8px 16px 16px; }
 .empty-card .q-empty { padding: 12px 8px; }
 .empty-card .q-btn { display: block; margin: 12px auto 0; }
-#home-body .mover-groups { margin-bottom: 12px; }
 
 /* ==== Round 3: the sheets ==== */
 /* A symbol's hero: the app's focus card (sheetHeroHtml), its picture small beside its name. */
@@ -618,7 +580,7 @@ a.act-row { color: inherit; }
 .sym-hero-name :is(.sym-badge, .q-logo) { --s: 32px; flex: none; width: 32px; height: 32px; }
 .sym-hero .q-focus-sub { white-space: nowrap; }
 /* (No price yet: the figures' places, shimmering white on the hero.) */
-.sym-hero .sym-skel { display: inline-block; width: 7em; height: 0.75em; vertical-align: middle; border-radius: 6px; background-color: rgb(255 255 255 / 0.22); background-image: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.25) 50%, transparent 70%); }
+.sym-hero .sym-skel { display: inline-block; width: 7em; height: 0.75em; vertical-align: middle; border-radius: 6px; background-color: var(--q-fill-2); background-image: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.25) 50%, transparent 70%); }
 .sym-hero .sym-skel.big { width: 4.2em; }
 /* The market's state as one plain line on the card: words, not capsules (a 漲停 tag stays one). */
 .sym-hero-status { margin: 0; color: var(--q-focus-2); font: var(--q-t-footnote); }
@@ -626,48 +588,19 @@ a.act-row { color: inherit; }
 .sym-hero-status > .mkt-status small { font-weight: 400; white-space: normal; }
 .sym-hero-status > .q-tag.q-tag { white-space: nowrap; }
 .sym-hero-status > :not(:last-child)::after { content: ' · '; }
-.sym-hero-status .mkt-dot { width: 6px; height: 6px; margin: 0 6px 2px 0; vertical-align: middle; background: rgba(255, 255, 255, 0.5); }
-.sym-hero-status .mkt-dot.open { background: #fff; }
-.sym-hero-status > .q-tag.solid { background: rgba(255, 255, 255, 0.24); color: #fff; }
 /* The ticket's: a size down, the order is what it's about. */
 .sym-hero.compact { margin-bottom: var(--q-s-4); padding: 14px 16px; }
 .sym-hero.compact .q-focus-value { font-size: 34px; line-height: 40px; }
-/* The chart on the card, as 資產's: white lines, the ranges and tools in white. */
+/* The chart on the card, as 資產's: its own colours (the card is graphite). */
 .sym-hero .chart-area { margin-top: var(--q-s-3); }
-.sym-hero .range-bar button { color: rgba(255, 255, 255, 0.72); }
-.sym-hero .range-bar button[aria-pressed='true'] { background: rgba(255, 255, 255, 0.22); color: #fff; }
 .sym-hero .chart-top { margin-top: 2px; }
 .sym-hero .chart-change { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; min-width: 0; overflow: visible; white-space: normal; color: var(--q-focus-2); }
 .sym-hero .chart-change > * { white-space: nowrap; }
 .sym-hero .chart-change .legend-inline { flex-wrap: wrap; gap: 2px 12px; }
 .sym-hero .chart-change .legend-inline { margin: 0; }
-.sym-hero .chart-change .chg.up { color: color-mix(in srgb, var(--up) 45%, #fff); }
-.sym-hero .chart-change .chg.down { color: color-mix(in srgb, var(--down) 45%, #fff); }
-.sym-hero .chart-tools .tool { color: rgba(255, 255, 255, 0.72); }
-.sym-hero .chart-tools .tool[aria-pressed='true'] { background: rgba(255, 255, 255, 0.22); color: #fff; }
 .sym-hero .chart-box { margin: 0 -6px; }
 .sym-hero .chart-box > .empty, .sym-hero .chart-box .foot-note { color: var(--q-focus-2); }
-.sym-hero .chart-svg .grid { stroke: rgba(255, 255, 255, 0.14); }
-.sym-hero .chart-svg .axis-label { fill: rgba(255, 255, 255, 0.72); }
-.sym-hero .chart-svg :is(.line, .line.up, .line.down) { stroke: #fff; }
-.sym-hero .chart-svg .area, .sym-hero .chart-svg .area.up, .sym-hero .chart-svg .area.down { fill: #fff; opacity: 0.14; }
-.sym-hero .chart-svg .base-line { stroke: rgba(255, 255, 255, 0.45); }
-.sym-hero .chart-svg :is(.end-dot, .hover-dot, .end-dot.up, .end-dot.down, .hover-dot.up, .hover-dot.down) { fill: #fff; stroke: transparent; }
-.sym-hero .chart-svg .cross { stroke: rgba(255, 255, 255, 0.7); }
-/* (Averages and candles keep their meaning, lightened to read on the colour.) */
-.sym-hero .chart-svg .line.ma1 { stroke: color-mix(in srgb, var(--c4) 55%, #fff); }
-.sym-hero .chart-svg .line.ma2 { stroke: color-mix(in srgb, var(--c1) 45%, #fff); }
-.sym-hero .chart-svg .line.ma3 { stroke: color-mix(in srgb, var(--c7) 45%, #fff); }
-.sym-hero .chart-svg .candle line, .sym-hero .chart-svg .candle rect { stroke: rgba(255, 255, 255, 0.8); fill: rgba(255, 255, 255, 0.8); }
-.sym-hero .chart-svg .candle.up line { stroke: color-mix(in srgb, var(--up) 45%, #fff); }
-.sym-hero .chart-svg .candle.up rect { fill: color-mix(in srgb, var(--up) 45%, #fff); }
-.sym-hero .chart-svg .candle.down line { stroke: color-mix(in srgb, var(--down) 40%, #fff); }
-.sym-hero .chart-svg .candle.down rect { fill: color-mix(in srgb, var(--down) 40%, #fff); }
-.sym-hero .chart-svg .vol, .sym-hero .chart-svg .vol.up, .sym-hero .chart-svg .vol.down { fill: #fff; opacity: 0.22; }
 .sym-hero .legend-inline { color: var(--q-focus-2); }
-.sym-hero .sw.ma1 { background: color-mix(in srgb, var(--c4) 55%, #fff); }
-.sym-hero .sw.ma2 { background: color-mix(in srgb, var(--c1) 45%, #fff); }
-.sym-hero .sw.ma3 { background: color-mix(in srgb, var(--c7) 45%, #fff); }
 .place-bar.q-sheet-foot { display: flex; align-items: center; gap: 12px; }
 .ticket-stake .q-stake-presets button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .ticket-stake .q-stake-amt small { white-space: nowrap; }
@@ -778,22 +711,6 @@ html .q-logo.disc { background: var(--disc); }
 html .q-logo.disc img { transform: scale(1.02); }
 /* 持倉: each holding's money made or lost (NT$ · %) under its worth; the totals over the list. */
 .pl-stats { margin-bottom: 10px; }
-
-/* No white in dark mode (Jay 2026-10-21): the converter's currency pills and swap are glass on the card. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .fx-cur,
-  :root:not([data-theme='light']) .fx-swap {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
-    box-shadow: none;
-  }
-}
-:root[data-theme='dark'] .fx-cur,
-:root[data-theme='dark'] .fx-swap {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  box-shadow: none;
-}
 
 /* 選擇權: a month's chain, calls | strike | puts, the at-the-money row marked. */
 .opt-months { margin: 0 0 12px; }
@@ -977,41 +894,18 @@ body .q-tag.down:not(button, .solid) { color: var(--down); }
 /* The kit's solid move pill on every stock row: just the coloured figure. */
 body .q-move.solid { min-width: 0; padding: 0; border-radius: 0; background: none; color: var(--c); font-weight: 500; }
 body .q-move.solid.flat { color: var(--q-label-2); }
-.hold-top, .rec-top { align-items: flex-start; }
 /* Open markets: a quiet grey line with a live dot, still a tap. */
 .open-now { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 0; border: 0; background: none; color: var(--q-label-2); font: 500 13px/18px var(--q-font); white-space: nowrap; overflow: hidden; }
 .open-now .open-dot { flex: none; color: var(--q-live); }
-.rec-why { display: block; padding: 0; background: none; color: var(--q-label-2); font: var(--q-t-footnote); }
 body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 13px/18px var(--q-font); color: var(--q-label-2); }
 /* 資產 and 紀錄's headline figure, on its card (kit .q-focus). */
 .pf-hero, .stats-hero { margin-bottom: var(--q-s-4); }
 .pf-hero .q-seg { margin-top: var(--q-s-2); }
-.hc-note { color: rgba(255, 255, 255, 0.62); font-weight: 400; }
-/* The chart and its switch on the focus card's colour: white lines, as before 0b33ab6. */
-.q-focus .hc-chart .first-day { color: rgba(255, 255, 255, 0.8); }
-.q-focus .hc-chart .chart-svg .grid { stroke: rgba(255, 255, 255, 0.14); }
-.q-focus .hc-chart .chart-svg .axis-label { fill: rgba(255, 255, 255, 0.72); }
-.q-focus .hc-chart .chart-svg .line, .q-focus .hc-chart .chart-svg .line.up, .q-focus .hc-chart .chart-svg .line.down { stroke: #fff; }
-.q-focus .hc-chart .chart-svg .line.ref { stroke: rgba(255, 255, 255, 0.6); }
-.q-focus .hc-chart .chart-svg .area, .q-focus .hc-chart .chart-svg .area.up, .q-focus .hc-chart .chart-svg .area.down { fill: #fff; opacity: 0.14; }
-.q-focus .hc-chart .chart-svg .base-line { stroke: rgba(255, 255, 255, 0.45); }
-.q-focus .hc-chart .chart-svg :is(.end-dot, .hover-dot) { fill: #fff; stroke: transparent; }
-.q-focus .hc-chart .chart-svg .cross { stroke: rgba(255, 255, 255, 0.7); }
-.q-focus .hc-chart .legend-inline { color: rgba(255, 255, 255, 0.85); }
-.q-focus .hc-chart .sw { background: #fff; }
-.q-focus .hc-chart .sw.ref { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.8) 0 4px, transparent 4px 7px); }
-.q-focus .q-seg { background: rgba(255, 255, 255, 0.16); }
-.q-focus .q-seg::before { background: rgba(255, 255, 255, 0.3) !important; box-shadow: none; }
-.q-focus .q-seg > button, .q-focus .q-seg > button[aria-pressed] { color: #fff; }
+.hc-note { color: var(--q-label-3); font-weight: 400; }
 .q-focus-sub .up { color: var(--up); }
 .q-focus-sub .down { color: var(--down); }
 .q-focus-value.up { color: var(--up); }
 .q-focus-value.down { color: var(--down); }
-/* (On the focus card's colour: the same meaning, lightened to read on it.) */
-.q-focus .q-focus-sub .up, .q-focus .q-focus-value.up { color: color-mix(in srgb, var(--up) 45%, #fff); }
-.q-focus .q-focus-sub .down, .q-focus .q-focus-value.down { color: color-mix(in srgb, var(--down) 45%, #fff); }
-/* The exchange is the action on 資金: one coloured card, no shadow on the swap. */
-.fx-swap { box-shadow: none; }
 .q-ritem-end > strong { font-weight: 500; }
 /* What's still needed is read whole: a long requirement wraps instead of ending in an ellipsis. */
 .acc-needs .q-ritem-title, .credit-checks .q-ritem-title { white-space: normal; overflow: visible; text-overflow: clip; }
@@ -1022,23 +916,7 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
    goes with it on the right; lists of like rows run in two (three) columns;
    like cards become a grid. Sheets stay a phone's width (the kit's). */
 :root.q-wide { --q-page-max: 1180px; }
-.page .q-cols > div > :first-child, :root.q-wide #home-body .q-cols > div > .q-section:first-child,
-:root.q-wide #home-body .home-mine > .q-section:first-child,
-:root.q-wide #home-body .home-mine:empty + .home-next > .q-section:first-child { margin-top: 0; }
-/* A phone upright: one column, what's yours right under the market tiles,
-   then today's movers, then the rest (Jay 10-22: holdings first). Stretched:
-   the kit's .q-cols aligns to the start, which in a column left each section
-   only as wide as its content (11-01 to 11-03). */
-:root:not(.q-wide) #home-body .home-cols { display: flex; flex-direction: column; align-items: stretch; }
-:root:not(.q-wide) #home-body .home-cols > div { display: contents; }
-:root:not(.q-wide) #home-body .home-cols > div > * { min-width: 0; max-width: 100%; }
-:root:not(.q-wide) #home-body .home-movers { order: 1; }
-:root:not(.q-wide) #home-body .home-next { order: 2; }
-/* 首頁: the world across the top, a grid of its ten cards (two rows of five)
-   where the screen is tall enough; on a phone on its side, the rail. */
-:root.q-wide #home-body .home-cols { margin-top: 28px; }
-:root.q-wide #home-body .home-cols .q-actions-grid { margin-top: 0; }
-:root.q-wide.q-float .home-world .idx-rail { grid-auto-flow: row; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 2px 0 0; overflow: visible; }
+.page .q-cols > div > :first-child { margin-top: 0; }
 /* 市場: the countries in a row that fits, the lists of quotes in columns (a card, rows across then down: the phone's order). */
 :root.q-wide .mk-cols { margin-top: 8px; }
 :root.q-wide.q-float .mk-cols .country-row { margin: 0; padding: 2px 0 4px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); overflow: visible; }
