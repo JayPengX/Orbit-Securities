@@ -1026,8 +1026,10 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
 :root.q-wide #home-body .home-mine > .q-section:first-child,
 :root.q-wide #home-body .home-mine:empty + .home-next > .q-section:first-child { margin-top: 0; }
 /* A phone upright: one column, what's yours right under the market tiles,
-   then today's movers, then the rest (Jay 10-22: holdings first). */
-:root:not(.q-wide) #home-body .home-cols { display: flex; flex-direction: column; }
+   then today's movers, then the rest (Jay 10-22: holdings first). Stretched:
+   the kit's .q-cols aligns to the start, which in a column left each section
+   only as wide as its content (11-01 to 11-03). */
+:root:not(.q-wide) #home-body .home-cols { display: flex; flex-direction: column; align-items: stretch; }
 :root:not(.q-wide) #home-body .home-cols > div { display: contents; }
 :root:not(.q-wide) #home-body .home-cols > div > * { min-width: 0; max-width: 100%; }
 :root:not(.q-wide) #home-body .home-movers { order: 1; }
