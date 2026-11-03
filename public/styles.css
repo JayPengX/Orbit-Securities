@@ -71,6 +71,8 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .warn, .ok-msg { margin: 10px 0 0; padding: 10px 14px; border-radius: 14px; font: 600 14px/19px var(--q-font); }
 .warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
 .ok-msg { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+/* (交易明細's days: room between one day's card and the next day.) */
+.sub-head.day-head { margin-top: 24px; }
 .sub-head { margin: 18px 4px 8px; color: var(--q-label-2); font: 600 13px/18px var(--q-font); }
 .q-section-head .sec-value { flex: none; font: 600 17px/1 var(--q-font-rounded); }
 .q-section-head .q-tag { flex: none; }
@@ -466,9 +468,17 @@ html .q-stats.about-returns { grid-template-columns: repeat(var(--n, 3), minmax(
 .history-tabs { margin-bottom: 12px; }
 .seg-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 2px; padding: 0 5px; border-radius: 9px; background: var(--q-orange); color: #fff; font: 700 11px/1 var(--q-font); }
 .filter-chips { margin-bottom: 4px; }
-.act-row { align-items: flex-start; }
-.act-row > .q-tile, .act-row > .act-sym { margin-top: 2px; }
-.act-row .q-ritem-title { white-space: normal; }
+/* A record: its picture, the name with the amount beside it, then its lines across
+   the row's whole width (so they hold one line at 320; a long one breaks only
+   between its parts, .seg). Jay 11-03: too much text cramped together. */
+.q-ritem.act-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; }
+.act-row > .q-ritem-text { display: contents; }
+.act-row > .q-tile, .act-row > .act-sym { grid-column: 1; grid-row: 1 / span 3; align-self: center; }
+.act-row .q-ritem-title { grid-column: 2; grid-row: 1; white-space: normal; }
+.act-row > .q-ritem-end { grid-column: 3; grid-row: 1; justify-self: end; }
+/* (contain: the lines never widen the amount's column; they take the room left.) */
+.act-row .q-ritem-text > small { grid-column: 2 / 4; display: block; overflow: visible; -webkit-line-clamp: none; contain: inline-size; }
+.act-row small .seg { white-space: nowrap; }
 .act-row small.meta { color: var(--q-label-3); }
 a.act-row { color: inherit; }
 .act-sym { position: relative; flex: none; }
@@ -480,7 +490,17 @@ a.act-row { color: inherit; }
 .side-tile.buy { background: var(--up); }
 .side-tile.sell { background: var(--down); }
 .order-row.done .side-tile { opacity: 0.55; }
-.order-row small.wait { color: var(--q-orange); }
+.order-row { align-items: center; }
+/* (A past order's end: how it ended over when, grey, never a wall of colour.) */
+.order-end { flex: none; display: grid; justify-items: end; gap: 2px; text-align: right; }
+.order-end > span { color: var(--q-label-2); font: 500 15px/20px var(--q-font); white-space: nowrap; }
+.order-end > small { color: var(--q-label-3); font: 400 13px/18px var(--q-font); white-space: nowrap; }
+/* (An open order: 取消 pinned beside its name, so its lines run the row's whole width, one line each at 320.) */
+.order-row { position: relative; }
+.order-row:not(.done) .q-ritem-title { padding-right: 76px; line-height: 32px; }
+.order-row .q-ritem-text > small { display: block; overflow: visible; white-space: nowrap; -webkit-line-clamp: none; }
+/* (取消: the kit's button in the page's own ink, not accent text.) */
+.order-row .q-btn.order-cancel { position: absolute; top: 8px; right: 12px; color: var(--q-label); }
 .q-btn.more { display: flex; margin: 16px auto 0; }
 .stats-hero { margin-bottom: 0; }
 .pl-bars { display: grid; grid-template-columns: repeat(12, 1fr); align-items: stretch; gap: 4px; height: 150px; }
@@ -617,7 +637,8 @@ a.act-row { color: inherit; }
 #home-body .q-section-head .q-tag { margin-left: auto; }
 .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 /* A tool's main button stays in reach as a band docked to the sheet's foot (the sheet's own colour around it), never a button floating over the fields. */
-.tool-sheet .tool-page > .q-btn.primary:not(.small):last-child { position: sticky; bottom: calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)); z-index: 1; min-height: 50px; box-shadow: 0 0 0 12px var(--q-sheet), 0 calc(24px + max(env(safe-area-inset-bottom) - 8px, 0px)) 0 24px var(--q-sheet); }
+.tool-sheet .tool-page > .q-btn.primary:not(.small):last-child { position: sticky; bottom: calc(12px + max(env(safe-area-inset-bottom) - 8px, 0px)); z-index: 1; min-height: 50px; box-shadow: 0 0 0 12px var(--q-sheet), 0 160px 0 160px var(--q-sheet); }
+/* (Its cover reaches past the sheet's bottom edge, however tall the sheet's padding and the home bar: the page scrolling under it never shows below the button. The sheet clips the rest. Jay 11-03: 期貨 ETF… under 簽署檢核表.) */
 
 :is(.q-chips, .chip-row, .tool-page, .ticket) .q-chip[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .q-stats .q-stat strong { font: var(--q-t-headline); font-weight: 600; overflow: visible; text-overflow: clip; white-space: nowrap; }
@@ -912,6 +933,9 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
    like cards become a grid. Sheets stay a phone's width (the kit's). */
 :root.q-wide { --q-page-max: 1180px; }
 .page .q-cols > div > :first-child { margin-top: 0; }
+/* (On a phone the columns stack: the next one's first section keeps the section gap, never jammed under the card above. Jay 11-03: 掛單中 ran into 已結束的委託.) */
+:root:not(.q-wide) .page .q-cols > div + div > .q-section:first-child { margin-top: var(--q-s-5, 24px); }
+:root:not(.q-wide) .page .hi-cols > div + div > .q-section:first-child { margin-top: var(--q-s-6, 32px); }
 /* 市場: the countries in a row that fits, the lists of quotes in columns (a card, rows across then down: the phone's order). */
 :root.q-wide .mk-cols { margin-top: 8px; }
 :root.q-wide.q-float .mk-cols .country-row { margin: 0; padding: 2px 0 4px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); overflow: visible; }

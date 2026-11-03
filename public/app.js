@@ -24,6 +24,7 @@ import { shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRa
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { twPhase, afterHoursSend, atLimit, exDayTags, closeMatchOf as twseCloseMatchOf, orderWaitKind } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
+import { dayGroups } from './lib/activity.mjs';
 import * as stockAccess from './lib/access.mjs';
 import { pack, unpack } from './lib/codec.mjs';
 import { forYou, movers, wantedSymbols, MOVER_GROUPS, moverGroupNow } from './lib/foryou.mjs';
@@ -4267,30 +4268,41 @@ function renderNetWorthChart(v, s) {
 }
 // (lib/twse.mjs closeMatchOf: a whole-lot day order's 13:30 closing match.)
 const closeMatchOf = o => twseCloseMatchOf(o, stockCredit.closingAuction);
+// An order, calm: its name and one line (how many, at what), and on the right
+// either the kit's 取消 (an open one) or how it ended over when (a past one).
+// The status is grey words, short enough for one line at 320 (Jay 11-03: an
+// orange two-line wall of 等待開盤・當日有效至…・time).
 function orderRow(o) {
   const q = state.quotes.get(o.symbol);
   const price = o.type === 'limit' ? t('atLimit', { p: fmtPrice(o.limit, o.currency) }) : o.type === 'stop' ? t('atStop', { p: fmtPrice(o.stop, o.currency) }) : t('atMarket');
-  const closeAt = o.status === 'open' ? closeMatchOf(o) : null;
+  const open = o.status === 'open';
+  const closeAt = open ? closeMatchOf(o) : null;
   const ends = closeAt ?? o.expires;
-  const wait = orderWaitKind(o, closeAt, Date.now());
+  const wait = open ? orderWaitKind(o, closeAt, Date.now()) : '';
   const status =
     wait === 'after'
       ? t('afterWait', { time: clock(o.after) })
       : wait === 'closeMatch'
-        ? t('closeMatchWait', { time: clock(closeAt) })
-        : o.status === 'open'
-          ? (q && !isOpen(q) && !(o.ext && ['pre', 'post'].includes(usSessionOf(q))) ? t('waitingOpen') : t('waitingPrice')) + (ends ? ` · ${t(o.tif === 'gtc' ? 'tifUntil' : 'tifDayUntil', { time: o.tif === 'gtc' ? fmtDate(ends) : weekdayClock(ends) })}` : '')
-          : t(`status_${o.status}`);
+        ? t('ordCloseMatch', { time: clock(closeAt) })
+        : open
+          ? [q && !isOpen(q) && !(o.ext && ['pre', 'post'].includes(usSessionOf(q))) ? t('ordWaitOpen') : t('ordWaitPrice'), ends ? t('ordUntil', { time: o.tif === 'gtc' ? shortDate(ends) : weekdayClock(ends) }) : ''].filter(Boolean).join(' · ')
+          : t(`ordStatus_${o.status}`);
+  const why = o.reason && t(`ordWhy_${o.reason}`) !== `ordWhy_${o.reason}` ? t(`ordWhy_${o.reason}`) : '';
   const tags = [o.ext ? t('extTag') : '', o.forced ? t('forcedTag') : ''].filter(Boolean);
-  return `<div class="q-ritem order-row${o.status === 'open' ? '' : ' done'}">
+  const end = open
+    ? !o.forced ? `<button class="q-btn small order-cancel" type="button" data-action="cancel" data-id="${h(o.id)}">${h(t('cancel'))}</button>` : ''
+    : `<span class="q-ritem-end order-end"><span>${h(status)}</span><small class="num">${h(orderWhen(o.t))}</small></span>`;
+  return `<div class="q-ritem order-row${open ? '' : ' done'}">
     <span class="side-tile ${o.side}">${h(o.side === 'buy' ? t('buyShort') : t('sellShort'))}</span>
     <button class="q-ritem-text link-text" type="button" data-action="open" data-symbol="${h(o.symbol)}"><span class="q-ritem-title">${h(nameOf(o.symbol, q))}</span>
-      <small class="num">${h(fmtQty(o.qty))} ${h(unitOf(o.symbol))} ${h(price)}</small>
-      <small class="${o.status === 'open' ? 'wait' : ''}">${h(status)} · ${h(dateTime(o.t))}${o.reason ? ` · ${h(t(`err_${o.reason}`))}` : ''}</small>
+      <small class="num">${h([`${fmtQty(o.qty)} ${unitOf(o.symbol)}`, price].join(' · '))}</small>
+      ${open ? `<small class="num">${h(status)}</small>` : ''}${why ? `<small>${h(why)}</small>` : ''}
       ${tags.length ? `<span class="q-tags">${tags.map(x => `<span class="q-tag">${h(x)}</span>`).join('')}</span>` : ''}</button>
-    ${o.status === 'open' && !o.forced ? `<button class="q-btn small" type="button" data-action="cancel" data-id="${h(o.id)}">${h(t('cancel'))}</button>` : ''}
+    ${end}
   </div>`;
 }
+// When a past order was placed, short: the time today, else the day.
+const orderWhen = at => (taipeiDay(at) === taipeiDay(Date.now()) ? clock(at) : shortDate(at));
 // ---- FX & loans tab ----------------------------------------------------------------------
 
 function currencyOptions(selected, list = [BASE, ...Object.keys(CURRENCIES).filter(c => c !== BASE)]) {
@@ -5013,6 +5025,7 @@ const ICON_PATHS = {
   alert: 'M12 4 2.5 20h19L12 4zM12 10v4M12 17v.5',
   in: 'M12 4v12M6 10l6 6 6-6M5 20h14',
   hand: 'M4 14l4-4 3 3 3-3 6 6M4 20h16',
+  doc: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5',
 };
 const svgIcon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON_PATHS[name]}"/></svg>`;
 const actTile = (name, color) => tileHtml(svgIcon(name), color);
@@ -5032,8 +5045,12 @@ function activityRow(e) {
     case 'fill': {
       lead = symLead(e.symbol, q, e.side === 'buy' ? t('buyShort') : t('sellShort'), e.side);
       title = nameOf(e.symbol, q);
-      line = `${e.maturity ? t('maturedTag') : t(e.side)} ${fmtQty(e.qty)} ${unitOf(e.symbol)} @ ${fmtPrice(e.price, e.currency)}`;
-      meta = fees([e.commission ? `${t('commission')} ${money(e.commission, e.currency)}` : '', e.tax ? `${t('tax')} ${money(e.tax, e.currency)}` : '', e.fee ? `${t(e.handling ? 'shortFees' : 'exchangeFee')} ${money(e.fee, e.currency)}` : '', e.settle > e.t ? (e.settle > Date.now() ? t('settlesOn', { date: shortDate(e.settle) }) : t('settledOn', { date: shortDate(e.settle) })) : '']);
+      // (買 / 賣 is on the picture's corner; the costs as one figure, each in 統計分析.)
+      line = `${e.maturity ? `${t('maturedTag')} ` : ''}${fmtQty(e.qty)} ${unitOf(e.symbol)} @ ${fmtPrice(e.price, e.currency)}`;
+      {
+        const cost = (e.commission || 0) + (e.tax || 0) + (e.fee || 0);
+        meta = fees([cost ? `${t('sumCosts')} ${money(cost, e.currency)}` : '', e.settle > e.t ? (e.settle > Date.now() ? t('settlesOn', { date: shortDate(e.settle) }) : t('settledOn', { date: shortDate(e.settle) })) : '']);
+      }
       if (e.forced) tag = t('forcedTag');
       else if (e.credit) tag = t('termShort');
       else if (e.dayShort) tag = t('dayTradeTag');
@@ -5045,7 +5062,8 @@ function activityRow(e) {
       lead = actTile('swap', TINT.teal);
       title = `${e.from} → ${e.to}`;
       line = `${money(e.amount, e.from)} → ${money(e.received, e.to)}`;
-      meta = [rateLine(e.from, e.to, e.rate), `${t('fxCost')} ${money(e.spreadTWD, BASE, { digits: e.spreadTWD < 10 ? 2 : 0 })}`];
+      // (Its spread is counted in 統計分析's 費用與稅負.)
+      meta = [rateLine(e.from, e.to, e.rate)];
       break;
     case 'div':
       lead = symLead(e.symbol, q, t('divShort'), 'div');
@@ -5153,12 +5171,35 @@ function activityRow(e) {
       title = e.symbol ? t('repaidRowFor', { name: nameOf(e.symbol) }) : t('repaidRow', { cur: e.currency });
       amount = `<strong class="num">−${h(money(e.amount, e.currency))}</strong>`;
       break;
+    // 開戶與交易資格: what was signed or applied for (KYC: its result), and from when it holds.
+    case 'access':
+      lead = actTile('doc', TINT.indigo);
+      title = t(`acc_${e.key}`);
+      line = e.key === 'kyc' && e.level ? t(`kyc_${e.level}`) : e.from > e.t ? t('actFrom', { date: shortDate(e.from) }) : t('actSigned');
+      break;
+    case 'credit':
+      lead = actTile('bank', TINT.indigo);
+      title = t('creditTitle');
+      line = [t('actCreditLimit', { v: money(e.limit, BASE) }), e.from > e.t ? t('actFrom', { date: shortDate(e.from) }) : ''].filter(Boolean).join(' · ');
+      break;
+    case 'extend':
+      lead = actTile('lock', TINT.indigo);
+      title = nameOf(e.symbol, q);
+      line = t('actExtended');
+      break;
+    // 期貨 入金 / 出金 between the NT$ cash and the futures account.
+    case 'futx':
+      lead = actTile('swap', TINT.gray);
+      title = t('actFutx');
+      line = t(e.amount < 0 ? 'futOut' : 'futIn');
+      amount = `<strong class="num">${h(money(Math.abs(e.amount), BASE))}</strong>`;
+      break;
     default:
       return '';
   }
   const [el, attrs] = activityTarget(e);
   return `<${el} ${attrs} class="q-ritem act-row">
-    ${lead}<span class="q-ritem-text"><span class="q-ritem-title q-fit-wrap">${h(title)}</span>${line ? `<small class="num">${h(line)}</small>` : ''}<small class="meta num">${h([clock(e.t), ...meta].join(' · '))}</small></span>
+    ${lead}<span class="q-ritem-text"><span class="q-ritem-title q-fit-wrap">${h(title)}</span>${line ? `<small class="num">${h(line)}</small>` : ''}<small class="meta num">${[clock(e.t), ...meta].map(x => `<span class="seg">${h(x)}</span>`).join(' · ')}</small></span>
     <span class="q-ritem-end">${amount}${tag ? `<span class="q-tag">${h(tag)}</span>` : ''}</span></${el}>`;
 }
 
@@ -5180,8 +5221,8 @@ const ACTIVITY_FILTERS = {
   trades: e => e.type === 'fill' || e.type === 'ipo' || e.type === 'ipowin' || e.type === 'ipoback',
   fx: e => e.type === 'fx',
   income: e => ['div', 'split', 'interest', 'td', 'tdend', 'lend', 'recall', 'lendpay'].includes(e.type),
-  loans: e => e.type === 'borrow' || e.type === 'repay' || e.type === 'link',
-  cash: e => e.type === 'deposit'
+  loans: e => ['borrow', 'repay', 'link', 'credit', 'extend'].includes(e.type),
+  cash: e => e.type === 'deposit' || e.type === 'futx'
 };
 
 function renderHistory() {
@@ -5209,18 +5250,13 @@ function renderHistory() {
     return;
   }
   const f = ACTIVITY_FILTERS[state.activityFilter] ? state.activityFilter : 'all';
-  const own = [...state.account.events].sort((a, b) => b.t - a.t).filter(ACTIVITY_FILTERS[f]);
+  // (Each record's row drawn first: one that draws nothing never counts, nor makes an empty day: lib/activity.mjs.)
+  const own = [...state.account.events].sort((a, b) => b.t - a.t).filter(ACTIVITY_FILTERS[f]).map(e => ({ day: taipeiDay(e.t), html: activityRow(e) })).filter(r => r.html);
   const shown = own.slice(0, state.activityShown);
-  const groups = new Map();
-  for (const e of shown) {
-    const day = taipeiDay(e.t);
-    if (!groups.has(day)) groups.set(day, []);
-    groups.get(day).push(e);
-  }
-  const days = [...groups].sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  const days = dayGroups(shown);
   const list = `<div class="q-chips bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
-    ${days.length ? days.map(([day, g]) => `<p class="sub-head">${h(dayLabel(day))}</p><div class="q-rowcard">${g.map(activityRow).join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
-    ${own.length > shown.length ? `<button class="q-btn small tinted more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`;
+    ${days.length ? days.map(([day, rows]) => `<p class="sub-head day-head">${h(dayLabel(day))}</p><div class="q-rowcard">${rows.join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
+    ${own.length > shown.length ? kitUI.moreHtml?.({ more: t('showMore', { n: own.length - shown.length }), less: null, attr: 'data-action="more"', cls: 'act-more' }) ?? `<button class="q-btn small more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`;
   if (!wide) return morph(box, `${head}${list}`);
   morph(box, `${head}<div class="q-cols act-cols"><div>${list}</div><div class="act-stats">${statsHtml()}</div></div>`);
   renderBench();

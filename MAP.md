@@ -39,6 +39,13 @@ Live: https://orbit.jaypengx.com/securities/
     what trading costs: `lib/truth.mjs`). The Orbit Pass holds no money:
     all of it is shown here.
   - **紀錄:** activity, orders, stats (against 0050, VOO, BTC and gold).
+    交易明細 draws each record's row first, then groups by Taipei day
+    (`lib/activity.mjs` `dayGroups`): a record with no row never makes an
+    empty day, and every kind of record the log makes has a row (開戶 papers,
+    信用帳戶, 展延, 期貨入出金 included; `tests/history.test.mjs`). 委託 rows:
+    the name and one line (how many, at what); an open one has the kit's 取消
+    pinned beside its name and its wait in grey (等開盤 · 至週三 13:30); a past
+    one ends with how it ended over when. No orange, nothing wraps at 320.
 - **Every screen** (the kit's `q-wide`/`q-w3` marks, `styles.css` "Every screen"):
   with room for two columns each tab is two phone-width columns (首頁:
   yours and the markets left, movers and picks right;
