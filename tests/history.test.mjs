@@ -33,7 +33,7 @@ test('交易明細 groups rows already drawn, so the more bar counts only rows s
 });
 
 test('every kind of record the account log makes has a row in 交易明細', () => {
-  const kit = new URL('../../Orbit-Core/kit/', import.meta.url);
+  const kit = new URL('../.kit/', import.meta.url);
   const sources = [app, ...readdirSync(new URL('../public/lib/', import.meta.url)).map(f => readFileSync(new URL(`../public/lib/${f}`, import.meta.url), 'utf8'))];
   for (const f of readdirSync(kit).filter(f => /^stock-.*\.mjs$/.test(f))) sources.push(readFileSync(new URL(f, kit), 'utf8'));
   const made = new Set(['div', 'fx', 'interest', 'split', 'link']);
