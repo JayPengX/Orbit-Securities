@@ -17,8 +17,10 @@ test('the look is always on: data-look on the page, look.css after styles.css', 
 test('首頁 opens on 總資產: the big number is the account value, over 我的', () => {
   assert.match(body, /class="sc-day-big num"[^`]*money\(v\.netWorth, BASE\)/);
   assert.match(body, /\$\{head\}<div class="q-rowcard sc-rows">/);
-  // 我的 (with 總資產 in it) is the first thing after an overdraft's strip.
-  assert.match(body, /`\$\{hero\}<div class="q-cols sc-home"><div class="sc-col">\$\{mineCard\}/);
+  // 我的 (with 總資產 in it) is the first thing after an overdraft's strip, on a phone and wide.
+  assert.match(body, /const left = `\$\{mineCard\}\$\{markets\}`/);
+  assert.match(body, /<div class="sc-col">\$\{left\}<\/div><div class="sc-col">\$\{right\}/);
+  assert.match(body, /<div class="sc-home sc-one">\$\{left\}\$\{right\}<\/div>/);
 });
 
 test('首頁: what is held comes before what is starred, held by value', () => {
@@ -33,4 +35,9 @@ test('首頁: no sparklines or pills on its rows (not another app\'s list)', () 
 test('首頁: a tap on a pick counts for the picks', () => {
   assert.match(app, /closest\('\.sc-foryou'\)\) feedback\?\.picked/);
   assert.match(body, /cls: 'sc-foryou'/);
+});
+
+test('首頁 on a phone is one flow (the place keeper holds it through a redraw), spaced inside its parts', () => {
+  const css = readFileSync(new URL('../public/look.css', import.meta.url), 'utf8');
+  assert.match(css, /\.sc-one > \* \+ \* \{\s*padding-top:/);
 });

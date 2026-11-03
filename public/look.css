@@ -5,6 +5,14 @@
 html[data-look='native'] .sc-home {
   row-gap: var(--q-s-5);
 }
+/* A phone: one flow, spaced inside each part (a gap between two would be the page's own box,
+   which doesn't move with what it holds). */
+html[data-look='native'] #home-body .sc-one > * {
+  margin-block: 0;
+}
+html[data-look='native'] #home-body .sc-one > * + * {
+  padding-top: var(--q-s-5);
+}
 html[data-look='native'] .sc-col {
   display: flex;
   flex-direction: column;

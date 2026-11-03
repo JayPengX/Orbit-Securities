@@ -1551,13 +1551,13 @@ function renderHome() {
     : emptyHtml({ icon: 'star', tint: TINT.gray, title: t('forYouNone'), body: t('forYouNoneSub') });
   const events = v ? eventRows(v) : [];
   const eventsHtml = v && events.length ? sectionHtml(t('homeEvents'), `<div class="q-rowcard">${events.join('')}</div>`) : '';
-  morph(
-    box,
-    `${hero}<div class="q-cols sc-home"><div class="sc-col">${mineCard}${markets}</div><div class="sc-col">
-    ${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'sc-movers' })}
-    ${sectionHtml(t('forYou'), recBody, { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"', cls: 'sc-foryou' })}
-    ${ipoHtml()}${eventsHtml}</div></div>`
-  );
+  // Yours and the markets, then the movers, picks, 新股申購 and what's coming. A phone reads
+  // them as one flow (no columns in the page: the kit's place keeper holds what's read through
+  // a redraw); wide, yours and the markets left, the rest right (redrawn on onScreen).
+  const left = `${mineCard}${markets}`;
+  const right = `${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'sc-movers' })}${sectionHtml(t('forYou'), recBody, { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"', cls: 'sc-foryou' })}${ipoHtml()}${eventsHtml}`;
+  const wide = document.documentElement.classList.contains('q-wide');
+  morph(box, `${hero}${wide ? `<div class="q-cols sc-home"><div class="sc-col">${left}</div><div class="sc-col">${right}</div></div>` : `<div class="sc-home sc-one">${left}${right}</div>`}`);
 }
 
 // ---- 新股申購 (lib/ipo.mjs) ----
