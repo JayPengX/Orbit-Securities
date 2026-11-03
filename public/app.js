@@ -4045,6 +4045,10 @@ function positionRow(p, sort = 'value') {
     alertTag(p.symbol)
   ].join('');
   const qty = p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : heldQtyText(p, q);
+  // (A part of a coin or a fund's units, 0.04626395 BTC, didn't fit beside its 市值 at 320 px: the 市值 on a line of its own.)
+  const part = !Number.isInteger(p.qty) && qty === heldQtyText(p, q);
+  const worth = `${t('marketValue')} ${compactMoney(p.valueTWD, BASE)}`;
+  const line = part ? `<small class="num q-fit">${h(qty)}</small><small class="num q-fit">${h(worth)}</small>` : `<small class="num q-fit">${h(`${qty} · ${worth}`)}</small>`;
   // Money made or lost in NT$ (today's under 今日, since bought otherwise), its % as the tag; the worth goes left.
   const net = netPl(p);
   const [x, xPct] = sort === 'day' ? [p.dayTWD, p.dayPct] : [net.pl, net.pct];
@@ -4053,7 +4057,7 @@ function positionRow(p, sort = 'value') {
   const rowName = locale === 'en' && stockMarkets.isFuture?.(p.symbol) ? nameOf(p.symbol, q).replace(/ futures\b/, '') : nameOf(p.symbol, q);
   return `<button class="q-ritem position-row" type="button" data-action="open" data-symbol="${h(p.symbol)}">
     ${symbolBadge(p.symbol, p)}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(rowName)}</span><small class="num q-fit">${h(`${qty} · ${t('marketValue')} ${compactMoney(p.valueTWD, BASE)}`)}</small>${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(rowName)}</span>${line}${tags ? `<span class="q-tags">${tags}</span>` : ''}</span>
     <span class="q-ritem-end">${end}</span>
   </button>`;
 }
