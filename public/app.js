@@ -1801,7 +1801,7 @@ function listHtml(sub) {
   const whole = !sub.listing || listings.has(sub.listing);
   const tail =
     left > 0
-      ? `<button class="list-more" type="button" data-action="list-more">${h(t('browseMore', { n: Math.min(left, PAGE), left: left.toLocaleString() }))}</button>`
+      ? kitUI.moreHtml?.({ more: t('browseMore', { n: Math.min(left, PAGE), left: left.toLocaleString() }), less: null, attr: 'data-action="list-more"', cls: 'list-more' }) ?? `<button class="list-more q-more" type="button" data-action="list-more">${h(t('browseMore', { n: Math.min(left, PAGE), left: left.toLocaleString() }))}</button>`
       : whole
         ? ''
         : `<p class="list-more list-wait">${h(failed ? t('browseFailed') : t('browseLoading'))}</p>`;
@@ -2781,7 +2781,7 @@ function aboutHtml(symbol, q) {
   // In the reader's language once translated; the English original a tap away.
   const local = a.summaryLocal && locale !== 'en';
   const summary = f?.summary
-    ? `<details class="summary-text"><summary>${h(t('whatItDoes'))}</summary>${local ? `<p>${h(a.summaryLocal)}</p><details class="summary-orig"><summary>${h(t('originalText'))}</summary><p lang="en">${h(f.summary)}</p></details>` : `<p lang="en">${h(f.summary)}</p>`}${f.website ? `<p><a href="${h(f.website)}" target="_blank" rel="noopener">${h(f.website.replace(/^https?:\/\//, ''))}</a></p>` : ''}</details>`
+    ? `<details class="summary-text">${kitUI.summaryHtml?.(t('whatItDoes')) ?? `<summary>${h(t('whatItDoes'))}</summary>`}${local ? `<p>${h(a.summaryLocal)}</p><details class="summary-orig"><summary>${h(t('originalText'))}</summary><p lang="en">${h(f.summary)}</p></details>` : `<p lang="en">${h(f.summary)}</p>`}${f.website ? `<p><a href="${h(f.website)}" target="_blank" rel="noopener">${h(f.website.replace(/^https?:\/\//, ''))}</a></p>` : ''}</details>`
     : '';
   return fold(icon, title, `${body}${summary}`, true, 'about');
 }
@@ -2821,7 +2821,7 @@ function stockAboutHtml(f, q, a) {
     v.push(verdict(t('vBalance'), netCash ? t('vNetCash') : [t('vSolid'), t('vOk'), t('vHeavy')][b], netCash || b === 0 ? 'good' : b === 1 ? 'mid' : 'warn', f.debtToEquity != null ? `${t('debtToEquity')} ${num(f.debtToEquity, 0)}%` : ''));
   }
   if (f.beta != null) v.push(verdict(t('vRisk'), [t('vCalm'), t('vMarket'), t('vWild')][band(f.beta, 0.8, 1.3)], ['good', 'mid', 'warn'][band(f.beta, 0.8, 1.3)], `Beta ${num(f.beta, 2)}`));
-  const quick = v.length ? `<div class="verdicts">${v.join('')}</div><p class="foot-note">${h(t('verdictNote'))}</p>` : '';
+  const quick = v.length ? `<div class="verdicts q-rows-full">${v.join('')}</div><p class="foot-note">${h(t('verdictNote'))}</p>` : '';
   // Coming up.
   const now = Date.now();
   const soon = [
@@ -2829,7 +2829,7 @@ function stockAboutHtml(f, q, a) {
     f.exDividendDate > now - 86_400_000 ? `${t('nextExDiv', { date: fmtDate(f.exDividendDate) })}` : ''
   ].filter(Boolean);
   return `
-    ${profile.length ? `<p class="about-profile">${profile.map(x => `<span>${h(x)}</span>`).join('')}</p>` : ''}
+    ${profile.length ? `<p class="about-profile q-balance">${profile.map(x => `<span>${h(x)}</span>`).join('')}</p>` : ''}
     ${quick}
     ${soon.length ? `<div class="q-tags about-soon">${soon.map(x => `<span class="q-tag orange">${h(x)}</span>`).join('')}</div>` : ''}
     ${financialsHtml(f, rc)}
@@ -2960,8 +2960,8 @@ function fundAboutHtml(f, q, a) {
     : '';
   const profile = [f.family, (locale !== 'en' && a?.categoryLocal) || f.category, f.inception ? t('fundSince', { date: fmtDate(f.inception) }) : ''].filter(Boolean);
   return `
-    ${profile.length ? `<p class="about-profile">${profile.map(x => `<span>${h(x)}</span>`).join('')}</p>` : ''}
-    ${v.length ? `<div class="verdicts">${v.join('')}</div><p class="foot-note">${h(t('verdictNote'))}</p>` : ''}
+    ${profile.length ? `<p class="about-profile q-balance">${profile.map(x => `<span>${h(x)}</span>`).join('')}</p>` : ''}
+    ${v.length ? `<div class="verdicts q-rows-full">${v.join('')}</div><p class="foot-note">${h(t('verdictNote'))}</p>` : ''}
     ${returns.length ? `<div class="q-stats about-returns" style="--n:${returns.length}">${returns.map(([k, x]) => stat(t(k), pct(x, { digits: 1 }), k === 'retYtd' || k === 'ret1y' ? '' : t('retYearly'), dirClass(x))).join('')}</div>` : ''}
     ${sectors}${mix}${holdings}
     ${factGroup(t('gFund'), [

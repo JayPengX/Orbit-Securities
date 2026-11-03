@@ -258,7 +258,9 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .chip-flag { width: 16px; height: 16px; margin-right: 5px; border-radius: 50%; vertical-align: -3px; flex: 0 0 auto; }
 .list-wait { color: var(--q-label-2); font-weight: 500; text-align: center; }
 .list-section { margin-top: 16px; }
-.list-more { display: block; width: 100%; padding: 14px; border: 0; border-top: var(--q-hairline) solid var(--q-sep); background: none; color: var(--accent); font: 600 15px/1 var(--q-font); }
+/* A list's more: the kit's quiet bar inside the card (never accent text, Jay 2026-11-03); its wait, grey words. */
+.q-rowcard > .q-more.list-more { width: auto; margin: 8px 12px 12px; }
+p.list-more { margin: 0; padding: 14px; border-top: var(--q-hairline) solid var(--q-sep); color: var(--q-label-2); font: 500 15px/1 var(--q-font); text-align: center; }
 
 /* ==== The stock's sheet ==== */
 @media (max-width: 400px) { .mkt-status small { display: none; } }
@@ -374,8 +376,7 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .target-scale { display: flex; justify-content: space-between; gap: 8px; color: var(--q-label-2); font: var(--q-t-caption); }
 .holdings li { grid-template-columns: minmax(110px, 42%) 1fr auto; }
 .holdings .bar { background: var(--c1); }
-.bar-label.link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-align: left; }
-.summary-text summary { color: var(--accent); font-weight: 600; cursor: pointer; }
+.summary-text > summary:not(.q-more) { color: var(--q-text-2); font-weight: 600; cursor: pointer; }
 .summary-text p { margin-top: 6px; color: var(--q-label-2); font: var(--q-t-subhead); }
 .about-returns { margin-top: 4px; }
 /* One row, as many across as there are figures (no lone cell). */
@@ -443,7 +444,8 @@ html .q-stats.about-returns { grid-template-columns: repeat(var(--n, 3), minmax(
 .fx-hero { gap: 10px; }
 .fx-side { display: grid; gap: 8px; padding: 12px 14px; border-radius: 16px; background: var(--q-fill-4); }
 .fx-side-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 600 13px/18px var(--q-font); color: var(--q-label-2); }
-.fx-mode { padding: 0; border: 0; background: none; color: var(--accent); font: 600 13px/18px var(--q-font); text-decoration: underline; text-underline-offset: 3px; }
+/* (Which side you type in: a quiet pill, never underlined accent text.) */
+.fx-mode { flex: none; margin: -4px 0; padding: 4px 10px; border: 0; border-radius: 999px; background: var(--q-fill-3); color: var(--q-label); font: 500 13px/18px var(--q-font); white-space: nowrap; }
 .fx-side-row { display: flex; align-items: center; gap: 10px; }
 .fx-cur { position: relative; flex: none; display: inline-flex; align-items: center; padding: 8px 30px 8px 12px; border-radius: 999px; background: var(--q-fill-2); color: var(--q-label); font: 700 15px/1 var(--q-font); white-space: nowrap; }
 .fx-cur::after { content: ''; position: absolute; top: 50%; right: 13px; width: 7px; height: 7px; margin-top: -5px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); pointer-events: none; }
