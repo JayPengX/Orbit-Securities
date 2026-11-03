@@ -1450,10 +1450,36 @@ function eventRows(v) {
   return rows.slice(0, 5);
 }
 
-// What 為你推薦 showed and what was opened from it (kit feedback.mjs, on the
-// device). (Loaded on the side: an older kit without it ranks as before.)
+// What 為你推薦 showed, what was opened from it and anywhere in the app, and
+// what was kept, planned and traded (the kit's feedback.mjs, the family's one
+// engine, kept on the Pass): a kind passed over day after day sinks, one
+// opened rises. (Loaded on the side: an older kit without it ranks as before.)
 let feedback = null;
-import('#kit/feedback.mjs').then(m => (feedback = m)).catch(() => {});
+import('#kit/feedback.mjs')
+  .then(m => {
+    feedback = m;
+    feedback.keep?.(q, 'stock');
+    seedFeedback();
+  })
+  .catch(() => {});
+const stockItem = symbol => ({ id: `stock:${symbol}`, keys: symbolKeys(symbol).filter(Boolean) });
+// Once on a phone: what's held, as bought (the engine starts from it, not from nothing).
+const SEEDED_KEY = 'orbit-securities.fbSeed.v1';
+let seeded = false;
+function seedFeedback() {
+  if (seeded || !feedback?.did || !state.account) return;
+  seeded = true;
+  const held = Object.keys(snap()?.positions || {});
+  try {
+    if (!held.length || localStorage.getItem(SEEDED_KEY)) return;
+    localStorage.setItem(SEEDED_KEY, '1');
+  } catch {
+    return;
+  }
+  for (const symbol of held) feedback.did('stock', stockItem(symbol).keys, 2);
+}
+// Something done about a thing (kept, planned, traded): the engine hears it.
+const acted = (symbol, weight) => feedback?.did?.('stock', stockItem(symbol).keys, weight);
 // 首頁's markets: each country (catalog COUNTRIES), then the products that aren't a
 // country, by the price that says how their day went.
 const homeMarkets = () => [
@@ -1465,6 +1491,7 @@ function renderHome() {
   const box = $('home-body');
   const v = state.account ? valuation() : null;
   const held = Object.keys(snap()?.positions || {});
+  seedFeedback();
   const recs = forYou({ quotes: state.quotes, held, watched: watched(state.account), wallet: state.wallet, aff: affinityMap(), n: 10, lift: feedback?.lifter('stock') });
   state.recs = recs;
   // (The first few are what's in view on the rail.)
@@ -2002,6 +2029,8 @@ function renderSearch() {
 
 async function openDetail(symbol) {
   track(symbolKeys(symbol), 1);
+  // (Opened from 為你推薦 it's counted there already: the engine counts an open once.)
+  feedback?.picked('stock', stockItem(symbol), Date.now(), { from: 'elsewhere' });
   const q0 = state.quotes.get(symbol);
   const held = snap()?.positions[symbol];
   state.detail = {
@@ -2729,6 +2758,7 @@ async function addPlan() {
   commit(r.account);
   state.planEdit = null;
   track(symbolKeys(d.symbol), 2);
+  acted(d.symbol, 1.5);
   toast(t('planSet', { date: fmtDate(nextPlanRun(r.plan)) }), 'good');
   redrawDetail();
 }
@@ -2749,6 +2779,7 @@ async function savePlanRow(id) {
   commit(r.account);
   state.planEdit = null;
   recordAffinity('stock', symbolKeys(plan.symbol), 2);
+  acted(plan.symbol, 1.5);
   toast(t('planSet', { date: fmtDate(nextPlanRun(r.plan)) }), 'good');
   render();
 }
@@ -3525,6 +3556,7 @@ function placeFromTicket() {
   if (account) {
     commit(account);
     track(symbolKeys(d.symbol), 3);
+    acted(d.symbol, 2);
   }
   const r = parts[0]?.r;
   if (failed && parts.length === 2) {
@@ -5889,7 +5921,7 @@ document.addEventListener('click', async event => {
       break;
     }
     case 'open':
-      if (el.closest('.rec-rail')) feedback?.picked('stock', state.recs?.find(r => r.symbol === el.dataset.symbol));
+      if (el.closest('.rec-rail')) feedback?.picked('stock', state.recs?.find(r => r.symbol === el.dataset.symbol), Date.now(), { from: 'list' });
       openDetail(el.dataset.symbol);
       break;
     case 'close':
@@ -5904,6 +5936,7 @@ document.addEventListener('click', async event => {
       if (!state.account) return;
       commit(toggleWatch(state.account, d.symbol));
       track(symbolKeys(d.symbol), 2);
+      if (watched(state.account).includes(d.symbol)) acted(d.symbol, 1.5);
       renderDetail();
       if (state.tab === 'markets' || state.tab === 'home') render();
       break;
