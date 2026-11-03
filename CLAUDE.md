@@ -9,7 +9,7 @@ feature with the code that makes it.
 
 - A change to how this app is built (a module, a data or sync path, a pattern) updates MAP.md
   in the same push; anything the kit or a Worker gains goes into `../Orbit-Core/CLAUDE.md`.
-- `npm test`, then `git push origin HEAD:main`.
+- Push with `sh ../Orbit-Core/tools/push.sh`: it rebases onto `origin/main`, runs what the deploy runs (tests against main's kit), and pushes main only if they pass (a red deploy mails Jay).
 - Orders are filled and cash counted by the proxy (`stock-fill.js`), never the phone.
 - See it on a phone: `node ../Orbit-Core/tools/preview.mjs securities --live --width 375`.
 - Screenshots for a change: `node ../Orbit-Core/tools/shots.mjs securities --before main` (320/390, light/dark, live data, a diff against what's live; `../Orbit-Core/tools/README.md`).
