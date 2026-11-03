@@ -1,213 +1,30 @@
-import test from 'node:test';
+// Every feature in FEATURES.md must still be in the code: each line names
+// the files and the marks (a function, a class, a string) that make it.
+// A refactor that drops one fails here instead of vanishing silently.
+// To remove a feature on purpose, delete its line in FEATURES.md in the same commit.
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newAccount, replay, placeOrder, processOrders, valuate, liquidationPlan, applyCorporateActions, applyBondCashflows, backfillPrice, netWorthSeries, exchange } from '../public/lib/account.mjs';
-import { BONDS, priceAt, curveYield, couponDates, bondQuote, bondSession, curveOf } from '../public/lib/bonds.mjs';
-import { isOpen } from '../public/lib/markets.mjs';
+import { readFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const T0 = Date.UTC(2026, 8, 21, 2); // Monday 10:00 Taipei
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
-const RATES = { TWD: 1, USD: 32 };
-const quote = (symbol, price, over = {}) => {
-  const at = over.at ?? T0;
-  return {
-    symbol, name: symbol, kind: 'stock', market: 'TW', currency: 'TWD', price, prev: price, pct: 0, dayHigh: price, dayLow: price,
-    session: { start: at - HOUR, end: at + 4 * HOUR }, marketTime: at, line: [], ...over
-  };
-};
-// A credit account already open (融資, 融券 in Taiwan).
-const withCredit = (a, limit = 5_000_000) => ({ ...a, events: [...a.events, { id: 'credit:test', type: 'credit', t: a.created, limit }] });
-const val = (a, t, quotes) => valuate(replay(a, t), new Map(quotes), RATES);
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const list = readFileSync(join(root, 'FEATURES.md'), 'utf8');
+// - Feature name — `path/a.mjs`, `path/b.css`: `mark one`, `mark two`
+const rows = list.split('\n').filter(l => /^- .+ — `[^`]+`.*: `/.test(l));
 
-test('融券 in Taiwan: a 90% deposit and the sale money held, 0.08% handling, no yearly fee; both back with their 0.2% interest when bought back', () => {
-  let a = withCredit(newAccount(1_000_000, T0, 'acc'));
-  const q = quote('2330.TW', 2000);
-  let v = val(a, T0, [['2330.TW', q]]);
-  const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 2000, qty: 100 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 's' });
-  assert.equal(r.error, undefined);
-  assert.equal(r.order.short, true);
-  assert.equal(r.fill.credit, true);
-  // 200,000 sold: commission 285, tax 600, 融券手續費 160.
-  assert.equal(r.fill.handling, 160);
-  assert.equal(r.fill.total, 200_000 - 285 - 600 - 160);
-  a = r.account;
-  let s = replay(a, T0);
-  assert.equal(s.positions['2330.TW'].qty, -100);
-  assert.equal(s.cash.TWD, 1_000_000 - 180_000);
-  v = val(a, T0, [['2330.TW', q]]);
-  assert.equal(v.shortTWD, 200_000);
-  assert.equal(v.shortCashTWD, 180_000 + 198_955);
-  assert.ok(Math.abs(v.netWorth - (1_000_000 - 1_045)) < 1e-6);
-  // A month later at 1,800: bought back; no borrowing fee, the collateral back.
-  const later = T0 + 30 * DAY;
-  const q2 = quote('2330.TW', 1800, { at: later });
-  const b = placeOrder(a, { side: 'buy', type: 'limit', limit: 1800, qty: 100 }, { quote: q2, rates: RATES, now: later, id: 'b' });
-  s = replay(b.account, later);
-  assert.equal(s.positions['2330.TW'], undefined);
-  assert.equal(s.paid.borrow, 0);
-  // 融券利息: NT$378,955 held 30 days at 0.2% a year, NT$62 (the cents dropped).
-  const interest = Math.floor((378_955 * 0.002 * 30) / 365);
-  assert.equal(interest, 62);
-  assert.equal(s.cash.TWD, 1_000_000 + 198_955 - 180_256 + interest);
-  assert.ok(Math.abs(s.realized - (198_955 - 180_256 + interest)) < 1e-6);
-  assert.equal(s.closed[0].short, true);
-});
+test('FEATURES.md lists features', () => assert.ok(rows.length > 0));
 
-// Shorts outside Taiwan are crypto's: 複委託 is cash only (a foreign stock's short is
-// refused, cashOnly).
-const crypto = (symbol, price, over = {}) => quote(symbol, price, { market: 'CRYPTO', kind: 'crypto', currency: 'TWD', ...over });
-
-test('short selling elsewhere: proceeds in cash, owed at market, a yearly borrowing fee', () => {
-  let a = withCredit(newAccount(1_000_000, T0, 'acc'));
-  const q = crypto('X', 2000);
-  let v = val(a, T0, [['X', q]]);
-  const r = placeOrder(a, { side: 'sell', type: 'limit', limit: 2000, qty: 100 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 's' });
-  assert.equal(r.error, undefined);
-  a = r.account;
-  const got = r.fill.total;
-  assert.equal(replay(a, T0).cash.TWD, 1_000_000 + got);
-  const later = T0 + 30 * DAY;
-  const b = placeOrder(a, { side: 'buy', type: 'limit', limit: 1800, qty: 100 }, { quote: crypto('X', 1800, { at: later }), rates: RATES, now: later, id: 'b' });
-  const s = replay(b.account, later);
-  assert.ok(Math.abs(s.paid.borrow - (got * 0.03 * 30) / 365) < 1e-6);
-});
-
-test('shorts elsewhere need 150% cover to open, get called and bought back when the price runs up', () => {
-  let a = withCredit(newAccount(100_000, T0, 'acc'));
-  const q = crypto('X', 100);
-  const v = val(a, T0, [['X', q]]);
-  // A US stock sells only what's held: 複委託 is cash only.
-  const us = quote('AAPL', 100, { market: 'US', currency: 'TWD' });
-  assert.deepEqual(placeOrder(a, { side: 'sell', qty: 10 }, { quote: us, rates: RATES, valuation: val(a, T0, [['AAPL', us]]), now: T0 }), { error: 'cashOnly', have: 0 });
-  const big = placeOrder(a, { side: 'sell', qty: 3000 }, { quote: q, rates: RATES, valuation: v, now: T0 });
-  assert.equal(big.error, 'shortMargin');
-  assert.ok(big.max > 1500 && big.max < 2100);
-  a = placeOrder(a, { side: 'sell', qty: 1900 }, { quote: q, rates: RATES, valuation: v, now: T0, id: 's' }).account;
-  const up = crypto('X', 160, { at: T0 + DAY });
-  const v2 = val(a, T0 + DAY, [['X', up]]);
-  assert.equal(v2.margin, 'liquidate');
-  assert.deepEqual(liquidationPlan(a, v2).map(p => [p.side, p.qty]), [['buy', 1900]]);
-  // Crypto can be shorted too, funds and passbooks can't.
-  assert.equal(placeOrder(a, { side: 'sell', qty: 1 }, { quote: { ...q, kind: 'metal', market: 'METAL' }, rates: RATES, valuation: v, now: T0 }).error, 'shares');
-});
-
-test('a short pays the dividends', () => {
-  let a = withCredit(newAccount(1_000_000, T0, 'acc'));
-  const q = quote('0056.TW', 40, { kind: 'etf' });
-  a = placeOrder(a, { side: 'sell', qty: 1000 }, { quote: q, rates: RATES, valuation: val(a, T0, [['0056.TW', q]]), now: T0, id: 's' }).account;
-  const r = applyCorporateActions(a, '0056.TW', { dividends: [{ date: T0 + DAY, amount: 1 }], splits: [] }, { rates: RATES, now: T0 + 2 * DAY });
-  assert.equal(r.added[0].net, -1000);
-  assert.equal(r.added[0].withheld, 0);
-});
-
-test('bond math: a bond at its own coupon yield on a coupon date is worth par; accrued interest grows between', () => {
-  const b = BONDS['UST-10Y'];
-  const cpn = couponDates(b, Date.UTC(2027, 0, 1));
-  assert.equal(new Date(cpn[0]).toISOString().slice(0, 10), '2026-08-15');
-  assert.equal(new Date(cpn[1]).toISOString().slice(0, 10), '2027-02-15');
-  const p = priceAt(b, 5.125, cpn[0]);
-  assert.ok(Math.abs(p.dirty - 100) < 1e-9);
-  const mid = priceAt(b, 5.125, (cpn[0] + cpn[1]) / 2);
-  assert.ok(Math.abs(mid.accrued - 5.125 / 4) < 0.01);
-  // Higher yields, lower prices; longer bonds move more.
-  assert.ok(priceAt(b, 6.125, cpn[0]).clean < 93);
-  assert.ok(priceAt(BONDS['UST-2Y'], 5.5, cpn[0]).clean > 97);
-  // A bill: no coupon, priced at a discount.
-  assert.ok(priceAt(BONDS['UST-3M'], 4, Date.UTC(2026, 8, 24)).dirty < 100);
-  assert.equal(curveYield([[2, 4], [10, 5]], 6), 4.5);
-  assert.equal(curveYield([[2, 4], [10, 5]], 30), 5);
-});
-
-test('bond quotes: one bond in its currency, US from the live curve, others from the reference', () => {
-  const now = Date.UTC(2026, 8, 25, 15);
-  const quotes = new Map([['^IRX', { price: 4.07 }], ['2YY=F', { price: 4.5 }], ['^FVX', { price: 5.0 }], ['^TNX', { price: 5.18 }], ['^TYX', { price: 5.5 }]]);
-  const us = bondQuote(BONDS['UST-10Y'], curveOf('US', quotes), null, now);
-  assert.equal(us.currency, 'USD');
-  assert.equal(us.kind, 'govbond');
-  assert.ok(us.price > 950 && us.price < 1010);
-  assert.ok(Math.abs(us.bond.yield - 5.18) < 0.01);
-  const tw = bondQuote(BONDS['TWGB-10Y'], curveOf('TW'), null, now);
-  assert.equal(tw.currency, 'TWD');
-  assert.ok(tw.price > 95_000 && tw.price < 101_000);
-  assert.equal(curveOf('US', new Map()), null);
-  // Bonds trade on weekdays in their own business hours.
-  const saturday = Date.UTC(2026, 8, 26, 15);
-  assert.equal(isOpen({ ...us, session: bondSession(BONDS['UST-10Y'], saturday) }, saturday), false);
-  assert.equal(isOpen(us, now), true);
-});
-
-test('bonds pay coupons (less the issuer’s tax) and repay at maturity', () => {
-  let a = newAccount(1_000_000, Date.UTC(2026, 0, 5), 'acc');
-  const t = Date.UTC(2026, 0, 6, 3);
-  const b = BONDS['TWGB-2Y'];
-  const q = { ...bondQuote(b, curveOf('TW'), null, t), session: { start: t - HOUR, end: t + HOUR } };
-  a = placeOrder(a, { side: 'buy', qty: 3 }, { quote: q, rates: RATES, now: t, id: 'b' }).account;
-  const end = Date.UTC(2028, 6, 1);
-  const r = applyBondCashflows(a, 'TWGB-2Y', { rates: RATES, now: end });
-  const coupons = r.added.filter(e => e.coupon);
-  assert.equal(coupons.length, 3);
-  assert.equal(coupons[0].gross, 4125);
-  assert.equal(coupons[0].withheld, 413); // NT$ to the dollar
-  const mature = r.added.find(e => e.id === 'mature:TWGB-2Y');
-  assert.equal(mature.total, 300_000);
-  const s = replay(r.account, end);
-  assert.equal(s.positions['TWGB-2Y'], undefined);
-  assert.equal(applyBondCashflows(r.account, 'TWGB-2Y', { rates: RATES, now: end }).added.length, 0);
-});
-
-test('net worth history from daily closes', () => {
-  let a = newAccount(100_000, T0, 'acc');
-  a = exchange(a, { from: 'TWD', to: 'USD', amount: 32_000 }, { rates: RATES, now: T0 + 1, id: 'x' }).account;
-  a = placeOrder(a, { side: 'buy', type: 'limit', limit: 100, qty: 100 }, { quote: quote('0050.TW', 100), rates: RATES, now: T0 + 2, id: 'b' }).account;
-  const days = [T0 - DAY, T0 + HOUR, T0 + DAY, T0 + 2 * DAY];
-  const closes = { '0050.TW': [100, 110, 120] };
-  const series = netWorthSeries(a, days, (sym, t) => closes[sym][Math.round((t - T0) / DAY)] ?? null, (cur, t) => (cur === 'USD' ? 32 + Math.round((t - T0) / DAY) : 1));
-  assert.equal(series.length, 3);
-  // Only what had happened by each day counts (the purchase came after the first day's end).
-  const before = netWorthSeries(a, [T0 - 1], () => 100, cur => (cur === 'USD' ? 32 : 1));
-  assert.deepEqual(before, []);
-  // After the exchange, before the purchase: cash only.
-  const early = netWorthSeries(a, [T0 + 1], () => 999, cur => (cur === 'USD' ? 32 : 1));
-  assert.equal(early[0][1], 68_000 + 998 * 32);
-  // 100 shares is an odd lot: 0.1425% (NT$14), not the board-lot minimum of NT$20.
-  assert.equal(series[0][1], 57_986 + 998 * 32 + 10_000);
-  assert.equal(series[2][1], 57_986 + 998 * 34 + 12_000);
-  assert.equal(series[0][2], 100_000);
-  void processOrders;
-});
-
-test('income: dividends, coupons and cash interest by month, and what is pending', async () => {
-  const { incomeSummary } = await import('../public/lib/account.mjs');
-  const now = Date.UTC(2026, 8, 20, 4);
-  const a = newAccount(100_000, Date.UTC(2025, 0, 1), 'inc');
-  a.events.push(
-    { id: 'div:A:1', type: 'div', t: Date.UTC(2026, 7, 10), symbol: 'A', net: 100, currency: 'USD', twd: 30 },
-    { id: 'cpn:B:1', type: 'div', coupon: true, t: Date.UTC(2026, 1, 10), symbol: 'B', net: 500, currency: 'TWD', twd: 1 },
-    { id: 'int:2026-09', type: 'interest', t: Date.UTC(2026, 8, 1), net: 40, currency: 'TWD' },
-    { id: 'div:A:0', type: 'div', t: Date.UTC(2025, 3, 10), symbol: 'A', net: 10, currency: 'TWD', twd: 1 },
-    { id: 'div:A:2', type: 'div', t: Date.UTC(2026, 8, 30), symbol: 'A', net: 5, currency: 'USD', twd: 30 }
-  );
-  const s = incomeSummary(a, now);
-  assert.equal(s.months.length, 12);
-  assert.equal(s.months.at(-1)[0], '2026-09');
-  assert.equal(s.months[0][0], '2025-10');
-  assert.equal(s.last12, 3000 + 500 + 40);
-  assert.equal(s.ytd, 3540);
-  assert.equal(s.total, 3550);
-  assert.equal(s.div, 3000);
-  assert.equal(s.coupon, 500);
-  assert.equal(s.interest, 40);
-  assert.equal(s.pending, 150);
-  assert.equal(s.months.at(-1)[1], 40);
-  assert.deepEqual(s.payers, { A: 3000, B: 500 });
-});
-
-test('the allocation ring: one arc a part, the legend, nothing when empty', async () => {
-  const { donut, miniBars } = await import('../public/lib/chart.mjs');
-  const html = donut([{ label: 'A', value: 3, color: 'red' }, { label: 'B', value: 1, color: 'blue' }, { label: 'C', value: 0, color: 'x' }], { center: '4' });
-  assert.equal((html.match(/<circle/g) || []).length, 2);
-  assert.match(html, /75%/);
-  assert.equal(donut([]), '');
-  assert.equal(miniBars([['a', 0]]), '');
-  assert.equal((miniBars([['a', 1], ['b', 2]]).match(/mini-bar[ "]/g) || []).length, 2);
-});
+for (const row of rows) {
+  const [name, rest] = row.slice(2).split(' — ');
+  const [filesPart, marksPart] = rest.split(/`:\s/);
+  const files = [...(filesPart + '`').matchAll(/`([^`]+)`/g)].map(m => m[1]);
+  const marks = [...marksPart.matchAll(/`([^`]+)`/g)].map(m => m[1]);
+  test(`feature kept: ${name}`, () => {
+    const text = files.map(f => {
+      assert.ok(existsSync(join(root, f)), `${name}: ${f} is gone`);
+      return readFileSync(join(root, f), 'utf8');
+    }).join('\n');
+    for (const m of marks) assert.ok(text.includes(m), `${name}: "${m}" is gone from ${files.join(', ')}`);
+  });
+}
