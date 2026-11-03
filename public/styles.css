@@ -181,6 +181,7 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .num.at-limit { padding: 0 5px; border-radius: 6px; color: #fff; }
 .num.at-limit.up { background: var(--up); }
 .num.at-limit.down { background: var(--down); }
+.q-focus .q-focus-value.at-limit { align-self: flex-start; width: fit-content; padding: 0 8px; border-radius: 10px; color: #fff; }
 /* Sparklines */
 .spark { display: block; overflow: visible; }
 .spark path { fill: none; stroke: var(--q-label-2); stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; }

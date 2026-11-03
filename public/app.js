@@ -2171,10 +2171,10 @@ function closeDetail() {
 // up/down colour, and the market's state as one plain line (`tagsHtml`: no capsules but a
 // real exception, 漲停/跌停). `compact`: the order ticket's, a size down; `innerHtml`: what
 // else sits on the card (the detail's chart).
-function sheetHeroHtml({ badge, eyebrow, big, unit = '', move = '', dir = '', tagsHtml = '', bigAttr = '', compact = false, innerHtml = '' }) {
+function sheetHeroHtml({ badge, eyebrow, big, unit = '', move = '', dir = '', tagsHtml = '', bigAttr = '', compact = false, innerHtml = '', bigCls = '' }) {
   return `<div class="q-focus sym-hero${compact ? ' compact q-kb-hide' : ''}">
     <div class="sym-hero-name">${badge}<span class="q-focus-label">${h(eyebrow)}</span></div>
-    <strong class="q-focus-value num" ${bigAttr}>${h(big)}</strong>
+    <strong class="q-focus-value num${bigCls}" ${bigAttr}>${h(big)}</strong>
     <span class="q-focus-sub num">${unit ? `${h(unit)} · ` : ''}<span class="${dir}">${h(move)}</span></span>
     ${tagsHtml ? `<p class="sym-hero-status">${tagsHtml}</p>` : ''}${innerHtml}
   </div>`;
@@ -2230,6 +2230,8 @@ function renderDetail() {
         dir: dirClass(q.change),
         tagsHtml: `${marketStatus(q)}${tags}`,
         bigAttr: `data-q-live="big:${h(d.symbol)}"`,
+        // (At 漲停/跌停 the price on its red/green fill, as in the lists; lost 11-01.)
+        bigCls: limitClass(q),
         innerHtml: chartHtml
       })
     : // No price yet: the hero as it will be, its figures shimmering, the chart
@@ -4372,7 +4374,9 @@ function reliefSheetHtml() {
   const main = check.ok
     ? `<button class="q-btn primary block" type="button" data-action="relief">${h(t('reliefApply', { v: money(RELIEF.amount, BASE) }))}</button>`
     : `<p class="foot-note">${h(t(`reliefWhy_${check.why}`, { v: money(RELIEF.under, BASE), d: check.until ? shortDate(check.until) : '' }))}</p>`;
-  return `${main}<p class="foot-note">${h(t('reliefRules', { under: money(RELIEF.under, BASE), weeks: RELIEF.everyWeeks, year: RELIEF.perYear }))}</p>`;
+  // (The rules before the button, so 申請 docks at the sheet's foot as every tool page's does.)
+  const rules = `<p class="foot-note">${h(t('reliefRules', { under: money(RELIEF.under, BASE), weeks: RELIEF.everyWeeks, year: RELIEF.perYear }))}</p>`;
+  return check.ok ? `${rules}${main}` : `${main}${rules}`;
 }
 // A row of facts: a title over a line, its figure on the right.
 const factRow = (title, value, small = '', dir = '') => `<div class="q-ritem"><span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span>${small ? `<small>${h(small)}</small>` : ''}</span><span class="q-ritem-end"><strong class="num ${dir}">${h(value)}</strong></span></div>`;
