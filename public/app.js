@@ -5602,7 +5602,7 @@ function renderStatus() {
 }
 
 const TAB_ICONS = { home: 'home', markets: 'chart', portfolio: 'wallet', fx: 'exchange', history: 'history' };
-const tabNav = tabBar({ tabs: TABS.map(id => ({ id, label: t(`tab_${id}`), icon: TAB_ICONS[id] })), onSelect: (tab, { again }) => !again && showTab(tab) });
+const tabNav = tabBar({ tabs: TABS.map(id => ({ id, label: t(`tab_${id}`), icon: TAB_ICONS[id] })), onSelect: (tab, { again }) => !again && showTab(tab, { keep: true }) });
 function renderTabs() {
   tabNav.select(state.tab);
   tabNav.badge('history', state.account?.orders.filter(o => o.status === 'open').length || 0, { tone: 'warn' });
@@ -5781,11 +5781,13 @@ function refreshDetailLive() {
   redrawDetail();
 }
 
-function showTab(tab) {
+// (Its tab tapped in the bar: the kit has put the tab back where it was left,
+// Jay 2026-11-05 "switching tab force it to scroll back up"; from a link, a new screen at its top.)
+function showTab(tab, { keep = false } = {}) {
   if (!TABS.includes(tab)) return;
   state.tab = tab;
   render();
-  window.scrollTo(0, 0);
+  if (!keep) window.scrollTo(0, 0);
   if (tab === 'home' || tab === 'markets') refresh();
 }
 
