@@ -933,7 +933,7 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
    tab is two phone-width columns: the answer and its list on the left, what
    goes with it on the right; lists of like rows run in two (three) columns;
    like cards become a grid. Sheets stay a phone's width (the kit's). */
-:root.q-wide { --q-page-max: 1180px; }
+:root.q-wide { --q-page-max: var(--q-wide-max, 1180px); }
 .page .q-cols > div > :first-child { margin-top: 0; }
 /* (On a phone the columns stack: the next one's first section keeps the section gap, never jammed under the card above. Jay 11-03: 掛單中 ran into 已結束的委託.) */
 :root:not(.q-wide) .page .q-cols > div + div > .q-section:first-child { margin-top: var(--q-s-5, 24px); }
