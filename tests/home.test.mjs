@@ -41,3 +41,14 @@ test('首頁 on a phone is one flow (the place keeper holds it through a redraw)
   const css = readFileSync(new URL('../public/look.css', import.meta.url), 'utf8');
   assert.match(css, /\.sc-one > \* \+ \* \{\s*padding-top:/);
 });
+
+// Jay 2026-11-06: the quote header's grey dot touched 開盤前試撮. The hero
+// shows .mkt-status inline (no capsule, so no flex gap): the dot needs its own space.
+test('the market dot keeps its space where the status is a plain line', () => {
+  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const inline = /\.sym-hero-status > :is\([^)]*\.mkt-status[^)]*\) \{[^}]*display: inline;/.test(css);
+  if (!inline) return;
+  const rule = css.match(/\.sym-hero-status > \.mkt-status > \.mkt-dot \{([^}]*)\}/)?.[1] || '';
+  assert.match(rule, /margin-inline-end: [1-9]/);
+  assert.match(rule, /vertical-align:/);
+});

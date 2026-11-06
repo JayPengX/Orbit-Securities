@@ -601,6 +601,8 @@ a.act-row { color: inherit; }
 .sym-hero-status { margin: 0; color: var(--q-focus-2); font: var(--q-t-footnote); }
 .sym-hero-status > :is(.mkt-status, .q-tag:not(.solid)) { display: inline; min-height: 0; padding: 0; border-radius: 0; background: none; color: inherit; font: inherit; white-space: normal; }
 .sym-hero-status > .mkt-status small { font-weight: 400; white-space: normal; }
+/* (Inline here, so the capsule's gap is gone: the dot keeps its own space, centred on the words' middle.) */
+.sym-hero-status > .mkt-status > .mkt-dot { margin-inline-end: 6px; vertical-align: calc(0.4em - 3.5px); }
 .sym-hero-status > .q-tag.q-tag { white-space: nowrap; }
 .sym-hero-status > :not(:last-child)::after { content: ' · '; }
 /* The ticket's: a size down, the order is what it's about. */
