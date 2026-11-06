@@ -511,8 +511,11 @@ async function refresh({ list = false } = {}) {
     setBusy(true);
     try {
       // (A price that can't move until its market opens again, read after its
-      // day's last price was out, waits for 15 minutes before that: lib/rest.mjs.)
-      const ask = [...symbols].filter(s => !resting(state.quotes.get(s), now));
+      // day's last price was out, waits for 15 minutes before that: lib/rest.mjs.
+      // And one read in the last 25 seconds isn't asked again: the rest, asked
+      // without it, would make other batches than the reads just made, and no
+      // copy of those is kept.)
+      const ask = [...symbols].filter(s => !resting(state.quotes.get(s), now) && !(state.quotes.get(s)?.got > now - QUOTE_FRESH_MS));
       if (ask.length) absorb(await fetchQuotes(ask));
       await ensureRates(wantedCurrencies()).catch(() => {});
       state.error = null;
