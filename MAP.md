@@ -151,6 +151,7 @@ Live: https://orbit.jaypengx.com/securities/
     expires only once the proxy has answered after its end (`lib/orders.mjs`).
 - **Notices** (the kit's `stock` kinds): `alert`, `fill`, `order`, `margin`,
   `income`. The Worker sends alerts and pay days while the app is closed.
+  An alert, a plan's day or a dividend opens the stock (`#stock=<symbol>`, `openStockFromHash`).
 - **Offline:** covered (`onlineOnly`); never trades on old prices.
 - **Saved:** gzip (`codec.mjs`) on the Pass (`stock-study-accounts`).
   `snap.stock` reports cash, holdings and P/L to the wallet.
