@@ -202,7 +202,7 @@ function syncPush() {
   const items = [];
   for (const a of activeAlerts(account)) {
     if (a.hit || BONDS[a.symbol]) continue;
-    items.push({ at: a.since, until: a.since + 30 * 86_400_000, title: t(a.op === 'above' ? 'alertHitAbove' : 'alertHitBelow', { name: nameOf(a.symbol), price: fmtPrice(a.price, state.quotes.get(a.symbol)?.currency) }), body: t('alertNoticeBody'), tag: `alert:${a.id}`, hash: 'portfolio', kind: 'alert', check: { yahoo: a.symbol, op: a.op, price: a.price } });
+    items.push({ at: a.since, until: a.since + 30 * 86_400_000, title: t(a.op === 'above' ? 'alertHitAbove' : 'alertHitBelow', { name: nameOf(a.symbol), price: fmtPrice(a.price, state.quotes.get(a.symbol)?.currency) }), body: t('alertNoticeBody'), tag: `alert:${a.id}`, hash: stockHash(a.symbol), kind: 'alert', check: { yahoo: a.symbol, op: a.op, price: a.price } });
   }
   for (const o of account.orders.filter(x => x.status === 'open' && !BONDS[x.symbol] && (x.type === 'limit' || x.type === 'stop'))) {
     const price = Number(o.type === 'limit' ? o.limit : o.stop);
@@ -212,11 +212,11 @@ function syncPush() {
   }
   for (const p of activePlans(account)) {
     const next = nextPlanRun(p, now);
-    if (next) items.push({ at: next + 9 * 3_600_000, title: t('noticePlanTitle', { name: nameOf(p.symbol) }), body: t('noticePlanDay', { amount: money(p.amount, BASE) }), tag: `plan:${p.id}:${next}`, hash: 'portfolio', kind: 'fill' });
+    if (next) items.push({ at: next + 9 * 3_600_000, title: t('noticePlanTitle', { name: nameOf(p.symbol) }), body: t('noticePlanDay', { amount: money(p.amount, BASE) }), tag: `plan:${p.id}:${next}`, hash: stockHash(p.symbol), kind: 'fill' });
   }
   // Dividends on the way: the day each is paid.
   for (const e of pendingDividends(account, now)) {
-    items.push({ at: e.t, title: t('noticeDivPayTitle', { name: nameOf(e.symbol), amount: money(e.net, e.currency) }), body: t('noticeDivPayBody'), tag: `div:${e.symbol}:${e.t}`, hash: 'portfolio', kind: 'income' });
+    items.push({ at: e.t, title: t('noticeDivPayTitle', { name: nameOf(e.symbol), amount: money(e.net, e.currency) }), body: t('noticeDivPayBody'), tag: `div:${e.symbol}:${e.t}`, hash: stockHash(e.symbol), kind: 'income' });
   }
   schedulePush(q, items);
 }
@@ -743,13 +743,34 @@ const pricesLive = () => state.loaded && !state.fromCache;
 
 // ---- Price alerts: notifications -----------------------------------------------
 
+// A notice about one stock (an alert reached, a plan's day, a dividend paid)
+// opens that stock's page: #stock=<symbol> (Jay 2026-11-06, "open what that
+// notification is"); fills and orders stay on 紀錄, where they are.
+const stockHash = symbol => `stock=${encodeURIComponent(symbol)}`;
+const hashStock = () => {
+  const m = /^#stock=([^&]+)$/.exec(location.hash);
+  try {
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
+  }
+};
+// Opened from one: the stock's page over the tab, once the account's in;
+// the address cleared after, so the same notice tapped again opens it again.
+function openStockFromHash() {
+  const symbol = hashStock();
+  if (!symbol || !state.accountReady) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  $('loading').hidden = true;
+  if (state.detail?.symbol !== symbol) openDetail(symbol);
+}
 function alertText(a) {
   return t(a.op === 'above' ? 'alertHitAbove' : 'alertHitBelow', { name: nameOf(a.symbol), price: fmtPrice(a.hit?.price ?? a.price, state.quotes.get(a.symbol)?.currency) });
 }
 // The kit's notices (orbit.mjs): a banner while the app is on screen, a
 // system notice when it isn't (once turned on in the account sheet).
 function alertFired(a, { late = false } = {}) {
-  notify(q, { title: alertText(a), body: [t('alertNoticeBody'), late ? dateTime(a.hit.t) : ''].filter(Boolean).join(' · '), tag: `alert:${a.id}:${a.hit?.t || ''}`, hash: 'portfolio', kind: 'alert' });
+  notify(q, { title: alertText(a), body: [t('alertNoticeBody'), late ? dateTime(a.hit.t) : ''].filter(Boolean).join(' · '), tag: `alert:${a.id}:${a.hit?.t || ''}`, hash: stockHash(a.symbol), kind: 'alert' });
 }
 // An order filled: a toast on screen, a notice when the app is in the background.
 function filledNotice(text, fill) {
@@ -6467,6 +6488,7 @@ document.addEventListener('change', event => {
 }
 // A notice's banner (or a link) that points at a tab while the app is open.
 window.addEventListener('hashchange', () => {
+  if (hashStock()) return openStockFromHash();
   const tab = location.hash.slice(1);
   if (TABS.includes(tab) && tab !== state.tab) showTab(tab);
 });
@@ -6564,6 +6586,7 @@ async function boot() {
   if (state.fromCache) $('loading').hidden = true;
   checkIncome();
   render();
+  openStockFromHash();
   backfillOrders()
     .catch(() => {})
     .then(checkMarginHistory)
