@@ -69,7 +69,10 @@ Live: https://orbit.jaypengx.com/securities/
   never add money.
 - **Prices:** Yahoo Finance through the data proxy (`lib/quotes.mjs`):
   spark quotes, charts, search, quoteSummary. Refreshed every 45 s while
-  visible.
+  visible; a price whose market is shut till a later session, read after
+  its day's last price (close + the market's delay + 30 min), isn't asked
+  again until 15 minutes before that session (`lib/rest.mjs` `resting`:
+  never crypto, currencies, futures or what's priced from them).
 - **Real-broker rules** (`lib/markets.mjs`, `credit.mjs`, `savings.mjs`,
   `bonds.mjs`):
   - each market's commissions, taxes, ticks, price limits, lots, lunch

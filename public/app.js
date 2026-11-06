@@ -9,6 +9,7 @@ import {
 } from './lib/markets.mjs';
 import { BONDS } from './lib/bonds.mjs';
 import { nextTradingStart, upcomingHolidays, localDay } from './lib/holidays.mjs';
+import { resting } from './lib/rest.mjs';
 import { fetchQuotes, fetchChart, fetchBars, fetchCorporateActions, fetchFundamentals, searchSymbols, fxSymbol } from './lib/quotes.mjs';
 import { CATEGORIES, COUNTRIES, MARKET_INDEXES, OVERVIEW, PRODUCTS, SUB_FLAGS, SUBS, TRACKERS, catalogInfo, searchCatalog, subPicks } from './lib/catalog.mjs';
 import { brandIcon, brandLogo } from './lib/brands.mjs';
@@ -509,7 +510,10 @@ async function refresh({ list = false } = {}) {
     }
     setBusy(true);
     try {
-      absorb(await fetchQuotes([...symbols]));
+      // (A price that can't move until its market opens again, read after its
+      // day's last price was out, waits for 15 minutes before that: lib/rest.mjs.)
+      const ask = [...symbols].filter(s => !resting(state.quotes.get(s), now));
+      if (ask.length) absorb(await fetchQuotes(ask));
       await ensureRates(wantedCurrencies()).catch(() => {});
       state.error = null;
       state.updated = Date.now();
@@ -2030,12 +2034,13 @@ async function openDetail(symbol) {
   dialog.scrollTop = 0;
   renderDetail();
   // The chart and the company's numbers start at once, beside the quote;
-  // a quote read in the last 25 seconds (the list's) isn't read again.
+  // a quote read in the last 25 seconds (the list's), or one whose market is shut
+  // till later and read after its day's last price (lib/rest.mjs), isn't read again.
   loadChart();
   loadAbout(symbol);
   // (A convertible bond's shares too, for its 轉換價值.)
   const also = cbStockSyms(symbol).filter(s => !state.quotes.has(s));
-  const fresh = q0?.got > Date.now() - QUOTE_FRESH_MS && !also.length;
+  const fresh = (q0?.got > Date.now() - QUOTE_FRESH_MS || resting(q0)) && !also.length;
   try {
     if (!fresh) absorb(await fetchQuotes([symbol, ...also]));
     const q = state.quotes.get(symbol);
