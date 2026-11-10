@@ -155,6 +155,7 @@ Live: https://orbit.jaypengx.com/securities/
 - **Offline:** covered (`onlineOnly`); never trades on old prices.
 - **Saved:** gzip (`codec.mjs`) on the Pass (`stock-study-accounts`).
   `snap.stock` reports cash, holdings and P/L to the wallet.
+  The family notebook on the phone (kit `family.mjs` `stock.holds`, `tellHolds`) gets the names of the shares and funds held, never an amount, for Orbit News' 你關心的.
 
 ## Decisions in force
 

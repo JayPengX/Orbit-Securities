@@ -5585,6 +5585,27 @@ async function mergeRemote(remote, { pull = false, applied = () => {} } = {}) {
   state.wallet = wallet;
   state.sync.error = null;
   state.sync.at = Date.now();
+  tellHolds(sAll);
+}
+
+// The family's notebook (kit family.mjs): what the account holds, names only
+// (never an amount or a price), for Orbit News' 持股新聞. Shares and funds
+// held long; futures, options and bonds aren't news by name.
+let toldHolds = '';
+function tellHolds(s) {
+  const holds = Object.entries(s?.positions || {})
+    .filter(([sym, p]) => p.qty > 0 && !BONDS[sym] && !stockMarkets.isFuture?.(sym) && !stockMarkets.isOption?.(sym))
+    .map(([sym]) => {
+      const info = catalogInfo(sym);
+      const zh = info?.zh || twZhName(sym) || '';
+      const tw = /\.(TW|TWO)$/.test(sym);
+      return { code: sym.replace(/\.(TW|TWO)$/, ''), symbol: sym, name: zh || info?.en || sym, en: info?.en || '', market: tw ? 'tw' : '' };
+    })
+    .slice(0, 60);
+  const key = JSON.stringify(holds);
+  if (key === toldHolds) return;
+  toldHolds = key;
+  import('#kit/family.mjs').then(f => f.tell?.('stock', 'holds', holds)).catch(() => {});
 }
 
 // What the person does here, for every app's recommendations (orbit.mjs).
