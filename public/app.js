@@ -2060,6 +2060,7 @@ function openSaidOrder() {
 
 async function openDetail(symbol) {
   track(symbolKeys(symbol), 1);
+  loadNews();
   // (Opened from 為你推薦 it's counted there already: the engine counts an open once.)
   feedback?.picked('stock', stockItem(symbol), Date.now(), { from: 'elsewhere' });
   const q0 = state.quotes.get(symbol);
@@ -2318,6 +2319,7 @@ function renderDetail() {
     ${q ? sectionHtml(t('guideTitle'), guideHtml(q)) : ''}
     ${q ? toolsHtml(d.symbol, q) : ''}
     ${q ? aboutHtml(d.symbol, q) : ''}
+    ${q ? newsHtml(d.symbol, q) : ''}
     ${ownTradesHtml(d.symbol)}
     ${
       // 買進/賣出 docked along the sheet's foot (not floating over it): two even buttons, the width
@@ -3044,6 +3046,38 @@ function fundAboutHtml(f, q, a) {
     ])}`;
 }
 
+// 持股新聞 (the family's links, Jay 11-10): the stories in Orbit News whose
+// headlines name this one (news/index.json, matched as News' 你關心的 does:
+// the kit's namesRe), newest weight first, each opening it in News.
+let newsKit = null;
+let newsPage = null;
+let newsAt = 0;
+function loadNews() {
+  if (Date.now() - newsAt < 120_000) return;
+  newsAt = Date.now();
+  Promise.all([import('#kit/news-outlets.mjs'), kitOrbit.packJson?.('news/index.json', { ttl: 120_000, timeout: 20_000 })])
+    .then(([k, page]) => {
+      newsKit = k;
+      newsPage = page && typeof page === 'object' ? page : null;
+      if (state.detail) renderDetail();
+    })
+    .catch(() => {});
+}
+function newsHtml(symbol, q) {
+  if (!newsKit?.namesRe || !newsPage || BONDS[symbol] || !['stock', 'etf'].includes(q.kind)) return '';
+  const info = catalogInfo(symbol);
+  const tw = /\.(TW|TWO)$/.test(symbol);
+  const re = newsKit.namesRe([info?.zh || twZhName(symbol), info?.en], tw ? [symbol.replace(/\.(TW|TWO)$/, '')] : []);
+  if (!re) return '';
+  const stories = [...(newsPage.tw || []), ...(newsPage.intl || [])].filter(s => s?.id && s.title && re.test(newsKit.storyText(s))).slice(0, 4);
+  if (!stories.length) return '';
+  const today = localDay(Date.now(), 'Asia/Taipei');
+  const when = at => (localDay(at, 'Asia/Taipei') === today ? clock(at) : shortDate(at));
+  const rows = stories
+    .map(s => `<a class="q-cell chevron" href="/news/#s=${h(s.id)}" data-go="news" data-hash="s=${h(s.id)}"><span class="q-cell-text"><span lang="${s.region === 'intl' ? 'en' : 'zh-Hant'}">${h(s.title)}</span><small>${h(t('newsSub', { n: s.n || 1, when: when(s.at) }))}</small></span></a>`)
+    .join('');
+  return sectionHtml(t('newsTitle'), `<div class="q-list">${rows}</div><p class="foot-note">${h(t('newsFoot'))}</p>`);
+}
 function ownTradesHtml(symbol) {
   if (!state.account) return '';
   const fills = state.account.events.filter(e => e.symbol === symbol && (e.type === 'fill' || e.type === 'div' || e.type === 'split')).slice(-6).reverse();

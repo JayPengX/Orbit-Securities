@@ -15,3 +15,4 @@ To remove a feature on purpose, delete its line here in the same commit and say 
 - 資金 › 你的帳戶: 財富等級, 真相, weekly pay, 急難紓困 — `public/app.js`: `ranksHtml`, `truthTitle`, `nextPayday`, `reliefSheetHtml`
 - 統計 — `public/app.js`: `statsHtml`
 - 用說的下單: an order typed in words in the search fills the ticket — `public/app.js`, `public/lib/sayorder.mjs`: `sayOrderRow`, `readOrder`
+- 持股新聞: a stock's sheet lists the Orbit News stories that name it, each opening in News — `public/app.js`: `newsHtml`, `loadNews`

@@ -766,6 +766,9 @@ export const STRINGS = {
     toastPlanSkipped: '定期定額跳過 {name}：{why}',
 
     aboutCompany: '這家公司',
+    newsTitle: '新聞',
+    newsSub: '{n} 家媒體 · {when}',
+    newsFoot: '標題提到它的新聞，在 Orbit News 打開。',
     aboutFund: '這檔 ETF 裡面有什麼', aboutTwFund: '基金概況',
     aboutLoading: '讀取公司資料中…',
     aboutNone: '沒有這一檔的公司資料。',
@@ -1782,6 +1785,9 @@ export const STRINGS = {
     toastPlanSkipped: 'Monthly plan skipped {name}: {why}',
 
     aboutCompany: 'About the company',
+    newsTitle: 'In the news',
+    newsSub: '{n} outlets · {when}',
+    newsFoot: 'Stories whose headlines name it; they open in Orbit News.',
     aboutFund: 'What’s inside this fund', aboutTwFund: 'About this fund',
     aboutLoading: 'Loading company data…',
     aboutNone: 'No company data for this one.',
