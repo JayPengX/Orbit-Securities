@@ -17,6 +17,7 @@ import { tvLogos } from './lib/tvlogos.mjs';
 import { TV_ROUND } from './lib/tvround.mjs';
 import { TW_NAMES } from './lib/twnames.mjs';
 import { twHits, twFirst } from './lib/twsearch.mjs';
+import { readOrder, sharesFor } from './lib/sayorder.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
@@ -1991,14 +1992,17 @@ function onSearchInput(value) {
     await Promise.all(NEEDS_LISTINGS(q).map(m => loadListing(m).catch(() => {})));
     if (state.query !== q) return;
     const local = localHits(q);
+    // 用說的下單: an order in plain words (用 5 萬買台積電零股) offers its ticket, filled.
+    const order = readOrder(q);
+    const orderSym = order ? localHits(order.name)[0] || null : null;
     let remote = [];
     try {
       remote = await searchSymbols(q);
     } catch {}
     if (state.query !== q) return;
     const extra = twFirst(remote.filter(r => !local.includes(r.symbol)));
-    state.search = { query: q, results: extra, loading: false };
-    const missing = [...local, ...extra.map(r => r.symbol)].filter(s => !state.quotes.has(s)).slice(0, 40);
+    state.search = { query: q, results: extra, loading: false, order: orderSym ? { ...order, symbol: orderSym } : null };
+    const missing = [...(orderSym ? [orderSym] : []), ...local, ...extra.map(r => r.symbol)].filter(s => !state.quotes.has(s)).slice(0, 40);
     if (missing.length) {
       try {
         absorb(await fetchQuotes(missing));
@@ -2012,13 +2016,46 @@ function renderSearch() {
   const q = state.query;
   const local = localHits(q);
   const extra = state.search.query === q ? state.search.results : [];
-  const rows = [...local.map(s => quoteRow(s)), ...extra.map(r => quoteRow(r.symbol, { note: r.exchange }))];
+  const order = state.search.query === q ? sayOrderRow(state.search.order) : '';
+  const rows = [...(order ? [order] : []), ...local.map(s => quoteRow(s)), ...extra.map(r => quoteRow(r.symbol, { note: r.exchange }))];
   const empty = state.search.loading && state.search.query === q ? t('searching') : t('noResults');
   morph(
     $('markets-body'),
     `<section class="q-section list-section">${rows.length ? `<div class="q-rowcard quotes">${rows.join('')}</div>` : `${plainEmpty(empty)}`}${/[^\x20-\x7e]/.test(q) || state.search.loading ? '' : `<p class="foot-note">${h(t('searchNote'))}</p>`}</section>`
   );
 }
+// 用說的下單's row: what the words came to (買進 台積電 零股 · NT$50,000 ≈ 45 股),
+// a tap opening the stock's ticket filled in; nothing is placed until the
+// person places it.
+function sayOrderQty(o) {
+  const q = state.quotes.get(o.symbol);
+  return sharesFor(o, { price: q?.price || 0, held: snap()?.positions[o.symbol]?.qty || 0, lot: q?.market === 'TW' ? 1000 : 1 });
+}
+function sayOrderRow(o) {
+  if (!o) return '';
+  const q = state.quotes.get(o.symbol);
+  const n = sayOrderQty(o);
+  const what = [t(o.side === 'buy' ? 'buy' : 'sell'), nameOf(o.symbol, q), o.odd ? t('sayOrderOdd') : ''].filter(Boolean).join(' ');
+  const how = [o.money ? money(o.money, 'TWD') : '', n ? t('sayOrderShares', { n: fmtQty(n) }) : o.money && q ? t('sayOrderTooSmall') : ''].filter(Boolean).join(' ≈ ');
+  return `<button class="q-ritem quote say-order" type="button" data-action="say-order">
+    ${symbolBadge(o.symbol, q || catalogInfo(o.symbol))}
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(what)}</span><small>${h([t('sayOrderTag'), how].filter(Boolean).join(' · '))}</small></span>
+    <span class="q-ritem-end"><strong class="say-order-go">${h(t('sayOrderGo'))}</strong></span>
+  </button>`;
+}
+function openSaidOrder() {
+  const o = state.search.order;
+  if (!o) return;
+  const n = sayOrderQty(o);
+  openDetail(o.symbol);
+  if (!state.detail || state.detail.symbol !== o.symbol) return;
+  openTrade(o.side);
+  if (n > 0) state.detail.qty = String(n);
+  // (An odd lot in Taiwan takes a limit order: at the price now.)
+  if (o.odd && n % 1000) state.detail.type = 'limit';
+  renderTicket();
+}
+
 // ---- Detail sheet: chart, facts, trade ticket ------------------------------------------
 
 async function openDetail(symbol) {
@@ -5914,6 +5951,9 @@ document.addEventListener('click', async event => {
       break;
     case 'trade':
       openTrade(el.dataset.side);
+      break;
+    case 'say-order':
+      openSaidOrder();
       break;
     case 'trade-close':
       closeTrade();

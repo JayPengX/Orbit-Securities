@@ -166,6 +166,7 @@ Live: https://orbit.jaypengx.com/securities/
 - 新股申購 uses TWSE's real list, drawn by the proxy at TWSE's rate.
 - 處置 and 注意 stocks (TWSE's lists, via the proxy) are tagged on holdings and the quote, with the 處置 rules on the ticket (lib/alerts.mjs).
 - Non-US government bonds use reference curves (no free live source).
+- **用說的下單** (the family's AI plan, Jay 11-10; code only, `lib/sayorder.mjs`): an order typed in the search in plain words (用 5 萬買台積電零股, 買兩張鴻海, 賣掉一半聯發科; 萬, 千 and Chinese numbers read) shows a row on top of the results, what it came to (NT$50,000 ≈ 21 股 at the price now); a tap opens the stock's ticket filled in (side, shares, 限價 for an odd lot). Nothing is placed until the person places it.
 - Taiwan stocks are found by code and by Chinese name (`lib/twsearch.mjs`),
   ahead of Yahoo's results (which give Tokyo's 6898 for TW's), and named in
   Chinese from `lib/twnames.mjs` or TWSE's subscription list.
@@ -193,7 +194,7 @@ app and the Worker that checks it); the rules live in the kit.
 | `holidays.mjs` | Exchange holidays (not Taiwan's days off: that's the kit's) |
 | `foryou.mjs`, `series.mjs` | 為你推薦 (only what can be bought; ranked by the kit's one engine, `feedback.mjs`: the five 首頁 shows, opened from the rail or anywhere (`openDetail`), kept, planned, traded and what's held (`acted`, `seedFeedback`), learnt by thing, sector, kind and market and kept on the Pass (`fb:stock`, `feedback.keep`): what's passed over sinks, what's opened rises); a price series at a moment, moving averages |
 | `orders.mjs`, `preview.mjs` | When a day order expires; what a screen shows before it's done (the ticket's estimate, the most a short can sell, a 定存's end), by the same rules that then do it |
-| `twse.mjs`, `twsearch.mjs`, `alerts.mjs` | TWSE's sessions; finding Taiwan stocks by code or name; 處置 and 注意 lists |
+| `twse.mjs`, `twsearch.mjs`, `sayorder.mjs`, `alerts.mjs` | TWSE's sessions; finding Taiwan stocks by code or name; an order in words; 處置 and 注意 lists |
 | `brands.mjs`, `tvlogos.mjs`, `tvround.mjs`, `twnames.mjs` | Generated logo and name tables |
 | `../app.js` | Rendering and wiring |
 

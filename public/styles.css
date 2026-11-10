@@ -989,3 +989,6 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
   #detail-body > :nth-child(2) { margin-top: 0; }
   #detail-body > .trade-bar { grid-column: 1 / -1; }
 }
+
+/* 用說的下單: the row an order in words makes, on top of the search. */
+.say-order .say-order-go { color: var(--q-accent); font-weight: 600; white-space: nowrap; }
