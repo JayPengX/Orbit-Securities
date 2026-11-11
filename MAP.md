@@ -4,59 +4,32 @@ A Taiwan broker on play money, with real prices and a real broker's rules:
 Taiwan's and the world's stocks, ETFs and funds; forex, bonds, crypto and
 gold; margin, shorts and Taiwan credit trading; time deposits, securities
 lending and 新股申購. Its NT$ cash is the account's money: the weekly pay,
-loans, relief and level rewards all land here.
+relief and level rewards land here. Live: https://orbit.jaypengx.com/securities/
 
-Live: https://orbit.jaypengx.com/securities/
+## Rules
+
+Jay's, dated (Taiwan day), newest wins; the family's (the economy, money only here) are in Orbit-Core `docs/RULEBOOK.md`.
+
+- 10-21 List every product a person in Taiwan can legally buy; 10-23 with its real rules, applications and restrictions, however annoying (kit `stock-access.mjs` gates, the 開戶與交易資格 sheet).
+- Like a real broker, not a teaching tool: no "simulated" or "practice" wording. Earns like a broker (about 0.3% of turnover).
+- Orders are filled and cash counted by the proxy (`stock-fill.js`), never the phone; a phone's own figures never add money.
+- 10-22 One product bar in 市場; every list is the picks, then the whole listing.
+- 10-23 Trading days follow 臺北市's 停止上班.
+- 10-27 現股當沖 follows TWSE: account open 3 months with 10 trades in the last year, or a credit account, plus the signed 風險預告書 (replaced 12 months, 10-24).
+- 10-28 A symbol's sheet opens on the focus card (as 資產's), the chart on it; 買進/賣出 two even buttons, the price not repeated. The order ticket keeps one floating button, the total on its second line, the page fading under it.
+- 10-30 No 信貸 (personal loan): a broker doesn't make one; the only borrowing is 融資 against the shares it buys.
+- 10-31 Home shows every market (each country, 加密, 基金, 黃金, 外匯, 更多) with its day's move, not just 台股; no empty-holdings card.
+- 11-03 The home opens on 總資產 (replaced 10-21's no balance on the home). `tests/home.test.mjs`.
+- 11-06 Quota first: the server checks prices and the account only so bad local data can't corrupt real data, never heavy fraud-proofing.
+- 11-10 The family's AI: 用說的下單 is code only and places nothing until the person does; 這筆交易學到什麼 and 重大訊息白話 are drawn (rows the one AI line rests on lit), never a paragraph, never advice.
+- Up is red in Chinese, green in English (switchable). Non-US government bonds use reference curves (no free live source). 新股申購 uses TWSE's real list, drawn by the proxy at TWSE's rate.
+- Logo and name tables are generated (`scripts/brand-logos.mjs`, `tv-logos.mjs`, `tv-round.mjs`, `tw-names.mjs`); never edit them by hand.
 
 ## How it works
 
-- **Tabs:** 首頁, 市場, 資產, 資金, 紀錄.
-  - **首頁** (Orbit's own look, `renderHome()` in `public/app.js`, `public/look.css`):
-    one graphite card, 我的: 總資產 as the big number and its day under it (a tap
-    opens 資產; Jay 11-03 "Forget my rules" lifted RULEBOOK 10-21's no balance),
-    then what's held (by value, with how much) and what's starred, as rows
-    (`nvRow`: logo, name, price, the day's move as coloured text and a thin band
-    of it at the row's edge; six, then the kit's 再看 bar); 各市場 as compact
-    rows with each index and its day (台、美、日、港、陸、韓、歐, 加密, 基金, 黃金,
-    外匯, 更多 = 總覽: `homeMarkets()`); 今日漲跌幅 with text tabs by market;
-    為你推薦 with why (its code instead under 360 wide); 新股申購, what's coming.
-    No sparklines, pills or flag tiles. Guarded by `tests/home.test.mjs`.
-  - **市場:** search, then one product bar (總覽, 自選, 台股, 期權, 複委託,
-    基金, 債券, 外匯, 黃金, 加密: `PRODUCTS` in `lib/catalog.mjs`) and the
-    open product's lists under it (台股: 上市, 上櫃, 興櫃, ETF, 權證, 牛熊證,
-    可轉債, 特別股・REITs…; 期權: 台指期貨, 個股期貨, ETF 期貨,
-    台指選擇權). Every list is the same: the curated picks, then
-    everything that market lists (`public/data/listings-*.json`), 50 rows at
-    a time. Home's tiles open the same places. 總覽 opens with 各國市場: a flag per
-    country (台、美、日、港、陸、韓、歐, `COUNTRIES` in `lib/catalog.mjs`) with
-    its index's day, one tap to that country's list.
-  - **資產:** net worth over time, allocation, positions, cash in every
-    currency, income.
-  - **資金:** exchange, the rates board, margin loans; then 你的帳戶: 急難紓困
-    when broke (the kit's `pay.mjs` rules, asked through the Pass session),
-    財富等級. No personal loan (a broker doesn't make one; removed 10-30),
-    and 真相 (where the money came from, the government's side,
-    what trading costs: `lib/truth.mjs`). The Orbit Pass holds no money:
-    all of it is shown here.
-  - **紀錄:** activity, orders, stats (against 0050, VOO, BTC and gold).
-    交易明細 draws each record's row first, then groups by Taipei day
-    (`lib/activity.mjs` `dayGroups`): a record with no row never makes an
-    empty day, and every kind of record the log makes has a row (開戶 papers,
-    信用帳戶, 展延, 期貨入出金 included; `tests/history.test.mjs`). 委託 rows:
-    the name and one line (how many, at what); an open one has the kit's 取消
-    pinned beside its name and its wait in grey (等開盤 · 至週三 13:30); a past
-    one ends with how it ended over when. No orange, nothing wraps at 320.
-- **Every screen** (the kit's `q-wide`/`q-w3` marks, `styles.css` "Every screen"):
-  with room for two columns each tab is two phone-width columns (首頁:
-  yours and the markets left, movers and picks right;
-  資產: the account left, positions right; 資金: exchange and rates left,
-  tools and account right; 紀錄: the activity with 統計分析 beside it, open orders beside past ones), quote lists
-  run in two (three) columns, sheets stay a phone's width. A phone on its
-  side gets shorter charts and focus cards. Charts redraw on `onScreen()`.
-- **The detail sheet:** charts (line or candles, MA5/20/60), the facts,
-  your position, the ticket (market, limit, stop; quick sizes; a cost
-  preview; one-tap exchange or 融資買進 when short), price alerts, 定期定額,
-  and a plain-language read of the company or fund.
+- **Tabs:** 首頁 (我的: 總資產 and its day, what's held and starred as rows; 各市場; 今日漲跌幅; 為你推薦; 新股申購; `renderHome()`) · 市場 (search, the product bar `PRODUCTS` in `lib/catalog.mjs`, each list the picks then everything from `public/data/listings-*.json`, 50 rows at a time) · 資產 · 資金 (exchange, rates, margin loans; 你的帳戶: 急難紓困 by the kit's `pay.mjs`, 財富等級, 真相 `lib/truth.mjs`) · 紀錄 (activity grouped by Taipei day, `dayGroups`, every kind of record with a row; orders; stats against 0050, VOO, BTC and gold). Wide screens: two phone-width columns a tab.
+- **The detail sheet:** charts (line or candles, MA5/20/60), facts, your position, the ticket (market, limit, stop, quick sizes, a cost preview), alerts, 定期定額, a plain read of the company; 重大訊息 (`lib/filings.mjs`, Orbit-Core `builders/filings.js` → `/data/stock/filings/`, `sec-filing`); 持股新聞 (News' stories naming it, kit `namesRe`); 這筆交易學到什麼 from 交易明細 (`lib/lesson.mjs`, `sec-lesson`); 用說的下單 in the search (`lib/sayorder.mjs`).
+- Taiwan stocks are found by code and Chinese name (`lib/twsearch.mjs`) ahead of Yahoo's results; TWSE's sessions as the kit has them (`lib/twse.mjs`); 處置 and 注意 tags (`lib/alerts.mjs`).
 - **The account is a log** (`lib/account.mjs`): immutable events, orders
   whose status only moves forward. Cash, holdings, cost and loans come from
   replaying it. Two devices merge by uniting logs.
@@ -157,28 +130,6 @@ Live: https://orbit.jaypengx.com/securities/
   `snap.stock` reports cash, holdings and P/L to the wallet.
   The family notebook on the phone (kit `family.mjs` `stock.holds`, `tellHolds`) gets the names of the shares and funds held, never an amount, for Orbit News' 你關心的.
 
-## Decisions in force
-
-- Like a real broker, not a teaching tool: no "simulated" or "practice"
-  wording.
-- Up is red in Chinese, green in English (switchable).
-- Earns like a broker (about 0.3% of turnover).
-- 新股申購 uses TWSE's real list, drawn by the proxy at TWSE's rate.
-- 處置 and 注意 stocks (TWSE's lists, via the proxy) are tagged on holdings and the quote, with the 處置 rules on the ticket (lib/alerts.mjs).
-- Non-US government bonds use reference curves (no free live source).
-- **用說的下單** (the family's AI plan, Jay 11-10; code only, `lib/sayorder.mjs`): an order typed in the search in plain words (用 5 萬買台積電零股, 買兩張鴻海, 賣掉一半聯發科; 萬, 千 and Chinese numbers read) shows a row on top of the results, what it came to (NT$50,000 ≈ 21 股 at the price now); a tap opens the stock's ticket filled in (side, shares, 限價 for an odd lot). Nothing is placed until the person places it.
-- **這筆交易學到什麼** (the family's AI, Jay 11-10; `app.js` `openLesson`, `renderLesson`; `lib/lesson.mjs`): a fill that closed a holding opens, from 交易明細 (`activityTarget` → `lesson`), its result as the focal number and its rows worked out from the account (cost, sale, days held, the best and worst close while held from `fetchChart`, the market over the same days: `^TWII`, `^GSPC`, `^HSI`, `^N225`; what trading cost); the AI's one line (Orbit-Core `sec-lesson`, once a sale on the phone) lights the one or two rows it rests on; 看〈名〉 opens the stock. Never advice.
-- **重大訊息白話** (the family's AI, Jay 11-10; `app.js` `filingsHtml`, `loadFilings`, `tellFilings`; `lib/filings.mjs`): a Taiwan stock's or ETF's sheet shows its 重大訊息 of the past week (Orbit-Core's `builders/filings.js` → `/data/stock/filings/<last two digits>.json` by `packJson`), each a card: its title without the form's words, its time, its rows as label and figure; the AI's one plain line (Orbit-Core `sec-filing`, asked for the newest two on opening, kept for everyone once asked) lights the rows it rests on; 全部 N 項 shows the rest (`filing-more`). Never a paragraph (Jay 11-11).
-- **持股新聞** (the family's links, Jay 11-10; `app.js` `newsHtml`, `loadNews`): a stock's or ETF's sheet lists up to 4 Orbit News stories whose headlines name it (`/data/news/index.json` by `packJson`, matched by the kit's `news-outlets.mjs` `namesRe`: its Chinese and English names, a Taiwan code standing alone), each opening the story in News (`data-go`).
-- Taiwan stocks are found by code and by Chinese name (`lib/twsearch.mjs`),
-  ahead of Yahoo's results (which give Tokyo's 6898 for TW's), and named in
-  Chinese from `lib/twnames.mjs` or TWSE's subscription list.
-- TWSE's sessions as the kit has them: 13:25-13:30 closing call auction,
-  after-hours odd lots from 13:40 and 盤後定價 from 14:00; a whole-lot day
-  order waits for the 13:30 match (`lib/twse.mjs`).
-- Logo and name tables are generated (`scripts/brand-logos.mjs`,
-  `scripts/tv-logos.mjs`, then `scripts/tv-round.mjs` for the disc icons' tile colour,
-  `scripts/tw-names.mjs`); never edit them by hand.
 
 ## Files (`public/lib`)
 
