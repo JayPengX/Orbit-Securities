@@ -48,3 +48,26 @@ test('asked about: the newest two with rows not told yet', () => {
   assert.deepEqual(toAsk(filingsOf(doc, '2330', now), new Set()).map(f => f.id), ['a']);
   assert.deepEqual(toAsk(filingsOf(doc, '2330', now), new Set(['a'])), []);
 });
+
+// 這筆交易學到什麼 (lib/lesson.mjs): a closed sale's rows from the account's own numbers.
+import { lessonOf, lessonFacts, indexOf } from '../public/lib/lesson.mjs';
+test('a sale told back: cost, sale, days, best and worst close while held, the market alongside, the costs', () => {
+  const day = 86_400_000;
+  const t0 = Date.parse('2026-10-01T02:00:00Z');
+  const c = { id: 'x', t: t0 + 10 * day, symbol: '2330.TW', qty: 100, cost: -100_000, realized: 5000, realizedLocal: 5000, pct: 0.05, held: 10 * day };
+  const e = { id: 'x', price: 1050, commission: 150, tax: 315 };
+  const closes = Array.from({ length: 11 }, (_, i) => [t0 + i * day, [1000, 990, 980, 1010, 1100, 1080, 1060, 1040, 1030, 1045, 1050][i]]);
+  const market = [[t0, 20000], [t0 + 10 * day, 21000]];
+  const l = lessonOf(c, e, { closes, market });
+  assert.deepEqual(l.rows.map(r => r.id), ['pl', 'buy', 'sell', 'held', 'high', 'low', 'market', 'costs']);
+  assert.equal(l.rows[1].value, 1000);
+  assert.equal(l.rows.find(r => r.id === 'high').value, 1100);
+  assert.equal(l.rows.find(r => r.id === 'low').value, 980);
+  assert.ok(Math.abs(l.rows.find(r => r.id === 'market').value - 0.05) < 1e-9);
+  const f = lessonFacts(l, { name: '台積電' });
+  assert.match(f, /\[high\] Best close while held: 1100 on 10\/05 \(\+10%/);
+  assert.match(f, /\[market\] The market over the same days: \+5%/);
+  assert.equal(indexOf('2330.TW'), '^TWII');
+  assert.equal(indexOf('AAPL'), '^GSPC');
+  assert.equal(lessonOf(c, e).rows.length, 5);
+});

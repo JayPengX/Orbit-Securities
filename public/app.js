@@ -19,6 +19,7 @@ import { TW_NAMES } from './lib/twnames.mjs';
 import { twHits, twFirst } from './lib/twsearch.mjs';
 import { readOrder, sharesFor } from './lib/sayorder.mjs';
 import { twCode, filingsPath, filingsOf, shortTitle, rowsShown, toAsk } from './lib/filings.mjs';
+import { lessonOf, lessonFacts, indexOf as lessonIndex } from './lib/lesson.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
@@ -5368,8 +5369,76 @@ function activityRow(e) {
 // Where a record takes you when tapped: its stock's page, the exchange (the
 // two currencies set), the loans, the portfolio, or the Orbit app the money
 // came from (signed in).
+// 這筆交易學到什麼 (the family's AI plan): a sale that closed a holding, its
+// rows worked out from the account (lib/lesson.mjs) with the closes while
+// held and the market alongside; the AI's one line (Orbit-Core 'sec-lesson')
+// lights the rows it rests on. Asked once a sale on this phone.
+const lessonTold = new Map();
+let lessonNow = null;
+async function openLesson(id) {
+  const c = snap()?.closed.find(x => x.id === id);
+  const e = state.account?.events.find(x => x.id === id);
+  if (!c || !e) return;
+  const name = nameOf(c.symbol);
+  lessonNow = { id, c, e, name, l: lessonOf(c, e), asked: false };
+  kitSheet('lesson', { detent: 'large', onClose: () => (lessonNow = null) });
+  setHead($('lesson'), h(t('lessonTitle')), name);
+  renderLesson();
+  const range = historyRange(Date.now() - (c.t - (c.held || 0)));
+  const idx = lessonIndex(c.symbol);
+  const [own, market] = await Promise.all([fetchChart(c.symbol, range).catch(() => null), idx ? fetchChart(idx, range).catch(() => null) : null]);
+  if (lessonNow?.id !== id) return;
+  lessonNow.l = lessonOf(c, e, { closes: own?.points || [], market: market?.points || [] });
+  renderLesson();
+  if (lessonTold.has(id)) return;
+  const ai = await import('#kit/ai.mjs').catch(() => null);
+  if (!ai?.aiCall || lessonNow?.id !== id) return;
+  lessonNow.asked = true;
+  renderLesson();
+  const r = await ai.aiCall('sec-lesson', { facts: lessonFacts(lessonNow.l, { name, currency: c.currency }), lang: locale === 'en' ? 'en' : 'zh' }).catch(() => null);
+  if (r?.out?.line) lessonTold.set(id, r.out);
+  if (lessonNow?.id === id) renderLesson();
+}
+function renderLesson() {
+  const body = $('lesson-body');
+  if (!body || !lessonNow) return;
+  const { c, e, l, asked } = lessonNow;
+  const told = lessonTold.get(lessonNow.id);
+  const lit = new Set(told?.mark || []);
+  const cur = c.currency;
+  const md = at => shortDate(at);
+  const fig = r =>
+    ({
+      pl: [money(r.value, cur, { sign: true }), pct(r.pct)],
+      buy: [fmtPrice(r.value, cur), ''],
+      sell: [fmtPrice(r.value, cur), ''],
+      held: [t('lessonDays', { n: r.value }), ''],
+      high: [fmtPrice(r.value, cur), `${md(r.at)} · ${pct(r.pct)}`],
+      low: [fmtPrice(r.value, cur), `${md(r.at)} · ${pct(r.pct)}`],
+      market: [pct(r.value), ''],
+      costs: [money(r.value, cur), '']
+    })[r.id] || ['', ''];
+  const pl = l.rows.find(r => r.id === 'pl');
+  const rows = l.rows
+    .filter(r => r.id !== 'pl')
+    .map(r => {
+      const [v, sub] = fig(r);
+      return `<div class="fl-row${lit.has(r.id) ? ' on' : ''}"><span class="fl-k">${h(t(`lesson_${r.id}`))}${sub ? `<small>${h(sub)}</small>` : ''}</span><b class="fl-v">${h(v)}</b></div>`;
+    })
+    .join('');
+  morph(
+    body,
+    `<div class="ls-hero"><span>${h(t(c.short ? 'lessonShortResult' : 'lessonResult'))}</span><strong class="num ${dirClass(pl.value)}">${h(money(pl.value, cur, { sign: true }))}</strong><small class="num ${dirClass(pl.value)}">${h(pct(pl.pct))}</small></div>
+    ${told ? `<p class="fl-line ls-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : asked ? '<p class="fl-line wait q-skel" aria-hidden="true"></p>' : ''}
+    <div class="fl-card"><div class="fl-rows">${rows}</div></div>
+    <p class="foot-note">${h(t('lessonFoot'))}</p>
+    <div class="q-sheet-foot q-sf"><button class="q-btn" type="button" data-action="open" data-symbol="${h(c.symbol)}">${h(t('lessonGo', { name: lessonNow.name }))}</button></div>`
+  );
+}
 function activityTarget(e) {
   const button = attrs => ['button', `type="button" ${attrs}`];
+  // (A sale that closed a holding: 這筆交易學到什麼, its own numbers told back.)
+  if (e.type === 'fill' && snap()?.closed.some(c => c.id === e.id)) return button(`data-action="lesson" data-id="${h(e.id)}"`);
   if (e.symbol && e.type !== 'deposit') return button(`data-action="open" data-symbol="${h(e.symbol)}"`);
   if (e.type === 'fx') return button(`data-action="fx-pair" data-from="${h(e.from)}" data-to="${h(e.to)}"`);
   if (e.type === 'interest' || e.type === 'borrow' || e.type === 'repay') return button('data-action="tool" data-tool="loans"');
@@ -6024,6 +6093,9 @@ document.addEventListener('click', async event => {
       goMarket(el.dataset.id, { sub: !!el.dataset.sub });
       showTab('markets');
       refresh({ list: true });
+      break;
+    case 'lesson':
+      openLesson(el.dataset.id);
       break;
     case 'filing-more':
       if (filingOpen.has(el.dataset.id)) filingOpen.delete(el.dataset.id);
