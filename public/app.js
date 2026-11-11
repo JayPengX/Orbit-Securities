@@ -1115,12 +1115,12 @@ function statusDot(q) {
 // A colour tile with a glyph (the kit's icons, or this app's own below).
 const tileHtml = (glyph, color, cls = '') => `<span class="q-tile${cls ? ` ${cls}` : ''}" style="--t:${color}" aria-hidden="true">${glyph}</span>`;
 // A section: its title, an optional link or tag on the right, its body.
-const sectionHtml = (title, body, { more = '', moreAction = '', side = '', cls = '', count = '' } = {}) => {
+const sectionHtml = (title, body, { more = '', moreAction = '', side = '', cls = '', count = '', ai = false } = {}) => {
   if (!body) return '';
   const own = moreAction.match(/class="([^"]*)"/)?.[1] || '';
   const act = moreAction.replace(/class="[^"]*"/, '').trim();
   const head = kitUI
-    .sectionHead(title, { more, count, onMore: null })
+    .sectionHead(title, { more, count, onMore: null, ai })
     .outerHTML.replace('class="q-sh-more"', `${act} class="q-sh-more${own ? ` ${own}` : ''}"`)
     .replace('</h2>', `</h2>${side}`);
   return `<section class="q-section${cls ? ` ${cls}` : ''}">${head}${body}</section>`;
@@ -1587,7 +1587,7 @@ function renderHome() {
   // them as one flow (no columns in the page: the kit's place keeper holds what's read through
   // a redraw); wide, yours and the markets left, the rest right (redrawn on onScreen).
   const left = `${mineCard}${markets}`;
-  const right = `${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'sc-movers' })}${sectionHtml(t('forYou'), recBody, { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"', cls: 'sc-foryou' })}${ipoHtml()}${eventsHtml}`;
+  const right = `${sectionHtml(t('homeMovers'), moversBody, { more: t('seeAll'), moreAction: 'data-action="movers-go" data-v="' + h(group || '') + '"', cls: 'sc-movers' })}${sectionHtml(t('forYou'), recBody, { more: t('seeAll'), moreAction: 'data-action="goto" data-tab="markets"', cls: 'sc-foryou', ai: true })}${ipoHtml()}${eventsHtml}`;
   const wide = document.documentElement.classList.contains('q-wide');
   morph(box, `${hero}${wide ? `<div class="q-cols sc-home"><div class="sc-col">${left}</div><div class="sc-col">${right}</div></div>` : `<div class="sc-home sc-one">${left}${right}</div>`}`);
 }
@@ -2041,7 +2041,7 @@ function sayOrderRow(o) {
   const how = [o.money ? money(o.money, 'TWD') : '', n ? t('sayOrderShares', { n: fmtQty(n) }) : o.money && q ? t('sayOrderTooSmall') : ''].filter(Boolean).join(' ≈ ');
   return `<button class="q-ritem quote say-order" type="button" data-action="say-order">
     ${symbolBadge(o.symbol, q || catalogInfo(o.symbol))}
-    <span class="q-ritem-text"><span class="q-ritem-title">${h(what)}</span><small>${h([t('sayOrderTag'), how].filter(Boolean).join(' · '))}</small></span>
+    <span class="q-ritem-text"><span class="q-ritem-title">${h(what)}</span><small><span class="say-mark" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span>${h([t('sayOrderTag'), how].filter(Boolean).join(' · '))}</small></span>
     <span class="q-ritem-end"><strong class="say-order-go">${h(t('sayOrderGo'))}</strong></span>
   </button>`;
 }
@@ -3139,7 +3139,7 @@ function filingsHtml(symbol, q) {
       </div>`;
     })
     .join('');
-  return sectionHtml(t('filingsTitle'), `<div class="fl-list">${cards}</div><p class="foot-note">${h(t('filingsFoot'))}</p>`);
+  return sectionHtml(t('filingsTitle'), `<div class="fl-list">${cards}</div><p class="foot-note">${h(t('filingsFoot'))}</p>`, { ai: true });
 }
 function ownTradesHtml(symbol) {
   if (!state.account) return '';

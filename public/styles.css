@@ -1033,6 +1033,9 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
   color: var(--q-label);
   font: var(--q-t-subhead);
 }
+/* The Orbit AI mark on every smart row, made by code or AI (Jay 11-11). */
+.say-mark { display: inline-flex; width: 12px; height: 12px; margin-right: 4px; vertical-align: -1px; color: var(--q-accent); }
+.say-mark svg { width: 100%; height: 100%; }
 .fl-line .q-ai-mono {
   flex: none;
   width: 16px;
