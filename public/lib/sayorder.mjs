@@ -84,3 +84,14 @@ export function sharesFor(order, { price = 0, held = 0, lot = 1000 } = {}) {
   }
   return 0;
 }
+
+// 問 Orbit's question (the Pass sheet's box, kit ask-orbit.mjs: #ask=<words>)
+// as 市場's search: an order as said (用說的下單 reads it), else the asking
+// taken off so a name is left to find (「台積電股價多少」 台積電); '' when
+// nothing is (市場 as it is).
+const ASK_FILL = /股價|股票|價格|價錢|現在|目前|今天|今日|多少錢|多少|幾塊|幾元|走勢|表現|行情|怎麼樣|如何|漲了|跌了|漲跌|漲|跌|請問|的|嗎|呢|[\s?？。，,!！]+/g;
+export function askSearch(text) {
+  const t = String(text || '').trim();
+  if (readOrder(t)) return t;
+  return t.replace(ASK_FILL, ' ').replace(/\s+/g, ' ').trim();
+}

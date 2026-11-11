@@ -37,3 +37,11 @@ test('how many shares it comes to', () => {
   assert.equal(sharesFor({ part: 0.5 }, { held: 3000 }), 1000);
   assert.equal(sharesFor({ part: 0.5 }, { held: 75 }), 37);
 });
+
+test('問 Orbit’s question (#ask=) as 市場’s search: an order whole, else the name left', async () => {
+  const { askSearch } = await import('../public/lib/sayorder.mjs');
+  assert.equal(askSearch('用 5 萬買台積電零股'), '用 5 萬買台積電零股');
+  assert.equal(askSearch('台積電股價多少？'), '台積電');
+  assert.equal(askSearch('鴻海今天漲了嗎'), '鴻海');
+  assert.equal(askSearch('股票'), '');
+});
