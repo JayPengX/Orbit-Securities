@@ -350,11 +350,10 @@ p.list-more { margin: 0; padding: 14px; border-top: var(--q-hairline) solid var(
 .verdict.warn { border-left-color: var(--warn); }
 .verdict.warn strong { color: var(--warn); }
 .verdict.info { border-left-color: var(--c1); }
-.about-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 8px; }
+.about-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .about-grid > div { padding: 10px 12px; border-radius: 12px; background: var(--q-fill-3); }
 .about-grid dt { color: var(--q-label-2); font: var(--q-t-caption); }
-.about-grid dd { margin: 2px 0 4px; font: 700 16px/21px var(--q-font); }
-.about-grid p { color: var(--q-label-2); font: var(--q-t-footnote); text-wrap: pretty; }
+.about-grid dd { margin: 2px 0 0; font: 600 16px/21px var(--q-font); overflow-wrap: anywhere; }
 .about-fin .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
 .about-fin .card-head .about-h { flex: 1 1 0; min-width: 0; margin: 0; }
 .about-fin .card-head .q-seg { flex: none; }
@@ -604,7 +603,7 @@ a.act-row { color: inherit; }
 /* (Inline here, so the capsule's gap is gone: the dot keeps its own space, centred on the words' middle.) */
 .sym-hero-status > .mkt-status > .mkt-dot { margin-inline-end: 6px; vertical-align: calc(0.4em - 3.5px); }
 .sym-hero-status > .q-tag.q-tag { white-space: nowrap; }
-.sym-hero-status > :not(:last-child)::after { content: ' · '; }
+.sym-hero-status > :not(:last-child)::after { content: '\00a0· '; }
 /* The ticket's: a size down, the order is what it's about. */
 .sym-hero.compact { margin-bottom: var(--q-s-4); padding: 14px 16px; }
 .sym-hero.compact .q-focus-value { font-size: 34px; line-height: 40px; }

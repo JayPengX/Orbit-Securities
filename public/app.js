@@ -433,9 +433,12 @@ function listingHits(q, n = 40) {
   const lower = q.toLowerCase();
   const code = q.toUpperCase();
   const out = [];
+  // A warrant asked by its stock and its kind (台積電購, 鴻海牛): its name is 台積電永豐64購15, so each part in order.
+  const parts = /[購售牛熊]/.test(q) && q.length > 1 ? lower.split(/([購售牛熊])/).map(x => x.trim()).filter(Boolean) : null;
+  const inOrder = name => { let at = 0; for (const p of parts) { at = name.indexOf(p, at); if (at < 0) return false; at += p.length; } return true; };
   for (const rows of listings.values()) {
     for (const [sym, name] of rows) {
-      if (sym.split('.')[0] === code || (q.length > 1 && name.toLowerCase().includes(lower))) out.push(sym);
+      if (sym.split('.')[0] === code || (q.length > 1 && (name.toLowerCase().includes(lower) || (parts && inOrder(name.toLowerCase()))))) out.push(sym);
       if (out.length >= n) return out;
     }
   }
@@ -1236,7 +1239,7 @@ function marketStatus(q) {
     return `<span class="mkt-status open">${statusDot(q)}${h(t(early ? 'marketOpenUntilEarly' : 'marketOpenUntil', { time: clock(closeOf(q, now), q.tz) }))} ${local}</span>`;
   }
   const opens = nextOpen(q, now);
-  const next = opens ? t('opensAt', { time: weekdayClock(opens) }) : t('marketClosed');
+  const next = opens ? t(q.market === 'TW' || q.market === 'TWFUND' ? 'opensAtTw' : 'opensAt', { time: weekdayClock(opens) }) : t('marketClosed');
   return `<span class="mkt-status">${statusDot(q)}${h(next)} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
 }
 // A symbol's picture, in order: TradingView's round icon (two for a
@@ -1557,13 +1560,15 @@ function renderHome() {
   const head = v
     ? `<button class="sc-day" type="button" data-action="goto" data-tab="portfolio"><small>${h(t('netWorth'))}</small><strong class="sc-day-big num" data-q-live="nv:worth">${h(money(v.netWorth, BASE))}</strong><span class="sc-day-amt num ${dirClass(dayPct)}">${h(dayWord(v))} ${arrow(dayPct)}${h(money(Math.abs(dayAmt), BASE))} · ${h(pct(Math.abs(dayPct)).replace(/^[+-]/, ''))}</span></button>`
     : '';
-  const mineCard = mine.length
+  // 我的 opens on 總資產 even before anything is held or starred (no empty-holdings card: MAP 10-31, 11-03).
+  const mineRows = mine.length ? `<div class="q-rowcard sc-rows">${mine.slice(0, nvMineOpen ? mine.length : SHOWN).join('')}</div>` : '';
+  const mineCard = v
     ? sectionHtml(
         L({ zh: '我的', en: 'Mine' }),
-        `<div class="q-card sc-mine-card">${head}<div class="q-rowcard sc-rows">${mine.slice(0, nvMineOpen ? mine.length : SHOWN).join('')}</div></div>${mine.length > SHOWN ? kitUI.moreHtml?.({ more: L({ zh: `再看 ${mine.length - SHOWN} 檔`, en: `${mine.length - SHOWN} more` }), less: L({ zh: '收起', en: 'Less' }), open: nvMineOpen, attr: 'data-action="nv-mine"' }) || '' : ''}`,
-        { count: mine.length, cls: 'sc-mine' }
+        `<div class="q-card sc-mine-card">${head}${mineRows}</div>${mine.length > SHOWN ? kitUI.moreHtml?.({ more: L({ zh: `再看 ${mine.length - SHOWN} 檔`, en: `${mine.length - SHOWN} more` }), less: L({ zh: '收起', en: 'Less' }), open: nvMineOpen, attr: 'data-action="nv-mine"' }) || '' : ''}`,
+        { count: mine.length || '', cls: 'sc-mine' }
       )
-    : `<section class="q-section sc-mine">${emptyHtml({ icon: 'star', tint: TINT.gray, title: L({ zh: '還沒有自選股', en: 'Nothing starred yet' }), body: L({ zh: '在任何一檔的頁面按 ☆，它就會在這裡', en: 'Tap ☆ on any stock and it lands here' }), go: t('goTrade'), attrs: 'data-action="goto" data-tab="markets"' })}</section>`;
+    : '';
   // Every market as a compact row: its name, its index's level, the index's day.
   const mkts = homeMarkets().map(m => {
     const q = m.index ? state.quotes.get(m.index) : null;
@@ -1830,7 +1835,7 @@ function renderMarkets() {
   const product = productOf(sub.product);
   const subs =
     product.subs.length > 1
-      ? `<div class="q-chips bleed sub-chips">${product.subs.map(s => `<button class="q-chip" type="button" data-action="sub" data-id="${h(s.id)}" aria-pressed="${s.id === sub.id}">${SUB_FLAGS[s.id] ? `<img class="chip-flag" src="flags/${FLAGS[SUB_FLAGS[s.id]]}.svg" alt="" onerror="this.remove()">` : ''}${h(L(s))}</button>`).join('')}</div>`
+      ? `<div class="q-chips q-texttabs bleed sub-chips">${product.subs.map(s => `<button class="q-chip" type="button" data-action="sub" data-id="${h(s.id)}" aria-pressed="${s.id === sub.id}">${SUB_FLAGS[s.id] ? `<img class="chip-flag" src="flags/${FLAGS[SUB_FLAGS[s.id]]}.svg" alt="" onerror="this.remove()">` : ''}${h(L(s))}</button>`).join('')}</div>`
       : '';
   morph(box, `${productBar(product.id)}${subs}${sub.view === 'opt' ? optChainHtml() : listHtml(sub)}`);
 }
@@ -1933,7 +1938,7 @@ function optChainHtml() {
     const due = expiryOf(stockMarkets.optionSymbol(m, 'C', 10000));
     return /[WF]/.test(m) ? t('optWeek', { date: shortDate(due), day: t(m.includes('W') ? 'optWed' : 'optFri') }) : t('optMonth', { m: Number(m.slice(4, 6)), date: shortDate(due) });
   };
-  const seg = `<div class="q-chips bleed opt-months" role="group">${months.map(m => `<button class="q-chip" type="button" data-action="opt-month" data-v="${m}" aria-pressed="${m === month}">${h(label(m))}</button>`).join('')}</div>`;
+  const seg = `<div class="q-chips q-texttabs bleed opt-months" role="group">${months.map(m => `<button class="q-chip" type="button" data-action="opt-month" data-v="${m}" aria-pressed="${m === month}">${h(label(m))}</button>`).join('')}</div>`;
   const strikes = optStrikes();
   // Only strikes with a price on either side: never a row of dashes (none yet: the note, till they come).
   const priced = k => ['C', 'P'].some(r => state.quotes.has(stockMarkets.optionSymbol(month, r, k)));
@@ -2878,7 +2883,8 @@ const band = (x, lo, hi) => (x < lo ? 0 : x <= hi ? 1 : 2);
 function factGroup(title, rows) {
   const list = rows.filter(([, v]) => v != null && v !== '');
   if (!list.length) return '';
-  return `<h3 class="about-h">${h(title)}</h3><dl class="about-grid">${list.map(([k, v, e]) => `<div><dt>${h(t(k))}</dt><dd class="num">${h(v)}</dd>${e ? `<p>${h(t(e))}</p>` : ''}</div>`).join('')}</dl>`;
+  // What a figure means opens on a tap (the kit's tell), never a paragraph under each (RULEBOOK 11-12).
+  return `<h3 class="about-h">${h(title)}</h3><dl class="about-grid q-even">${list.map(([k, v, e]) => `<div${e ? ` class="q-press" role="button" tabindex="0" data-action="fact-help" data-k="${h(k)}" data-e="${h(e)}"` : ''}><dt>${h(t(k))}</dt><dd class="num">${h(v)}</dd></div>`).join('')}</dl>`;
 }
 
 function stockAboutHtml(f, q, a) {
@@ -3091,7 +3097,7 @@ function newsHtml(symbol, q) {
   const rows = stories
     .map(s => `<a class="q-cell chevron" href="/news/#s=${h(s.id)}" data-go="news" data-hash="s=${h(s.id)}"><span class="q-cell-text"><span lang="${s.region === 'intl' ? 'en' : 'zh-Hant'}">${h(s.title)}</span><small>${h(t('newsSub', { n: s.n || 1, when: when(s.at) }))}</small></span></a>`)
     .join('');
-  return sectionHtml(t('newsTitle'), `<div class="q-list">${rows}</div><p class="foot-note">${h(t('newsFoot'))}</p>`);
+  return sectionHtml(t('newsTitle'), `<div class="q-list">${rows}</div>`);
 }
 // 重大訊息白話 (the family's AI plan): a Taiwan stock's filings of the past
 // week as rows (lib/filings.mjs), each with the AI's plain line and the rows
@@ -3150,7 +3156,7 @@ function filingsHtml(symbol, q) {
       </div>`;
     })
     .join('');
-  return sectionHtml(t('filingsTitle'), `<div class="fl-list">${cards}</div><p class="foot-note">${h(t('filingsFoot'))}</p>`, { ai: true });
+  return sectionHtml(t('filingsTitle'), `<div class="fl-list">${cards}</div>`, { ai: true });
 }
 function ownTradesHtml(symbol) {
   if (!state.account) return '';
@@ -5527,7 +5533,7 @@ function renderHistory() {
   const own = [...state.account.events].sort((a, b) => b.t - a.t).filter(ACTIVITY_FILTERS[f]).map(e => ({ day: taipeiDay(e.t), html: activityRow(e) })).filter(r => r.html);
   const shown = own.slice(0, state.activityShown);
   const days = dayGroups(shown);
-  const list = `<div class="q-chips bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
+  const list = `<div class="q-chips q-texttabs bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
     ${days.length ? days.map(([day, rows]) => `<p class="sub-head day-head">${h(dayLabel(day))}</p><div class="q-rowcard">${rows.join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
     ${own.length > shown.length ? kitUI.moreHtml?.({ more: t('showMore', { n: own.length - shown.length }), less: null, attr: 'data-action="more"', cls: 'act-more' }) ?? `<button class="q-btn small more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`;
   if (!wide) return morph(box, `${head}${list}`);
@@ -6502,6 +6508,9 @@ document.addEventListener('click', async event => {
     case 'about-period':
       state.aboutPeriod = el.dataset.v;
       redrawDetail();
+      break;
+    case 'fact-help':
+      kitOrbit.tell?.({ title: t(el.dataset.k), body: t(el.dataset.e) });
       break;
     case 'chart-ma':
       state.settings.ma = !state.settings.ma;

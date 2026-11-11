@@ -16,7 +16,8 @@ test('the look is always on: data-look on the page, look.css after styles.css', 
 
 test('首頁 opens on 總資產: the big number is the account value, over 我的', () => {
   assert.match(body, /class="sc-day-big num"[^`]*money\(v\.netWorth, BASE\)/);
-  assert.match(body, /\$\{head\}<div class="q-rowcard sc-rows">/);
+  assert.match(body, /\$\{head\}\$\{mineRows\}/);
+  assert.match(body, /const mineRows = mine\.length \? `<div class="q-rowcard sc-rows">/);
   // 我的 (with 總資產 in it) is the first thing after an overdraft's strip, on a phone and wide.
   assert.match(body, /const left = `\$\{mineCard\}\$\{markets\}`/);
   assert.match(body, /<div class="sc-col">\$\{left\}<\/div><div class="sc-col">\$\{right\}/);

@@ -52,8 +52,7 @@ export function lineChart(series, { width = 640, height = 240, base = null, yFor
   const H = height - pad.t - pad.b;
   const X = t => pad.l + ((t - t0) / (t1 - t0 || 1)) * W;
   const Y = v => pad.t + H - ((v - lo) / (hi - lo)) * H;
-  const ticks = [];
-  for (let i = 0; i <= 3; i++) ticks.push(lo0 + ((hi0 - lo0) * i) / 3);
+  const ticks = niceTicks(lo, hi, lo0, hi0);
   const grid = ticks
     .map(v => `<line class="grid" x1="${pad.l}" x2="${pad.l + W}" y1="${f(Y(v))}" y2="${f(Y(v))}"/><text class="axis-label" x="${pad.l + W + 6}" y="${f(Y(v) + 4)}">${escHtml(yFormat(v))}</text>`)
     .join('');
@@ -217,8 +216,7 @@ export function candleChart(bars, { width = 640, height = 260, lines = [], yForm
   const X = i => pad.l + step * (i + 0.5);
   const Y = v => pad.t + H - ((v - lo) / (hi - lo)) * H;
   const body = Math.max(1, Math.min(14, step * 0.66));
-  const ticks = [];
-  for (let i = 0; i <= 3; i++) ticks.push(lo0 + ((hi0 - lo0) * i) / 3);
+  const ticks = niceTicks(lo, hi, lo0, hi0);
   const grid = ticks
     .map(v => `<line class="grid" x1="${pad.l}" x2="${pad.l + W}" y1="${f(Y(v))}" y2="${f(Y(v))}"/><text class="axis-label" x="${pad.l + W + 6}" y="${f(Y(v) + 4)}">${escHtml(yFormat(v))}</text>`)
     .join('');
@@ -291,4 +289,22 @@ export function attachCandleHover(box, bars, frame, label) {
   svg.addEventListener('pointermove', move);
   svg.addEventListener('pointerdown', move);
   svg.addEventListener('pointerleave', leave);
+}
+
+// Round numbers for a price axis (2,300 · 2,350 · 2,400, never 2,321.67): the widest step of 1, 2, 2.5
+// or 5 times a power of ten giving three to five lines inside the drawn range; a flat range keeps its ends.
+export function niceTicks(lo, hi, lo0 = lo, hi0 = hi) {
+  const span = hi - lo;
+  if (!(span > 0) || !Number.isFinite(span)) return [lo0, hi0].filter((v, i, a) => a.indexOf(v) === i);
+  const p = 10 ** Math.floor(Math.log10(span));
+  const at = step => {
+    const out = [];
+    for (let k = Math.ceil(lo / step - 1e-9); k * step <= hi + step * 1e-9; k++) out.push(+(k * step).toPrecision(12));
+    return out;
+  };
+  for (const step of [5, 2.5, 2, 1, 0.5, 0.25, 0.2, 0.1, 0.05].map(m => m * p)) {
+    const out = at(step);
+    if (out.length >= 3 && out.length <= 5) return out;
+  }
+  return [lo0, hi0];
 }
