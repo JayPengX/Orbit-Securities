@@ -1090,6 +1090,11 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
 
 /* 這筆交易學到什麼 (app.js renderLesson): the result as the focal number,
    the AI's line, then the trade's rows (.fl-row, as 重大訊息's). */
+.ls-aia {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
 .ls-hero {
   display: grid;
   justify-items: center;

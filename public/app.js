@@ -5375,6 +5375,10 @@ function activityRow(e) {
 // lights the rows it rests on. Asked once a sale on this phone.
 const lessonTold = new Map();
 let lessonNow = null;
+// (The kit's answer drawing, read on a lesson's first opening; till then the plain rows.)
+let kitAI = null;
+// Each row's picture: a glyph on its colour (Jay 11-11: an AI answer is drawn, never text).
+const LESSON_LOOK = { buy: ['plus', 'var(--q-blue)'], sell: ['coin', 'var(--q-orange)'], held: ['clock', 'var(--q-purple)'], high: ['chart', 'var(--q-up)'], low: ['chart', 'var(--q-down)'], market: ['bars', 'var(--q-indigo)'], costs: ['wallet', 'var(--q-gray)'] };
 async function openLesson(id) {
   const c = snap()?.closed.find(x => x.id === id);
   const e = state.account?.events.find(x => x.id === id);
@@ -5383,6 +5387,14 @@ async function openLesson(id) {
   lessonNow = { id, c, e, name, l: lessonOf(c, e), asked: false };
   kitSheet('lesson', { detent: 'large', onClose: () => (lessonNow = null) });
   setHead($('lesson'), h(t('lessonTitle')), name);
+  if (!kitAI)
+    import('#kit/ai.mjs').then(
+      m => {
+        kitAI = m;
+        if (lessonNow?.id === id) renderLesson();
+      },
+      () => {}
+    );
   renderLesson();
   const range = historyRange(Date.now() - (c.t - (c.held || 0)));
   const idx = lessonIndex(c.symbol);
@@ -5419,6 +5431,7 @@ function renderLesson() {
       costs: [money(r.value, cur), '']
     })[r.id] || ['', ''];
   const pl = l.rows.find(r => r.id === 'pl');
+  const drawn = kitAI?.aiAnswerHtml && lessonAnswerHtml(l, lit, fig, told, asked);
   const rows = l.rows
     .filter(r => r.id !== 'pl')
     .map(r => {
@@ -5429,11 +5442,28 @@ function renderLesson() {
   morph(
     body,
     `<div class="ls-hero"><span>${h(t(c.short ? 'lessonShortResult' : 'lessonResult'))}</span><strong class="num ${dirClass(pl.value)}">${h(money(pl.value, cur, { sign: true }))}</strong><small class="num ${dirClass(pl.value)}">${h(pct(pl.pct))}</small></div>
-    ${told ? `<p class="fl-line ls-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : asked ? '<p class="fl-line wait q-skel" aria-hidden="true"></p>' : ''}
-    <div class="fl-card"><div class="fl-rows">${rows}</div></div>
+    ${
+      drawn ||
+      `${told ? `<p class="fl-line ls-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : asked ? '<p class="fl-line wait q-skel" aria-hidden="true"></p>' : ''}
+    <div class="fl-card"><div class="fl-rows">${rows}</div></div>`
+    }
     <p class="foot-note">${h(t('lessonFoot'))}</p>
     <div class="q-sheet-foot q-sf"><button class="q-btn" type="button" data-action="open" data-symbol="${h(c.symbol)}">${h(t('lessonGo', { name: lessonNow.name }))}</button></div>`
   );
+}
+// The lesson in the kit's answer look: the AI's line (the stock's logo beside it), each row a
+// glyph tile, the rows it rests on lit; while it's asked, the line shimmers over the rows.
+function lessonAnswerHtml(l, lit, fig, told, asked) {
+  const rows = l.rows
+    .filter(r => r.id !== 'pl')
+    .map(r => {
+      const [value, sub] = fig(r);
+      const [g, color] = LESSON_LOOK[r.id] || ['list', 'var(--q-gray)'];
+      return { lead: { glyph: kitUI.icons?.[g] || '', color }, label: t(`lesson_${r.id}`), sub, value, on: lit.has(r.id) };
+    });
+  const logo = logoUrls(lessonNow.c.symbol, 'stock')[0];
+  if (told) return `<div class="ls-aia">${kitAI.aiAnswerHtml({ line: told.line, pic: logo ? { src: logo } : null, sections: [{ rows }] })}</div>`;
+  return `<div class="ls-aia">${asked ? kitAI.aiAnswerWaitHtml?.({ rows: 0 }) || '' : ''}${kitAI.aiAnswerHtml({ sections: [{ rows }] })}</div>`;
 }
 function activityTarget(e) {
   const button = attrs => ['button', `type="button" ${attrs}`];
