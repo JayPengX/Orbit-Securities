@@ -151,6 +151,7 @@ app and the Worker that checks it); the rules live in the kit.
 | `twse.mjs`, `twsearch.mjs`, `sayorder.mjs`, `alerts.mjs` | TWSE's sessions; finding Taiwan stocks by code or name; an order in words; 處置 and 注意 lists |
 | `brands.mjs`, `tvlogos.mjs`, `tvround.mjs`, `twnames.mjs` | Generated logo and name tables |
 | `../app.js` | Rendering and wiring |
+| `../testing.mjs` | This app's switches in the kit's hidden 測試工具 (display only, never the account or the Worker): `mktOpen`, `limit` (漲停/跌停), `alertList` (處置/注意), `ipoDraw`, `quotesFail` (`quotes.mjs`), `odFake`; read in `app.js` as `testFlag(name)` |
 
 ## Run and test
 

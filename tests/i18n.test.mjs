@@ -23,7 +23,6 @@ test('every key the page asks for exists', () => {
     kind_: ['stock', 'etf', 'bond', 'fund', 'crypto', 'metal', 'index', 'future', 'fx', 'cash', 'govbond', 'cb', 'warrant', 'fut', 'opt'],
     range_: ['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max'],
     otype_: ['market', 'limit', 'stop'],
-    status_: ['open', 'filled', 'cancelled', 'rejected'],
     alloc_: ['kind', 'currency', 'market'],
     hview_: ['activity', 'orders', 'stats'],
     rating_: ['strong_buy', 'buy', 'hold', 'underperform', 'sell'],

@@ -1,5 +1,6 @@
 // Orbit Securities: rendering and wiring. The rules live in lib/ (account.mjs for
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
+import './testing.mjs';
 import {
   newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
 } from './lib/account.mjs';
@@ -38,7 +39,7 @@ import {
 } from '#kit/orbit.mjs';
 import { RELIEF, reliefCheck } from '#kit/pay.mjs';
 import { STOCK, roundTrip, overdraftYear, overdraftPaid } from './lib/truth.mjs';
-import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf } from './lib/alerts.mjs';
+import { PUNISH_URL, NOTICE_URL, parseAlertList, alertOf as alertOfList } from './lib/alerts.mjs';
 import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoApplyEvent, ipoBackEvent, ipoWinEvent } from './lib/ipo.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import * as kitOrbit from '#kit/orbit.mjs';
@@ -51,6 +52,9 @@ import * as stockMarkets from './lib/markets.mjs';
 import * as stockQuotes from './lib/quotes.mjs';
 
 const h = kitUI.escHtml;
+// The 測試工具's switches (testing.mjs): what's shown only, never the account.
+const testFlag = name => globalThis.ORBIT_TEST?.flags?.[name];
+const testOwed = () => (testFlag('odFake') ? 12_345 : 0);
 const $ = id => document.getElementById(id);
 const TABS = ['home', 'markets', 'portfolio', 'fx', 'history'];
 const QUOTE_REFRESH_MS = 45_000;
@@ -1099,17 +1103,13 @@ function showToast(text, kind = '', hash = '', action = null) {
 // ---- Shared bits of markup --------------------------------------------------------
 
 // A price at 漲停 or 跌停, filled red or green as Taiwan's brokers show it.
-const limitClass = q => (atLimit(q) ? ` at-limit ${atLimit(q)}` : '');
-function changeHtml(q, { big = false } = {}) {
-  if (!q) return '<span class="chg flat">—</span>';
-  const d = dirClass(q.change);
-  return `<span class="chg ${d}${big ? ' big' : ''}">${q.change > 0 ? '▲' : q.change < 0 ? '▼' : ''}${qAmt(q, Math.abs(q.change))} (${pct(q.pct)})</span>`;
-}
+const limitOf = q => (testFlag('limit') && q?.market === 'TW' && ['stock', 'etf'].includes(q.kind) ? testFlag('limit') : atLimit(q));
+const limitClass = q => (limitOf(q) ? ` at-limit ${limitOf(q)}` : '');
 // Today's move as a tinted tag (red or green as the person has it).
 const pctTag = q => `<span class="chg num ${q ? dirClass(q.pct) : 'flat'}">${q && Number.isFinite(q.pct) ? pct(q.pct) : '—'}</span>`;
 function statusDot(q) {
   if (!q) return '';
-  const open = isOpen(q);
+  const open = testFlag('mktOpen') ? testFlag('mktOpen') === 'open' : isOpen(q);
   return `<span class="mkt-dot ${open ? 'open' : ''}" title="${h(open ? t('marketOpen') : t('marketClosed'))}"></span>`;
 }
 // A colour tile with a glyph (the kit's icons, or this app's own below).
@@ -1208,6 +1208,10 @@ function marketStatus(q) {
   if (!q) return '';
   if (q.kind === 'crypto') return `<span class="mkt-status open">${statusDot(q)}${h(t('always'))}</span>`;
   const now = Date.now();
+  if (testFlag('mktOpen')) {
+    const on = testFlag('mktOpen') === 'open';
+    return `<span class="mkt-status${on ? ' open' : ''}">${statusDot(q)}${h(t(on ? 'marketOpen' : 'marketClosed'))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+  }
   if (q.session && now >= q.session.start && now < q.session.end && atLunch(q.market, now)) return `<span class="mkt-status">${statusDot(q)}${h(t('atLunch'))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
   // Taiwan's own phases: 試撮 before the opening auction, the closing
   // auction, and (for what trades after hours) the 盤後 sessions to 14:30.
@@ -1538,7 +1542,7 @@ function renderHome() {
   state.recs = recs;
   // (首頁 shows five, as rows: all five were in view.)
   feedback?.shown('stock', recs.slice(0, 5));
-  const hero = v && overdrawnBy(v) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v), BASE) }))}</button>` : '';
+  const hero = v && (overdrawnBy(v) || testOwed()) >= 1 && !coverPending(v) ? `<button class="callout bad" type="button" data-action="goto" data-tab="portfolio">${h(t('odStrip', { v: money(overdrawnBy(v) || testOwed(), BASE) }))}</button>` : '';
   // 我的: what's held (by value), then the stars not held.
   const positions = v ? [...v.positions].sort((a, b) => Math.abs(b.valueTWD) - Math.abs(a.valueTWD)) : [];
   const stars = (state.account ? watched(state.account) : []).filter(s => !positions.some(p => p.symbol === s));
@@ -1608,6 +1612,7 @@ function loadAlerts() {
   })();
   return alertState.busy;
 }
+const alertOf = (symbol, st) => (testFlag('alertList') && /\.TWO?$/.test(symbol) ? testFlag('alertList') : alertOfList(symbol, st));
 const alertTag = symbol => {
   const a = alertOf(symbol, alertState);
   return a ? `<span class="q-tag ${a === 'punish' ? 'solid red' : 'orange'}" title="${h(t(`${a}Help`))}">${h(t(`${a}Tag`))}</span>` : '';
@@ -1651,6 +1656,12 @@ function ipoHtml() {
     .map(a => ({ a, out: ipoOutcome(a) }))
     .filter(({ a, out }) => !out || now - out.t < 14 * 86_400_000 || out.t > now)
     .sort((x, y) => y.a.draw - x.a.draw);
+  if (testFlag('ipoDraw')) {
+    // A test application, shown only (the first offer listed, else 台積電's page).
+    const s = list[0] || { code: '0000', name: locale === 'en' ? 'Test offer' : '測試新股', symbol: '2330.TW', draw: now };
+    const won = testFlag('ipoDraw') === 'won';
+    mine.unshift({ a: { code: s.code, name: s.name, symbol: s.symbol, draw: s.draw }, out: testFlag('ipoDraw') === 'drawing' ? null : { type: won ? 'ipowin' : 'ipoback', t: won ? now + 3 * 86_400_000 : now } });
+  }
   if (!open.length && !mine.length) return sectionHtml(t('ipoTitle'), emptyHtml({ icon: 'calendar', tint: TINT.purple, title: t('ipoNone'), body: t('ipoNoneSub') }));
   // A listed company's offer: what a win is worth at today's price (the gap on the shares).
   const gainOf = s => {
@@ -2262,7 +2273,7 @@ function renderDetail() {
   const tradable = q && isTradable(q.kind);
   const tags = q
     ? [
-        atLimit(q) ? `<span class="q-tag solid ${atLimit(q)}">${h(atLimit(q) === 'up' ? t('limitUpTag') : t('limitDownTag'))}</span>` : '',
+        limitOf(q) ? `<span class="q-tag solid ${limitOf(q)}">${h(limitOf(q) === 'up' ? t('limitUpTag') : t('limitDownTag'))}</span>` : '',
         alertTag(d.symbol),
         q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : delayOf(q.market) && q.live !== 'TWSE' ? `<span class="q-tag orange" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
       ].join('')
@@ -3905,7 +3916,8 @@ function pendingSales(v, account = state.account) {
 }
 const coverPending = (v, account) => overdrawnBy(v) >= 1 && pendingSales(v, account) >= overdrawnBy(v) * 0.99;
 function overdraftHtml(v) {
-  const owed = overdrawnBy(v);
+  const fake = overdrawnBy(v) < 1 && testOwed() > 0;
+  const owed = overdrawnBy(v) || testOwed();
   if (owed < 1) return '';
   const { plan, covered } = coverPlan(v, owed);
   const rows = plan
@@ -3913,7 +3925,7 @@ function overdraftHtml(v) {
     .join('');
   return `<section class="callout-card bad">
     <div class="cc-head">${tileHtml(ico('wallet'), TINT.red, 'sm')}<span class="cc-text"><strong class="num">${h(t('odTitle', { v: money(owed, BASE) }))}</strong><small>${h(state.account.od ? t('odDeadline', { date: fmtDate(odDeadline(state.account.od.since)) }) : t('odSub'))}</small></span></div>
-    ${coverPending(v) ? `<p class="foot-note">${h(t('odPending'))}</p>` : plan.length ? `<div class="q-rowcard inset">${rows}</div><button class="q-btn primary block" type="button" data-action="cover" ${pricesLive() ? '' : 'disabled'}>${h(t(covered ? 'coverGo' : 'coverGoPart'))}</button>` : `<p class="foot-note">${h(t('odNothing'))}</p>`}
+    ${coverPending(v) ? `<p class="foot-note">${h(t('odPending'))}</p>` : plan.length ? `<div class="q-rowcard inset">${rows}</div><button class="q-btn primary block" type="button" data-action="cover" ${pricesLive() && !fake ? '' : 'disabled'}>${h(t(covered ? 'coverGo' : 'coverGoPart'))}</button>` : `<p class="foot-note">${h(t('odNothing'))}</p>`}
   </section>`;
 }
 
@@ -6136,10 +6148,6 @@ document.addEventListener('click', async event => {
       nvMineOpen = !nvMineOpen;
       renderHome();
       break;
-    case 'open-watch':
-      goMarket('watch');
-      showTab('markets');
-      break;
     case 'movers-go':
       state.moverGroup = el.dataset.v;
       state.category = null;
@@ -6158,14 +6166,8 @@ document.addEventListener('click', async event => {
     case 'say-order':
       openSaidOrder();
       break;
-    case 'trade-close':
-      closeTrade();
-      break;
     case 'tool':
       openTool(el.dataset.tool);
-      break;
-    case 'tool-close':
-      closeTool();
       break;
     case 'hview-go':
       state.historyView = el.dataset.view;
@@ -6227,9 +6229,6 @@ document.addEventListener('click', async event => {
     case 'open':
       if (el.closest('.sc-foryou')) feedback?.picked('stock', state.recs?.find(r => r.symbol === el.dataset.symbol), Date.now(), { from: 'list' });
       openDetail(el.dataset.symbol);
-      break;
-    case 'close':
-      closeDetail();
       break;
     case 'range':
       d.range = el.dataset.range;
@@ -6374,13 +6373,6 @@ document.addEventListener('click', async event => {
       state.fx.amount = '';
       renderFx();
       break;
-    case 'fx-max': {
-      const have = Math.max(0, withdrawable(state.account, snap())[state.fx.from] || 0);
-      state.fx.mode = 'pay';
-      state.fx.amount = String(have);
-      renderFx();
-      break;
-    }
     case 'fx-trade':
       goMarket('fx');
       closeSheets();
@@ -6410,6 +6402,7 @@ document.addEventListener('click', async event => {
       accessUi().key = el.dataset.key;
       accessUi().docs = new Set();
       accessUi().answers = {};
+      accessUi().li = [];
       renderTool();
       $('tool') && ($('tool').scrollTop = 0);
       break;
