@@ -992,3 +992,95 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
 
 /* 用說的下單: the row an order in words makes, on top of the search. */
 .say-order .say-order-go { color: var(--q-accent); font-weight: 600; white-space: nowrap; }
+
+/* 重大訊息白話 (app.js filingsHtml): each filing a card, its title and time,
+   the AI's one plain line, then its rows as label and figure, the ones the
+   line rests on lit. */
+.fl-list {
+  display: grid;
+  gap: var(--q-s-2);
+}
+.fl-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--q-r-cell);
+  background: var(--nv-card, var(--q-grouped-2));
+}
+.fl-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fl-head strong {
+  min-width: 0;
+  font: var(--q-t-subhead);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.fl-head small {
+  flex: none;
+  color: var(--q-label-3);
+  font: var(--q-t-caption);
+  font-variant-numeric: tabular-nums;
+}
+.fl-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  color: var(--q-label);
+  font: var(--q-t-subhead);
+}
+.fl-line .q-ai-mono {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--q-ai, var(--q-accent));
+}
+.fl-line .q-ai-mono svg {
+  width: 100%;
+  height: 100%;
+}
+.fl-line.wait {
+  height: 1.2em;
+  border-radius: 6px;
+}
+.fl-rows {
+  display: grid;
+  gap: 2px;
+}
+.fl-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
+.fl-k {
+  min-width: 0;
+}
+.fl-v {
+  max-width: 60%;
+  color: var(--q-label);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.fl-row.on {
+  background: color-mix(in srgb, var(--q-accent) 14%, transparent);
+}
+.fl-row.on .fl-v {
+  color: var(--q-accent);
+}
+.fl-card .q-more {
+  width: calc(100% + 28px);
+  margin: 0 -14px -12px;
+}

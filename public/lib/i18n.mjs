@@ -766,6 +766,10 @@ export const STRINGS = {
     toastPlanSkipped: '定期定額跳過 {name}：{why}',
 
     aboutCompany: '這家公司',
+    filingsTitle: '重大訊息',
+    filingsFoot: '公司這一週向證交所、櫃買中心發的公告；白話那句是 AI 說的，數字都是公告的。',
+    filingMore: '全部 {n} 項',
+    filingLess: '收起',
     newsTitle: '新聞',
     newsSub: '{n} 家媒體 · {when}',
     newsFoot: '標題提到它的新聞，在 Orbit News 打開。',
@@ -1785,6 +1789,10 @@ export const STRINGS = {
     toastPlanSkipped: 'Monthly plan skipped {name}: {why}',
 
     aboutCompany: 'About the company',
+    filingsTitle: 'Company filings',
+    filingsFoot: 'What the company filed with the exchange this week; the plain line is AI, every figure the filing’s.',
+    filingMore: 'All {n} items',
+    filingLess: 'Show less',
     newsTitle: 'In the news',
     newsSub: '{n} outlets · {when}',
     newsFoot: 'Stories whose headlines name it; they open in Orbit News.',

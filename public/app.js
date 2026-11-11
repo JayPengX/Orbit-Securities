@@ -18,6 +18,7 @@ import { TV_ROUND } from './lib/tvround.mjs';
 import { TW_NAMES } from './lib/twnames.mjs';
 import { twHits, twFirst } from './lib/twsearch.mjs';
 import { readOrder, sharesFor } from './lib/sayorder.mjs';
+import { twCode, filingsPath, filingsOf, shortTitle, rowsShown, toAsk } from './lib/filings.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
@@ -2061,6 +2062,7 @@ function openSaidOrder() {
 async function openDetail(symbol) {
   track(symbolKeys(symbol), 1);
   loadNews();
+  loadFilings(symbol);
   // (Opened from 為你推薦 it's counted there already: the engine counts an open once.)
   feedback?.picked('stock', stockItem(symbol), Date.now(), { from: 'elsewhere' });
   const q0 = state.quotes.get(symbol);
@@ -2319,6 +2321,7 @@ function renderDetail() {
     ${q ? sectionHtml(t('guideTitle'), guideHtml(q)) : ''}
     ${q ? toolsHtml(d.symbol, q) : ''}
     ${q ? aboutHtml(d.symbol, q) : ''}
+    ${q ? filingsHtml(d.symbol, q) : ''}
     ${q ? newsHtml(d.symbol, q) : ''}
     ${ownTradesHtml(d.symbol)}
     ${
@@ -3077,6 +3080,65 @@ function newsHtml(symbol, q) {
     .map(s => `<a class="q-cell chevron" href="/news/#s=${h(s.id)}" data-go="news" data-hash="s=${h(s.id)}"><span class="q-cell-text"><span lang="${s.region === 'intl' ? 'en' : 'zh-Hant'}">${h(s.title)}</span><small>${h(t('newsSub', { n: s.n || 1, when: when(s.at) }))}</small></span></a>`)
     .join('');
   return sectionHtml(t('newsTitle'), `<div class="q-list">${rows}</div><p class="foot-note">${h(t('newsFoot'))}</p>`);
+}
+// 重大訊息白話 (the family's AI plan): a Taiwan stock's filings of the past
+// week as rows (lib/filings.mjs), each with the AI's plain line and the rows
+// that show it lit; told once a filing for everyone (Orbit-Core 'sec-filing').
+const filingDocs = new Map();
+const filingTold = new Map();
+const filingOpen = new Set();
+const filingAsked = new Set();
+function loadFilings(symbol) {
+  const code = twCode(symbol);
+  if (!code || !kitOrbit.packJson) return;
+  kitOrbit
+    .packJson(filingsPath(code), { ttl: 10 * 60_000, timeout: 20_000 })
+    .then(doc => {
+      filingDocs.set(code, doc && typeof doc === 'object' ? doc : null);
+      if (state.detail?.symbol === symbol) renderDetail();
+      tellFilings(symbol, code);
+    })
+    .catch(() => {});
+}
+async function tellFilings(symbol, code) {
+  const list = toAsk(filingsOf(filingDocs.get(code), code), new Set([...filingTold.keys(), ...filingAsked]));
+  if (!list.length) return;
+  const ai = await import('#kit/ai.mjs').catch(() => null);
+  if (!ai?.aiCall) return;
+  const name = catalogInfo(symbol)?.zh || twZhName(symbol) || '';
+  for (const f of list) {
+    filingAsked.add(f.id);
+    const r = await ai.aiCall('sec-filing', { title: f.title, name, rows: f.rows, lang: locale === 'en' ? 'en' : 'zh' }).catch(() => null);
+    if (r?.out?.line) {
+      filingTold.set(f.id, r.out);
+      if (state.detail?.symbol === symbol) renderDetail();
+    }
+  }
+}
+function filingsHtml(symbol, q) {
+  const code = twCode(symbol);
+  if (!code || !['stock', 'etf'].includes(q.kind)) return '';
+  const list = filingsOf(filingDocs.get(code), code).slice(0, 4);
+  if (!list.length) return '';
+  const name = catalogInfo(symbol)?.zh || twZhName(symbol) || '';
+  const today = localDay(Date.now(), 'Asia/Taipei');
+  const when = at => (localDay(Date.parse(at), 'Asia/Taipei') === today ? clock(Date.parse(at)) : shortDate(Date.parse(at)));
+  const row = ([k, v], lit) => `<div class="fl-row${lit ? ' on' : ''}"><span class="fl-k">${h(k)}</span><b class="fl-v">${h(v)}</b></div>`;
+  const cards = list
+    .map(f => {
+      const told = filingTold.get(f.id);
+      const { shown, rest } = rowsShown(f, told);
+      const open = filingOpen.has(f.id);
+      const lit = new Set(told?.show?.length ? shown : []);
+      return `<div class="fl-card">
+        <div class="fl-head"><strong>${h(shortTitle(f.title, name))}</strong><small>${h(when(f.at))}</small></div>
+        ${told ? `<p class="fl-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : filingAsked.has(f.id) && f.rows.length ? `<p class="fl-line wait q-skel" aria-hidden="true"></p>` : ''}
+        ${shown.length ? `<div class="fl-rows">${shown.map(r => row(r, lit.has(r))).join('')}${open ? rest.map(r => row(r, false)).join('') : ''}</div>` : ''}
+        ${rest.length ? kitUI.moreHtml({ more: t('filingMore', { n: f.rows.length }), less: t('filingLess'), open, attr: `data-action="filing-more" data-id="${h(f.id)}"` }) : ''}
+      </div>`;
+    })
+    .join('');
+  return sectionHtml(t('filingsTitle'), `<div class="fl-list">${cards}</div><p class="foot-note">${h(t('filingsFoot'))}</p>`);
 }
 function ownTradesHtml(symbol) {
   if (!state.account) return '';
@@ -5962,6 +6024,11 @@ document.addEventListener('click', async event => {
       goMarket(el.dataset.id, { sub: !!el.dataset.sub });
       showTab('markets');
       refresh({ list: true });
+      break;
+    case 'filing-more':
+      if (filingOpen.has(el.dataset.id)) filingOpen.delete(el.dataset.id);
+      else filingOpen.add(el.dataset.id);
+      renderDetail();
       break;
     case 'nv-mine':
       nvMineOpen = !nvMineOpen;
