@@ -17,14 +17,20 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 
 <p align="center">
   <img src="docs/screenshots/securities-1.webp" width="30%" alt="Your whole portfolio">
-  <img src="docs/screenshots/securities-2.webp" width="30%" alt="Real prices, real charts">
-  <img src="docs/screenshots/securities-3.webp" width="30%" alt="Real TWSE rules, fees and tax">
+  <img src="docs/screenshots/securities-2.webp" width="30%" alt="Say the order, the ticket fills itself">
+  <img src="docs/screenshots/securities-3.webp" width="30%" alt="Real prices, real charts">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/securities-4.webp" width="30%" alt="Taiwan, US, funds and more">
-  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Every trade you made">
-  <img src="docs/screenshots/securities-6.webp" width="30%" alt="Exchange at bank rates">
+  <img src="docs/screenshots/securities-4.webp" width="30%" alt="Real TWSE rules, fees and tax">
+  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Taiwan, US, funds and more">
+  <img src="docs/screenshots/securities-6.webp" width="30%" alt="Every trade you made">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/securities-7.webp" width="30%" alt="Your trading, in numbers">
+  <img src="docs/screenshots/securities-8.webp" width="30%" alt="Dividends, plans and alerts">
+  <img src="docs/screenshots/securities-9.webp" width="30%" alt="Exchange at bank rates">
 </p>
 
 <details>
@@ -32,20 +38,27 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 
 <p align="center">
   <img src="docs/screenshots/securities-1.zh.webp" width="30%" alt="投資組合總覽">
-  <img src="docs/screenshots/securities-2.zh.webp" width="30%" alt="真實報價與 K 線">
-  <img src="docs/screenshots/securities-3.zh.webp" width="30%" alt="真實台股規則、手續費與稅">
+  <img src="docs/screenshots/securities-2.zh.webp" width="30%" alt="用說的下單，單子幫你填好">
+  <img src="docs/screenshots/securities-3.zh.webp" width="30%" alt="真實報價與 K 線">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/securities-4.zh.webp" width="30%" alt="台股、美股、基金一次看">
-  <img src="docs/screenshots/securities-5.zh.webp" width="30%" alt="你的交易紀錄">
-  <img src="docs/screenshots/securities-6.zh.webp" width="30%" alt="用銀行匯率換匯">
+  <img src="docs/screenshots/securities-4.zh.webp" width="30%" alt="真實台股規則、手續費與稅">
+  <img src="docs/screenshots/securities-5.zh.webp" width="30%" alt="台股、美股、基金一次看">
+  <img src="docs/screenshots/securities-6.zh.webp" width="30%" alt="你的交易紀錄">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/securities-7.zh.webp" width="30%" alt="交易統計與勝率">
+  <img src="docs/screenshots/securities-8.zh.webp" width="30%" alt="配息、定期定額與提醒">
+  <img src="docs/screenshots/securities-9.zh.webp" width="30%" alt="用銀行匯率換匯">
 </p>
 
 </details>
 
 ## Features
 
+- **Orbit AI:** 用說的下單: type an order in plain words in search (用 5 萬買台積電零股, 買兩張鴻海, 賣掉一半聯發科) and a tap opens the ticket filled in, worked out by code; 重大訊息白話: a Taiwan stock's filings of the week as rows with one plain AI line, asked once for everyone; 這筆交易學到什麼: a sale that closed a holding, told back from the account's own numbers; 持股新聞: Orbit News' stories that name a stock.
 - **Every market a Taiwan investor reaches:** 上市, 上櫃 and 興櫃 stocks, ETFs, warrants, convertibles, futures and options, 複委託 (US, Hong Kong, Tokyo and more), funds, bonds, forex, gold and crypto, each list complete, 50 rows at a time.
 - **A real broker's rules:** each market's fees, taxes, ticks, price limits, board lots, lunch breaks, holidays and settlement days; US pre- and post-market; circuit breakers.
 - **Orders:** market, limit and stop, quick sizes and a cost preview; whole and odd lots in one tap.
