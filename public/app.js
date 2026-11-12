@@ -4330,7 +4330,7 @@ function callPanelHtml(v) {
   const avail = available(state.account, snap()).cash;
   const cashTWD = Object.entries(avail).reduce((sum, [c, x]) => sum + Math.max(0, x) * (state.rates[c] || 0), 0);
   const pay = Math.min(need, Math.max(0, Math.floor(cashTWD)), Math.ceil(v.debtTWD));
-  const after = v.owed - pay > 0 ? (v.assets - pay) / (v.owed - pay) : Infinity;
+  const after = stockAccount.ratioAfter?.(v, pay) ?? (v.owed - pay > 0 ? (v.assets - pay) / (v.owed - pay) : Infinity);
   const financed = v.positions.filter(p => !p.short && p.financed > 0);
   const lines = [];
   if (!call) lines.push(`<p class="foot-note">${h(t('callIntraday'))}</p>`);

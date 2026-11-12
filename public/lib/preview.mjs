@@ -65,7 +65,8 @@ export function shortRoom(v, { unit, price, kind, credit = null, cash = 0, dayLe
     while (n > 0 && lotsDeposit(market, kind, held, n, price) > cash + EPS) n = roundQty(n - qtyStep(kind), kind);
     return n;
   }
-  const room = Math.max(0, (v.assets - SHORT_INITIAL * (v.debtTWD + v.shortTWD)) / (SHORT_INITIAL - 1));
+  // (Outside the credit account: against the rest of the account, as placeOrder checks it.)
+  const room = Math.max(0, ((v.otherAssets ?? v.assets) - SHORT_INITIAL * (v.otherOwed ?? v.debtTWD + v.shortTWD)) / (SHORT_INITIAL - 1));
   return roundQty(Math.min(room / unit, dayLeft == null ? Infinity : dayLeft / (dayUnit > 0 ? dayUnit : unit)), kind);
 }
 

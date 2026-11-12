@@ -52,7 +52,10 @@ Jay's, dated (Taiwan day), newest wins; the family's (the economy, money only he
     breaks, holidays and settlement days;
   - spreads on fills;
   - dividends paid on the market's pay day;
-  - margin calls at 130% (two business days, then forced sales);
+  - margin calls at 130% (two business days, then forced sales) of
+    Taiwan's 整戶擔保維持率: the 融資 shares' value and 融券's deposit and
+    sale money over 融資金額 and the shorted shares' value, cash not counted
+    (Jay's rule; `valuate`'s `creditRatio`);
   - shorts at 150% cover (Taiwan's 融券: its credit limit and a 90%
     deposit, 0.08% handling); abroad 複委託 is cash only, so a foreign
     stock is never bought on 融資 or sold short (`cashOnly`; crypto still
