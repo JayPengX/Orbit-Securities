@@ -4257,7 +4257,7 @@ function positionRow(p, sort = 'value') {
     exTagHtml(p.symbol),
     alertTag(p.symbol)
   ].join('');
-  const qty = p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t('splitShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : heldQtyText(p, q);
+  const qty = p.short && p.credit ? t('shortShares', { n: fmtQty(Math.abs(p.qty)), unit: unitOf(p.symbol) }) : marginShares(p) > 0 ? t(p.qty - marginShares(p) > 0 ? 'splitShares' : 'marginOnlyShares', { cash: fmtQty(p.qty - marginShares(p)), margin: fmtQty(marginShares(p)), unit: unitOf(p.symbol) }) : heldQtyText(p, q);
   // (A part of a coin or a fund's units, 0.04626395 BTC, didn't fit beside its 市值 at 320 px: the 市值 on a line of its own.)
   const part = !Number.isInteger(p.qty) && qty === heldQtyText(p, q);
   const worth = `${t('marketValue')} ${compactMoney(p.valueTWD, BASE)}`;
@@ -4399,7 +4399,8 @@ async function loadNetWorthHistory() {
   const range = historyRange(age);
   if (nwCharts.key !== `${account.id}:${today}:${range}`) Object.assign(nwCharts, { key: `${account.id}:${today}:${range}`, points: new Map() });
   const currencies = new Set();
-  for (const e of account.events) for (const c of [e.currency, e.from, e.to]) if (c && c !== BASE) currencies.add(c);
+  // (An exchange's two currencies; an application's or a credit account's `from` is a moment.)
+  for (const e of account.events) for (const c of e.type === 'fx' ? [e.from, e.to] : [e.currency]) if (c && c !== BASE) currencies.add(c);
   const wanted = [...Object.keys(s.held), ...[...currencies].map(fxSymbol)].filter(sym => !nwCharts.points.has(sym));
   const got = await Promise.all(wanted.map(sym => fetchChart(sym, range).catch(() => null)));
   // (A failed read is asked again next time, not kept as empty.)
@@ -6002,12 +6003,17 @@ function toolHero(kind) {
   const rate = x => pct(x, { digits: 2, sign: false });
   const make = {
     alloc: () => ({ eyebrow: t('netWorth'), big: money(v.netWorth, BASE), tags: [t(v.positions.length === 1 ? 'heroHoldOne' : 'heroHoldN', { n: v.positions.length })], tint: TINT.indigo }),
-    loans: () => ({
-      eyebrow: t('borrowed'),
-      big: money(v.debtTWD, BASE),
-      tags: v.debtTWD > 0 ? [`${t('ratioShort')} ${pct(v.ratio, { digits: 0, sign: false })}`, t('loanUsed', { pct: pct(v.debtTWD / Math.max(1, v.debtTWD + v.capacity), { digits: 0, sign: false }) })] : [],
-      tint: TINT.indigo
-    }),
+    // (額度 is the credit account's limit, as the 信用帳戶 sheet says 融資已用 NT$5.6萬 / NT$50萬:
+    // what the collateral could still lend read 已用 98% 額度 on NT$56,000 of NT$500,000.)
+    loans: () => {
+      const limit = creditAccount(state.account, now).limit;
+      return {
+        eyebrow: t('borrowed'),
+        big: money(v.debtTWD, BASE),
+        tags: v.debtTWD > 0 ? [`${t('ratioShort')} ${pct(v.ratio, { digits: 0, sign: false })}`, ...(limit > 0 ? [t('loanUsed', { pct: pct(creditUsed(v).loan / limit, { digits: 0, sign: false }) })] : [])] : [],
+        tint: TINT.indigo
+      };
+    },
     td: () => {
       const term = TD_TERMS.find(x => x.months === state.td.months) || TD_TERMS.at(-1);
       const amount = Math.round(Number(state.td.amount) || 0);
