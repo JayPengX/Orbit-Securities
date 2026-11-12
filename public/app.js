@@ -5987,6 +5987,14 @@ function openTool(kind) {
   renderTool();
   if (kind === 'lend') loadLendCloses(state.account);
 }
+// 資格's one-permission page: a swipe in from the sheet's left edge goes back to 全部, as ‹ 全部
+// does and as every page with a way back swipes (the kit's edgeBack inside a sheet; an older
+// kit, without `within`, never runs it under a sheet).
+kitUI.edgeBack?.({
+  within: () => (state.tool === 'access' && accessUi().key && $('tool')?.open ? $('tool') : null),
+  target: () => $('tool-body')?.querySelector('.tool-page') || null,
+  back: () => ((accessUi().key = null), renderTool())
+});
 function closeTool() {
   const dialog = $('tool');
   if (dialog?.open) (globalThis.orbitCloseSheet || (x => x.close()))(dialog);
