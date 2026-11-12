@@ -136,8 +136,8 @@ const markListed = q => {
 };
 
 // A confirm in the kit's look (a colour tile with a kit icon, points with icons); an ask without a kit icon for its emoji keeps the emoji.
-const ASK_ICON = { '🎟': ['ticket', 'indigo'], '📅': ['calendar', 'teal'], '🏦': ['bank', 'indigo'], '⚠️': ['bell', 'red'], '🤝': ['coin', 'orange'], '↩️': ['history', 'blue'], '📈': ['chart', 'green'], '📉': ['chart', 'red'], '💱': ['exchange', 'orange'] };
-const POINT_ICON = { '💰': ['wallet', 'orange'], '🎲': ['ticket', 'indigo'], '📈': ['chart', 'green'], '🔒': ['lock', 'gray'], '💸': ['coin', 'red'], '📅': ['calendar', 'teal'] };
+const ASK_ICON = { '🎟': ['ticket', 'indigo'], '📅': ['calendar', 'teal'], '🏦': ['bank', 'indigo'], '⚠️': ['bell', 'red'], '🤝': ['coin', 'orange'], '↩️': ['history', 'blue'], '📈': ['chart', 'green'], '📉': ['chart', 'red'], '💱': ['exchange', 'orange'], '🧾': ['pencil', 'indigo'] };
+const POINT_ICON = { '💰': ['wallet', 'orange'], '🎲': ['ticket', 'indigo'], '📈': ['chart', 'green'], '🔒': ['lock', 'gray'], '💸': ['coin', 'red'], '📅': ['calendar', 'teal'], '🧾': ['coin', 'gray'] };
 function askKit(opts) {
   const named = ASK_ICON[opts.icon];
   if (!named || !kitUI.icons[named[0]]) return ask(opts);
