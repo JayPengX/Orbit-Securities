@@ -5534,6 +5534,8 @@ const ACTIVITY_FILTERS = {
   cash: e => e.type === 'deposit' || e.type === 'futx'
 };
 
+// 紀錄's rows: 60, then 100 more a tap (its button says how many it adds).
+const ACT_PAGE = 100;
 function renderHistory() {
   const box = $('history-body');
   // (Wide: 統計分析 stands beside the activity, so it's no view of its own.)
@@ -5565,7 +5567,7 @@ function renderHistory() {
   const days = dayGroups(shown);
   const list = `<div class="q-chips q-texttabs bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
     ${days.length ? days.map(([day, rows]) => `<p class="sub-head day-head">${h(dayLabel(day))}</p><div class="q-rowcard">${rows.join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
-    ${own.length > shown.length ? kitUI.moreHtml?.({ more: t('showMore', { n: own.length - shown.length }), less: null, attr: 'data-action="more"', cls: 'act-more' }) ?? `<button class="q-btn small more" type="button" data-action="more">${h(t('showMore', { n: own.length - shown.length }))}</button>` : ''}`;
+    ${own.length > shown.length ? kitUI.moreHtml?.({ more: t('showMore', { n: Math.min(ACT_PAGE, own.length - shown.length) }), less: null, attr: 'data-action="more"', cls: 'act-more' }) ?? `<button class="q-btn small more" type="button" data-action="more">${h(t('showMore', { n: Math.min(ACT_PAGE, own.length - shown.length) }))}</button>` : ''}`;
   if (!wide) return morph(box, `${head}${list}`);
   morph(box, `${head}<div class="q-cols act-cols"><div>${list}</div><div class="act-stats">${statsHtml()}</div></div>`);
   renderBench();
@@ -6538,7 +6540,7 @@ document.addEventListener('click', async event => {
       renderHistory();
       break;
     case 'more':
-      state.activityShown += 100;
+      state.activityShown += ACT_PAGE;
       renderHistory();
       break;
     case 'chart-style':
