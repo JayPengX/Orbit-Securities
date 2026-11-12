@@ -16,42 +16,30 @@
 A Taiwan brokerage on play money, with real prices and a real broker's rules. Part of **Orbit**, a family of apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
 
 <p align="center">
-  <img src="docs/screenshots/securities-1.webp" width="30%" alt="Your whole portfolio">
-  <img src="docs/screenshots/securities-2.webp" width="30%" alt="Say the order, the ticket fills itself">
-  <img src="docs/screenshots/securities-3.webp" width="30%" alt="Real prices, real charts">
+  <img src="docs/screenshots/securities-1.webp" width="30%" alt="Everything you own, at a glance">
+  <img src="docs/screenshots/securities-2.webp" width="30%" alt="Real prices, real charts">
+  <img src="docs/screenshots/securities-3.webp" width="30%" alt="Every market, one account">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/securities-4.webp" width="30%" alt="Real TWSE rules, fees and tax">
-  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Taiwan, US, funds and more">
-  <img src="docs/screenshots/securities-6.webp" width="30%" alt="Every trade you made">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/securities-7.webp" width="30%" alt="Your trading, in numbers">
-  <img src="docs/screenshots/securities-8.webp" width="30%" alt="Dividends, plans and alerts">
-  <img src="docs/screenshots/securities-9.webp" width="30%" alt="Exchange at bank rates">
+  <img src="docs/screenshots/securities-4.webp" width="30%" alt="Market, limit and stop orders, like a real broker">
+  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Day trading and warrants, by the real rules">
+  <img src="docs/screenshots/securities-6.webp" width="30%" alt="Exchange at the bank's rates">
 </p>
 
 <details>
 <summary>中文畫面</summary>
 
 <p align="center">
-  <img src="docs/screenshots/securities-1.zh.webp" width="30%" alt="投資組合總覽">
-  <img src="docs/screenshots/securities-2.zh.webp" width="30%" alt="用說的下單，單子幫你填好">
-  <img src="docs/screenshots/securities-3.zh.webp" width="30%" alt="真實報價與 K 線">
+  <img src="docs/screenshots/securities-1.zh.webp" width="30%" alt="你的總資產，一眼看">
+  <img src="docs/screenshots/securities-2.zh.webp" width="30%" alt="真實報價與 K 線">
+  <img src="docs/screenshots/securities-3.zh.webp" width="30%" alt="全世界的市場，一個帳戶買">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/securities-4.zh.webp" width="30%" alt="真實台股規則、手續費與稅">
-  <img src="docs/screenshots/securities-5.zh.webp" width="30%" alt="台股、美股、基金一次看">
-  <img src="docs/screenshots/securities-6.zh.webp" width="30%" alt="你的交易紀錄">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/securities-7.zh.webp" width="30%" alt="交易統計與勝率">
-  <img src="docs/screenshots/securities-8.zh.webp" width="30%" alt="配息、定期定額與提醒">
-  <img src="docs/screenshots/securities-9.zh.webp" width="30%" alt="用銀行匯率換匯">
+  <img src="docs/screenshots/securities-4.zh.webp" width="30%" alt="市價、限價、停損，像真的券商">
+  <img src="docs/screenshots/securities-5.zh.webp" width="30%" alt="當沖、權證、期貨，資格都照真的">
+  <img src="docs/screenshots/securities-6.zh.webp" width="30%" alt="換匯照銀行牌價">
 </p>
 
 </details>
