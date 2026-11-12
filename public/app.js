@@ -1664,7 +1664,8 @@ function ipoHtml() {
   const now = Date.now();
   const applied = new Set(ipoApplied().map(a => `${a.code}:${a.draw}`));
   const open = list.filter(s => ipoOpen(s, now) && !applied.has(ipoKey(s))).sort((a, b) => a.to - b.to);
-  // Mine: still drawing, or settled within the last two weeks.
+  // Mine: still drawing, or settled within the last two weeks. (Its tag says 中籤 / 未中籤; its
+  // line, when the shares or the money come.)
   const mine = ipoApplied()
     .map(a => ({ a, out: ipoOutcome(a) }))
     .filter(({ a, out }) => !out || now - out.t < 14 * 86_400_000 || out.t > now)
@@ -1693,7 +1694,7 @@ function ipoHtml() {
   };
   const mineRow = ({ a, out }) => {
     const won = out?.type === 'ipowin';
-    const line = !out ? t('ipoDrawing', { date: shortDate(a.draw) }) : won ? (out.t > now ? t('ipoWonOn', { date: shortDate(out.t) }) : t('ipoWonIn')) : t('ipoLost');
+    const line = !out ? t('ipoDrawing', { date: shortDate(a.draw) }) : won ? (out.t > now ? t('ipoWonOn', { date: shortDate(out.t) }) : t('ipoWonIn')) : out.t > now ? t('ipoBackOn', { date: shortDate(out.t) }) : t('ipoLost');
     return `<button class="q-ritem" type="button" data-action="open" data-symbol="${h(a.symbol)}">
       ${tileHtml(ico(won ? 'trophy' : out ? 'check' : 'clock'), won ? 'var(--up)' : out ? TINT.gray : TINT.orange)}
       <span class="q-ritem-text"><span class="q-ritem-title">${h(a.name)} <em class="code num">${h(a.code)}</em></span><small>${h(line)}</small></span>
