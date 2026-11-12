@@ -1211,36 +1211,38 @@ function marketStatus(q) {
   if (!q) return '';
   if (q.kind === 'crypto') return `<span class="mkt-status open">${statusDot(q)}${h(t('always'))}</span>`;
   const now = Date.now();
+  // The market's own clock, for a market abroad (a Taiwan one's is the phone's). The space
+  // goes inside, so a phone that hides it (≤ 400 px) leaves none for a line to break at.
+  const local = q.tz && q.tz !== 'Asia/Taipei' ? `<small>\u00a0(${h(t('localTime'))} ${h(clock(now, q.tz))})</small>` : '';
   if (testFlag('mktOpen')) {
     const on = testFlag('mktOpen') === 'open';
-    return `<span class="mkt-status${on ? ' open' : ''}">${statusDot(q)}${h(t(on ? 'marketOpen' : 'marketClosed'))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+    return `<span class="mkt-status${on ? ' open' : ''}">${statusDot(q)}${h(t(on ? 'marketOpen' : 'marketClosed'))}${local}</span>`;
   }
-  if (q.session && now >= q.session.start && now < q.session.end && atLunch(q.market, now)) return `<span class="mkt-status">${statusDot(q)}${h(t('atLunch'))} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+  if (q.session && now >= q.session.start && now < q.session.end && atLunch(q.market, now)) return `<span class="mkt-status">${statusDot(q)}${h(t('atLunch'))}${local}</span>`;
   // Taiwan's own phases: 試撮 before the opening auction, the closing
   // auction, and (for what trades after hours) the 盤後 sessions to 14:30.
   const ph = q.market === 'TW' ? twPhase(now) : null;
   if (ph && ph.id !== 'continuous' && (ph.id !== 'after' || isTradable(q.kind))) {
     const time = clock(ph.until, q.tz);
     const text = { preopen: t('phasePreopen', { time }), closing: t('phaseClosing', { time }), after: t('phaseAfter', { time }) }[ph.id];
-    return `<span class="mkt-status${ph.id === 'closing' ? ' open' : ''}">${statusDot(q)}${h(text)} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+    return `<span class="mkt-status${ph.id === 'closing' ? ' open' : ''}">${statusDot(q)}${h(text)}${local}</span>`;
   }
-  const local = `<small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small>`;
   // The US: a market-wide halt (circuit breaker), and the pre- and post-market.
   const halt = haltOf(q, now);
-  if (halt && now < halt.until) return `<span class="mkt-status halt">${statusDot(q)}${h(halt.level === 3 ? t('haltDay') : t('haltUntil', { time: clock(halt.until, q.tz) }))} ${local}</span>`;
+  if (halt && now < halt.until) return `<span class="mkt-status halt">${statusDot(q)}${h(halt.level === 3 ? t('haltDay') : t('haltUntil', { time: clock(halt.until, q.tz) }))}${local}</span>`;
   const us = usSessionOf(q, now);
   if (us === 'pre' || us === 'post') {
     const until = us === 'pre' ? (q.session?.start > now ? q.session.start : nextOpen(q, now)) : stockMarkets.usExtendedEnd(now);
-    return `<span class="mkt-status ext">${statusDot(q)}${h(t(us === 'pre' ? 'statusPre' : 'statusPost', { time: until ? clock(until, q.tz) : '—' }))} ${local}</span>`;
+    return `<span class="mkt-status ext">${statusDot(q)}${h(t(us === 'pre' ? 'statusPre' : 'statusPost', { time: until ? clock(until, q.tz) : '—' }))}${local}</span>`;
   }
   // A half day closes early (the kit's earlyCloseAt).
   if (isOpen(q, now)) {
     const early = closeOf(q, now) < (stockMarkets.sessionEnd?.(q) ?? q.session.end);
-    return `<span class="mkt-status open">${statusDot(q)}${h(t(early ? 'marketOpenUntilEarly' : 'marketOpenUntil', { time: clock(closeOf(q, now), q.tz) }))} ${local}</span>`;
+    return `<span class="mkt-status open">${statusDot(q)}${h(t(early ? 'marketOpenUntilEarly' : 'marketOpenUntil', { time: clock(closeOf(q, now), q.tz) }))}${local}</span>`;
   }
   const opens = nextOpen(q, now);
   const next = opens ? t(q.market === 'TW' || q.market === 'TWFUND' ? 'opensAtTw' : 'opensAt', { time: weekdayClock(opens) }) : t('marketClosed');
-  return `<span class="mkt-status">${statusDot(q)}${h(next)} <small>(${h(t('localTime'))} ${h(clock(now, q.tz))})</small></span>`;
+  return `<span class="mkt-status">${statusDot(q)}${h(next)}${local}</span>`;
 }
 // A symbol's picture, in order: TradingView's round icon (two for a
 // currency pair), the company's own icon or else its official logo
@@ -1581,7 +1583,7 @@ function renderHome() {
   const { groups, group } = moverGroups();
   const up = group ? movers(state.quotes, { up: true, n: 4, group }) : [];
   const down = group ? movers(state.quotes, { up: false, n: 4, group }) : [];
-  const tabsRow = groups.length > 1 ? `<div class="q-chips q-texttabs sc-tabs">${groups.map(g => `<button class="q-chip" type="button" data-action="mover-group" data-v="${h(g)}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : '';
+  const tabsRow = moverTabs(groups, group);
   const moversBody = up.length || down.length ? `${tabsRow}<div class="q-rowcard sc-rows">${[...up, ...down].map(q => nvRow(q.symbol)).join('')}</div>` : emptyHtml({ icon: 'chart', tint: TINT.gray, title: t('moversNone'), body: t('moversNoneSub') });
   const recBody = recs.length
     ? `<div class="q-rowcard sc-rows">${recs.slice(0, 5).map(r => {
@@ -1976,8 +1978,9 @@ function moverGroups() {
   const group = groups.includes(state.moverGroup) ? state.moverGroup : groups.includes(moverGroupNow()) ? moverGroupNow() : groups[0];
   return { groups, group };
 }
-const moverSeg = (groups, group) =>
-  groups.length > 1 ? seg(groups.map(g => [g, t(`moverGroup_${g}`)]), 'mover-group', 'v', g => g === group, 'mover-groups') : '';
+// A filter, so text tabs (DESIGN: filters are text tabs), the same row on 首頁 and 市場.
+const moverTabs = (groups, group) =>
+  groups.length > 1 ? `<div class="q-chips q-texttabs sc-tabs">${groups.map(g => `<button class="q-chip" type="button" data-action="mover-group" data-v="${h(g)}" aria-pressed="${g === group}">${h(t(`moverGroup_${g}`))}</button>`).join('')}</div>` : '';
 
 // 今日漲跌 a market at a time: the one trading now unless another was picked;
 // named for their day (a closed market's moves are its last day's: 週五 on a weekend).
@@ -1990,7 +1993,7 @@ function moversHtml() {
   const day = dayOfChange(all).today ? null : dayWord(all);
   const mt = (key, onKey) => (day ? t(onKey, { day }) : t(key));
   const row = q => `<button class="q-ritem quote" type="button" data-action="open" data-symbol="${h(q.symbol)}">${symbolBadge(q.symbol, q)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(q.symbol, q))}</span><small class="num" data-q-live="mover:${h(q.symbol)}">${qPrice(q)}</small></span>${pctTag(q)}</button>`;
-  return `${moverSeg(groups, group)}
+  return `${moverTabs(groups, group)}
     <div class="mv-pair">${up.length ? `<div><p class="sub-head">${h(mt('moversUp', 'moversUpOn'))}</p><div class="q-rowcard">${up.map(row).join('')}</div></div>` : ''}
     ${down.length ? `<div><p class="sub-head">${h(mt('moversDown', 'moversDownOn'))}</p><div class="q-rowcard">${down.map(row).join('')}</div></div>` : ''}</div>`;
 }
@@ -2198,7 +2201,11 @@ async function loadChart(retry = 0) {
   // every refresh): no chart read, except for candles.
   if (dayLineOf(d) && state.settings.chart !== 'candle') return;
   try {
-    let chart = await fetchChart(symbol, range);
+    let chart = await fetchChart(symbol, isDay24(d) ? '5d' : range);
+    if (isDay24(d) && chart?.points) {
+      const from = Date.now() - 86_400_000;
+      chart = { ...chart, points: chart.points.filter(([tt]) => tt >= from), bars: (chart.bars || []).filter(b => b.t >= from) };
+    }
     // A day with no trading yet (a holiday, a typhoon day, before the open):
     // the last trading day's line instead, said so over the chart.
     d.lastDay = null;
@@ -2357,8 +2364,11 @@ function renderDetail() {
 // history is only an estimate along the index).
 // (A fund has one NAV a day: no day or week; it opens on its year.)
 const rangesOf = kind => (kind === 'opt' ? ['1d', '5d', '1mo'] : kind === 'fut' ? ['1d', '5d', '1mo', '6mo'] : kind === 'fund' ? ['1mo', '6mo', 'ytd', '1y', '5y', 'max'] : ['1d', '5d', '1mo', '6mo', 'ytd', '1y', '5y', 'max']);
+// A coin's day is the last 24 hours, never the 8 minutes since midnight UTC
+// (its quote's own line starts there): read as 5 days' half hours, the last day of them.
+const isDay24 = d => d.range === '1d' && state.quotes.get(d.symbol)?.kind === 'crypto';
 const dayLineOf = d => {
-  const line = d.range === '1d' ? state.quotes.get(d.symbol)?.line : null;
+  const line = d.range === '1d' && !isDay24(d) ? state.quotes.get(d.symbol)?.line : null;
   return line?.length > 1 ? line : null;
 };
 function renderChart() {
@@ -2387,7 +2397,8 @@ function renderChart() {
   const base = d.range === '1d' && q && q.kind !== 'crypto' ? q.prev : points[0][1];
   const dir = dirClass(points.at(-1)[1] - base);
   const width = Math.max(320, Math.round(box.clientWidth || 640));
-  const tz = q?.tz;
+  // (A coin has no home market: its times are the phone's, as its trades in 紀錄 are.)
+  const tz = q?.kind === 'crypto' ? undefined : q?.tz;
   const xFormat = tt => (d.range === '1d' ? clock(tt, tz) : intraday ? shortDate(tt, tz) : d.range === '5y' || d.range === 'max' ? monthYear(tt, tz) : shortDate(tt, tz));
   const when = tt => (intraday ? dateTime(tt, tz) : fmtDate(tt, tz));
   const change = points.at(-1)[1] / base - 1;
@@ -2398,7 +2409,7 @@ function renderChart() {
   const legend = mas.length ? `<ul class="legend-inline">${mas.map(m => `<li><i class="sw ${m.cls}"></i>MA${m.n}</li>`).join('')}</ul>` : '';
   const headBox = $('detail-chart-head');
   // (Under the chart beside its tools, with the averages' key; not a live day's change: the hero's move says it already.)
-  if (headBox) headBox.innerHTML = `${d.range === '1d' && !d.lastDay ? '' : `<span>${h(d.lastDay && d.range === '1d' ? t('lastDayChange', { date: shortDate(d.lastDay, tz) }) : t('rangeChange', { range: t(`range_${d.range}`) }))} <span class="chg ${dir}">${pct(change)}</span></span>`}${legend}`;
+  if (headBox) headBox.innerHTML = `${d.range === '1d' && !d.lastDay && !isDay24(d) ? '' : `<span>${h(d.lastDay && d.range === '1d' ? t('lastDayChange', { date: shortDate(d.lastDay, tz) }) : t('rangeChange', { range: t(isDay24(d) ? 'range_24h' : `range_${d.range}`) }))} <span class="chg ${dir}">${pct(change)}</span></span>`}${legend}`;
   const head = '';
   // (A phone on its side has half a phone's height: the chart and the hero over it stay under half of it.)
   const height = window.innerHeight <= 520 ? 150 : width < 480 ? 220 : 260;
@@ -2532,6 +2543,15 @@ function factsGrid(rows) {
   // A short fact left alone at the end of its run (before a wide one, or last) takes the row: no hole.
   // (Measured as shown: a Chinese character is two letters wide.)
   const isWide = v => [...String(v)].reduce((w, ch) => w + (ch.codePointAt(0) > 0x2e80 ? 2 : 1), 0) > 16;
+  // A short fact whose partner would be a wide one takes the next short fact up beside it
+  // (昨收 sat alone on a row of its own above 漲停 / 跌停, 市場 under 幣別's pair).
+  rows = [...rows];
+  for (let i = 0, run = 0; i < rows.length; i++) {
+    if (isWide(rows[i][1])) { run = 0; continue; }
+    if (++run % 2 === 0 || i + 1 >= rows.length || !isWide(rows[i + 1][1])) continue;
+    const j = rows.findIndex((r, k) => k > i + 1 && !isWide(r[1]));
+    if (j > 0) rows.splice(i + 1, 0, ...rows.splice(j, 1));
+  }
   let run = 0;
   const lone = rows.map(([, v], i) => {
     if (isWide(v)) return (run = 0), false;
@@ -2618,7 +2638,8 @@ function costChips(q) {
 }
 function guideHtml(q) {
   const block = (icon, title, body) => (body ? `<div class="guide-part"><h4>${ico(icon)}${h(title)}</h4>${body}</div>` : '');
-  const facts = list => (list.length ? `<p class="guide-facts">${list.map(x => `<span>${h(x)}</span>`).join('<i> · </i>')}</p>` : '');
+  // (The dot keeps to the fact before it: a line never starts with one.)
+  const facts = list => (list.length ? `<p class="guide-facts">${list.map(x => `<span>${h(x)}</span>`).join('<i>\u00a0· </i>')}</p>` : '');
   const days = q.session ? holidayLine(q) : '';
   const tradable = isTradable(q.kind);
   const body = [
@@ -3775,11 +3796,13 @@ function confirmOrder() {
   if (!q || !(qty > 0)) return Promise.resolve(false);
   const total = est ? money(est.total, q.currency) : '';
   const split = lotSplit(q.market, q.kind, qty);
+  // (Its own unit: 0.01 BTC, 3 公克, 10 單位, never 股 for what isn't a share.)
+  const unit = locale === 'en' && unitOf(d.symbol) === t('shares') ? 'shares' : unitOf(d.symbol);
   return askKit({
     lang: locale,
     icon: d.side === 'buy' ? '📈' : '📉',
     title: t(d.side === 'buy' ? 'orderAskBuy' : 'orderAskSell', { name: nameOf(d.symbol, q) }),
-    body: [credit && est ? t('orderAskBodyCredit', { qty: fmtQty(qty), total, lent: money(lent, q.currency), own: money(est.total - lent, q.currency) }) : t(!total ? 'orderAskQty' : d.side === 'buy' ? 'orderAskBody' : 'orderAskBodySell', { qty: fmtQty(qty), total }), split ? t('orderAskSplit', { board: fmtQty(split.board), odd: fmtQty(split.odd) }) : ''].filter(Boolean).join(' '),
+    body: [credit && est ? t('orderAskBodyCredit', { qty: fmtQty(qty), unit, total, lent: money(lent, q.currency), own: money(est.total - lent, q.currency) }) : t(!total ? 'orderAskQty' : d.side === 'buy' ? 'orderAskBody' : 'orderAskBodySell', { qty: fmtQty(qty), unit, total }), split ? t('orderAskSplit', { board: fmtQty(split.board), odd: fmtQty(split.odd) }) : ''].filter(Boolean).join(' '),
     ok: t(d.side === 'buy' ? 'placeBuy' : 'placeSell'),
     cancel: t('orderAskCancel')
   });
@@ -4122,7 +4145,8 @@ function incomeHtml(v) {
   const top = Object.entries(inc.payers).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const parts = [['incomeDiv', inc.div], ['incomeCoupon', inc.coupon], ['incomeInterest', inc.interest], ['incomeLending', inc.lending]].filter(([, x]) => x >= 0.5);
   const soonSum = soon.reduce((a, x) => a + x.net, 0);
-  const soonBody = soon.length ? `<div class="q-rowcard">${soon.map(upcomingRow).join('')}</div>${soon.some(x => x.est) ? `<p class="foot-note">${h(t('upcomingNote'))}</p>` : ''}${list.length ? `<p class="foot-note">${h(t('pendingDivNote'))}</p>` : ''}` : '';
+  // (The note on how a dividend's guessed only under a dividend: it stood under the month's cash interest alone.)
+  const soonBody = soon.length ? `<div class="q-rowcard">${soon.map(upcomingRow).join('')}</div>${soon.some(x => x.est && x.kind === 'div') ? `<p class="foot-note">${h(t('upcomingNote'))}</p>` : ''}${list.length ? `<p class="foot-note">${h(t('pendingDivNote'))}</p>` : ''}` : '';
   // (Nothing paid yet: the hero says what's coming in, and the year's chart waits.)
   return `${inc.last12 >= 0.5
       ? `<div class="q-stats">
@@ -4169,13 +4193,13 @@ function plansHtml() {
         <span class="row-actions"><button class="q-btn small" type="button" data-action="plan-edit" data-id="${h(p.id)}" data-row="1">${h(t('planEdit'))}</button><button class="q-btn small danger tinted" type="button" data-action="plan-off" data-id="${h(p.id)}">${h(t('planStop'))}</button></span></div>`;
     })
     .join('');
-  return rows || endedRows ? `<div class="q-rowcard">${endedRows}${rows}</div>` : emptyHtml({ icon: 'calendar', tint: TINT.teal, title: t('nothingYet') });
+  return rows || endedRows ? `<div class="q-rowcard">${endedRows}${rows}</div>` : emptyHtml({ icon: 'calendar', tint: TINT.teal, title: t('nothingYet'), body: t('plansNone') });
 }
 
 const alertsShown = () => Object.values(state.account?.alerts || {}).filter(a => a.on || (a.hit && Date.now() - a.hit.t < 7 * 86_400_000)).sort((a, b) => b.t - a.t);
 function alertsHtml() {
   const list = alertsShown();
-  if (!list.length) return emptyHtml({ icon: 'bell', tint: TINT.red, title: t('nothingYet') });
+  if (!list.length) return emptyHtml({ icon: 'bell', tint: TINT.red, title: t('nothingYet'), body: t('alertsNone') });
   return `<div class="q-rowcard">${list
     .map(a => {
       const q = state.quotes.get(a.symbol);
@@ -4250,11 +4274,12 @@ function walletRow(c, reserved = 0, settling = 0, settleAt = 0) {
   if (reserved > 1e-9 && c.amount) c = { ...c, amount: c.amount - reserved, twd: c.twd * (1 - reserved / c.amount) };
   const twd = c.currency === BASE;
   // One short line under the name: what's settling (and when), else what's held for orders, else the month's interest.
+  // (Amounts compact: "掛單保留 NT$26,000" was cut at 320 px; NT$2.6萬 fits.)
   const small =
     settling > 1e-9
-      ? `<span class="blue-ink">${h(t('settlingShort', { amount: money(settling, c.currency), date: settleAt ? shortDate(settleAt) : '' }).trim())}</span>`
+      ? `<span class="blue-ink">${h(t('settlingShort', { amount: compactMoney(settling, c.currency), date: settleAt ? shortDate(settleAt) : '' }).trim())}</span>`
       : reserved > 1e-9
-        ? `<span class="orange-ink">${h(t('reservedShort', { amount: money(reserved, c.currency) }))}</span>`
+        ? `<span class="orange-ink">${h(t('reservedShort', { amount: compactMoney(reserved, c.currency) }))}</span>`
         : h(twd ? t('cashMonthly', { amount: money((Math.max(0, c.amount) * CASH_RATE) / 12, BASE) }) : locale === 'en' ? L(info) : c.currency);
   // (English names are long: "Taiwan dollar" was cut beside NT$117,000 at 320 px. The code there, the name under it.)
   const title = locale === 'en' ? c.currency : L(info);
@@ -5570,6 +5595,7 @@ function statsHtml() {
   const s = snap();
   const closed = s.closed;
   const wins = closed.filter(c => c.realized > 0);
+  // (Named for what it is: a lone sale at a loss was called 最大獲利.)
   const best = closed.reduce((b, c) => (!b || c.realized > b.realized ? c : b), null);
   const worst = closed.reduce((b, c) => (!b || c.realized < b.realized ? c : b), null);
   const income = v.dividends + (s.interestEarned || 0) + (s.lendIncome || 0);
@@ -5648,7 +5674,7 @@ function statsHtml() {
       closed.length
         ? `<div class="card-box trade-record"><div class="win-ring" style="--p:${((wins.length / closed.length) * 100).toFixed(1)}"><strong class="num">${wins.length}<small>/${closed.length}</small></strong><small>${h(t('winsRing'))}</small></div>
             <dl class="record-lines"><div><dt>${h(t('winsLosses'))}</dt><dd class="num">${h(t('winsOf', { w: wins.length, l: losses.length }))}</dd></div><div><dt>${h(t('avgReturn'))}</dt><dd class="num ${dirClass(avgPct)}">${h(pct(avgPct))}</dd></div><div><dt>${h(t('avgHeld'))}</dt><dd class="num">${h(t('days', { n: num(closed.reduce((sum, c) => sum + c.held, 0) / closed.length / 86_400_000) }))}</dd></div></dl></div>
-          <div class="q-rowcard">${tradeRow(t('bestTrade'), best)}${worst && worst !== best ? tradeRow(t(worst.realized < 0 ? 'worstTrade' : 'leastGain'), worst) : ''}</div>`
+          <div class="q-rowcard">${tradeRow(t(best.realized >= 0 ? 'bestTrade' : best === worst ? 'worstTrade' : 'leastLoss'), best)}${worst && worst !== best ? tradeRow(t(worst.realized < 0 ? 'worstTrade' : 'leastGain'), worst) : ''}</div>`
         : `${plainEmpty(t('noClosed'))}`,
       { side: `<span class="q-tag">${h(t('tradeCount', { n: closed.length }))}</span>` }
     )}
@@ -5676,7 +5702,9 @@ async function renderBench() {
   if (!box || !state.account) return;
   const v = valuation();
   const deposits = state.account.events.filter(e => e.type === 'deposit').map(e => ({ t: e.t, amount: e.amount }));
-  const age = Date.now() - state.account.created;
+  // (From the first money in, not the account's opening: the pool's 開戶金 from months before
+  // was bought at a month-old price, and 0050 read −9.7% where it had lost 3%.)
+  const age = Date.now() - Math.min(state.account.created, ...deposits.map(d => d.t));
   const range = historyRange(age);
   const key = `${state.account.id}:${range}:${deposits.length}`;
   const draw = () => {
@@ -6278,10 +6306,19 @@ document.addEventListener('click', async event => {
       renderTicket();
       break;
     }
-    case 'qty':
+    case 'qty': {
       d.qty = String(+Number(el.dataset.qty).toPrecision(12));
       d.msg = null;
+      // A Taiwan odd lot (1, 100 股) on a market or stop ticket would only be refused (盤中零股只接受限價單):
+      // the size picked turns it to a limit at today's price, as a broker's 零股 page opens.
+      const q = state.quotes.get(d.symbol);
+      if (q && d.type !== 'limit' && oddLotNeedsLimit(q.market, q.kind, Number(d.qty), d.type)) {
+        d.type = 'limit';
+        d.limit = startPrice(q);
+      }
       renderTicket();
+      break;
+    }
       break;
     case 'opt-to':
       retargetOption(el.dataset.symbol);
@@ -6657,6 +6694,8 @@ function refuseExtraPoint(el, event) {
   const kept = numberJam.get(el);
   if (event.inputType?.startsWith('delete')) numberJam.delete(el);
   else if (event.inputType?.startsWith('insert')) {
+    // (A whole new number put in its place, pasted or picked, isn't what came after the point: taken.)
+    if (kept != null && !el.value.startsWith(kept) && (el.value.match(/\./g) || []).length <= 1) return void numberJam.delete(el);
     const before = kept ?? el.value.slice(0, el.selectionStart - (event.data?.length ?? 0)) + el.value.slice(el.selectionStart);
     if (kept != null || (/\./.test(event.data || '') && (el.value.match(/\./g) || []).length > 1)) {
       const caret = el.selectionStart - (el.value.length - before.length);

@@ -208,11 +208,13 @@ html[data-look='native'] .q-sheet-hero :is(.q-sh-eyebrow, .q-sh-sub) {
   color: var(--q-label-2);
   opacity: 1;
 }
+/* A hero's tags are text, grey (DESIGN: tags are text): they were a grey box with no room in it. */
+html[data-look='native'] .q-sheet-hero .q-sh-row .q-tag {
+  padding: 0;
+  background: none;
+  color: var(--q-label-2);
+}
 html[data-look='native'] .q-sheet-hero .q-sh-big {
   font-family: var(--nv-display, var(--q-font));
   font-weight: 300;
-}
-html[data-look='native'] .q-sheet-hero .q-sh-row .q-tag {
-  background: var(--q-fill-3);
-  color: var(--q-label);
 }
