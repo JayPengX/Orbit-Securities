@@ -2542,7 +2542,7 @@ function stockFacts(q) {
         ]),
     [t('currency'), `${q.currency} · ${L(currencyInfo(q.currency))}`],
     [t('market'), q.market === 'TAIFEX' ? t('taifexName') : marketLabel(q.market)],
-    ...(state.rates[q.currency] && q.currency !== BASE ? [[t('inTwd'), `${money(q.price * state.rates[q.currency], BASE, { digits: q.price * state.rates[q.currency] < 100 ? 2 : 0 })} ${t('perUnit', { unit: unitOf(q.symbol) })}`]] : [])
+    ...(state.rates[q.currency] && q.currency !== BASE ? [[t('inTwd'), `${money(q.price * state.rates[q.currency], BASE, { digits: q.price * state.rates[q.currency] < 100 ? 2 : 0 })} ${t('perUnit', { unit: locale === 'zh' && /^[A-Za-z]/.test(unitOf(q.symbol)) ? ` ${unitOf(q.symbol)}` : unitOf(q.symbol) })}`]] : [])
   ];
 }
 function factsGrid(rows) {
@@ -5492,7 +5492,9 @@ function renderLesson() {
     .join('');
   morph(
     body,
-    `<div class="ls-hero"><span>${h(t(c.short ? 'lessonShortResult' : 'lessonResult'))}</span><strong class="num ${dirClass(pl.value)}">${h(money(pl.value, cur, { sign: true }))}</strong><small class="num ${dirClass(pl.value)}">${h(pct(pl.pct))}</small></div>
+    // (The focus card every symbol's sheet opens on, as the detail's and the ticket's: it was a
+    // centred number of its own, in no other sheet's look.)
+    `${sheetHeroHtml({ badge: symbolBadge(c.symbol), eyebrow: t(c.short ? 'lessonShortResult' : 'lessonResult'), big: money(pl.value, cur, { sign: true }), move: pct(pl.pct), dir: dirClass(pl.value) })}
     ${
       drawn ||
       `${told ? `<p class="fl-line ls-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : asked ? '<p class="fl-line wait q-skel" aria-hidden="true"></p>' : ''}

@@ -1098,24 +1098,6 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
   gap: 12px;
   margin-bottom: 12px;
 }
-.ls-hero {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: var(--q-s-3) 0 var(--q-s-2);
-}
-.ls-hero span {
-  color: var(--q-label-2);
-  font: var(--q-t-footnote);
-}
-.ls-hero strong {
-  font: var(--q-t-focal);
-  font-family: var(--nv-display, inherit);
-}
-.ls-hero small {
-  font: var(--q-t-subhead);
-  font-weight: 600;
-}
 .ls-line {
   padding: 0 var(--q-s-1) var(--q-s-2);
 }
