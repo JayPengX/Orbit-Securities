@@ -6048,7 +6048,8 @@ function toolHero(kind) {
       return { eyebrow: t('plansTitle'), big: money(plans.reduce((a, p) => a + Number(p.amount || 0), 0), BASE), sub: t('plansMonthly', { n: plans.length }), tint: TINT.teal };
     },
     alerts: () => ({ eyebrow: t('alertsTitle'), big: String(Object.values(state.account.alerts || {}).filter(a => a.on).length), sub: t('alertsOnSub'), tint: TINT.red }),
-    relief: () => ({ eyebrow: t('reliefTitle'), big: money(RELIEF.amount, BASE), sub: t('reliefHeroSub', { v: money(RELIEF.under, BASE) }), tint: TINT.orange }),
+    // (No line under it: the rules below say when, once.)
+    relief: () => ({ eyebrow: t('reliefTitle'), big: money(RELIEF.amount, BASE), tint: TINT.orange }),
     ranks: () => {
       const { worth, at, next } = rankOf(passWallet());
       return { eyebrow: t('ranksTitle'), big: rankName(WEALTH_RANKS[at]), sub: t('ranksWorth', { v: money(worth, BASE) }), tags: next ? [t('rankNext', { v: money(next.min - worth, BASE), rank: rankName(next) })] : [], tint: TINT.orange };

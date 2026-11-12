@@ -959,7 +959,7 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
 :root.q-wide .pf-cols > .pf-hero { margin-bottom: 0; }
 /* 紀錄: the activity on the left, 統計分析 beside it; orders open beside past. */
 /* (統計分析 beside the activity: its own sections one under another, in its column.) */
-:root.q-wide .act-stats .st-cols { grid-template-columns: minmax(0, 1fr); }
+:root.q-wide .act-stats .st-cols { grid-template-columns: minmax(0, 1fr); row-gap: var(--q-s-5, 24px); }
 :root.q-wide .history-tabs { max-width: calc((100% - var(--q-s-5, 24px)) / 2); }
 /* A phone on its side (330-390 px tall): every focus card, on a tab or in a
    sheet, a size down, so none takes more than half the screen. */
