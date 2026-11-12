@@ -19,9 +19,8 @@ test('首頁 opens on 總資產: the big number is the account value, over 我�
   assert.match(body, /\$\{head\}\$\{mineRows\}/);
   assert.match(body, /const mineRows = mine\.length \? `<div class="q-rowcard sc-rows">/);
   // 我的 (with 總資產 in it) is the first thing after an overdraft's strip, on a phone and wide.
-  assert.match(body, /const left = `\$\{mineCard\}\$\{markets\}`/);
-  assert.match(body, /<div class="sc-col">\$\{left\}<\/div><div class="sc-col">\$\{right\}/);
-  assert.match(body, /<div class="sc-home sc-one">\$\{left\}\$\{right\}<\/div>/);
+  assert.match(body, /<div class="sc-col">\$\{mineCard\}\$\{markets\}\$\{ipoEvents\}<\/div><div class="sc-col">\$\{moversPicks\}/);
+  assert.match(body, /<div class="sc-home sc-one">\$\{mineCard\}\$\{markets\}\$\{moversPicks\}\$\{ipoEvents\}<\/div>/);
 });
 
 test('首頁: what is held comes before what is starred, held by value', () => {
