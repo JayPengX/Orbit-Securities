@@ -1244,7 +1244,7 @@ function marketStatus(q) {
     return `<span class="mkt-status open">${statusDot(q)}${h(t(early ? 'marketOpenUntilEarly' : 'marketOpenUntil', { time: clock(closeOf(q, now), q.tz) }))}${local}</span>`;
   }
   const opens = nextOpen(q, now);
-  const next = opens ? t(q.market === 'TW' || q.market === 'TWFUND' ? 'opensAtTw' : 'opensAt', { time: weekdayClock(opens) }) : t('marketClosed');
+  const next = opens ? t(q.market === 'TW' || q.market === 'TWFUND' || q.market === 'TAIFEX' || q.tz === 'Asia/Taipei' ? 'opensAtTw' : 'opensAt', { time: weekdayClock(opens) }) : t('marketClosed');
   return `<span class="mkt-status">${statusDot(q)}${h(next)}${local}</span>`;
 }
 // A symbol's picture, in order: TradingView's round icon (two for a
@@ -4732,10 +4732,6 @@ function fxYearLine(f, q) {
 }
 // 結匯 of NT$500,000 or more: the 申報書 confirmed in the same ask.
 const fxDeclare = (from, to, amount, received) => Boolean(stockAccess.fxNeedsDeclare?.({ from, to, amount, received }));
-// The rates board, as a bank shows it: what it buys and sells each currency
-// for (per unit, or per 100 for the small ones), and today's move. A row
-// opens the exchange for that currency. (No USD chart over it: the board
-// already has USD, and a day's line said nothing to act on.)
 // The rates board, as a bank shows it (a sheet): what it buys and sells each
 // currency for (per unit, or per 100 for the small ones), and today's move.
 // A row opens the exchange for that currency.
