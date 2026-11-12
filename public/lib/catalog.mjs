@@ -217,7 +217,8 @@ const SSF = (markets.stockFutureCodes?.() || [])
 const SSF_STOCK = SSF.filter(([, etf]) => !etf).map(([item]) => item);
 const SSF_ETF = SSF.filter(([, etf]) => etf).map(([item]) => item);
 
-const GOV_BONDS = Object.values(BONDS).map(b => [b.id, bondName(b, 'zh'), bondName(b, 'en'), 'govbond']);
+// (Matured ones off the list: the 3-month bill would have stayed on after 2026-12-24 as 「0 個月」.)
+const GOV_BONDS = Object.values(BONDS).filter(b => b.maturity > Date.now()).map(b => [b.id, bondName(b, 'zh'), bondName(b, 'en'), 'govbond']);
 
 const INDEXES = [
   ['^TWII', '台灣加權指數', 'TAIEX'], ['^GSPC', '標普500', 'S&P 500'], ['^IXIC', '那斯達克', 'Nasdaq'],

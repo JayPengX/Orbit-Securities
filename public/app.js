@@ -1236,6 +1236,9 @@ function marketStatus(q) {
     return `<span class="mkt-status ext">${statusDot(q)}${h(t(us === 'pre' ? 'statusPre' : 'statusPost', { time: until ? clock(until, q.tz) : '—' }))}${local}</span>`;
   }
   // A half day closes early (the kit's earlyCloseAt).
+  // Currencies and Yahoo's futures (gold, oil) trade round the clock on weekdays: Yahoo's day
+  // ends at 23:59, which isn't a close (it read 交易中，23:59 收盤).
+  if ((q.kind === 'fx' || q.kind === 'future') && isOpen(q, now)) return `<span class="mkt-status open">${statusDot(q)}${h(t('marketOpen'))}${local}</span>`;
   if (isOpen(q, now)) {
     const early = closeOf(q, now) < (stockMarkets.sessionEnd?.(q) ?? q.session.end);
     return `<span class="mkt-status open">${statusDot(q)}${h(t(early ? 'marketOpenUntilEarly' : 'marketOpenUntil', { time: clock(closeOf(q, now), q.tz) }))}${local}</span>`;
@@ -1620,9 +1623,12 @@ function loadAlerts() {
   return alertState.busy;
 }
 const alertOf = (symbol, st) => (testFlag('alertList') && /\.TWO?$/.test(symbol) ? testFlag('alertList') : alertOfList(symbol, st));
-const alertTag = symbol => {
+// A tag whose meaning is a tap away (a title shows nothing on a phone); `tap` off inside a row that is itself a button.
+const helpTag = (cls, label, help, tap = true) =>
+  `<span class="q-tag ${cls}" title="${h(t(help))}"${tap ? ` role="button" tabindex="0" data-action="fact-help" data-title="${h(label)}" data-e="${h(help)}"` : ''}>${h(label)}</span>`;
+const alertTag = (symbol, tap = false) => {
   const a = alertOf(symbol, alertState);
-  return a ? `<span class="q-tag ${a === 'punish' ? 'solid red' : 'orange'}" title="${h(t(`${a}Help`))}">${h(t(`${a}Tag`))}</span>` : '';
+  return a ? helpTag(a === 'punish' ? 'solid red' : 'orange', t(`${a}Tag`), `${a}Help`, tap) : '';
 };
 const ipoKey = s => `${s.code}:${s.draw}`;
 function loadIpo() {
@@ -2286,8 +2292,8 @@ function renderDetail() {
   const tags = q
     ? [
         limitOf(q) ? `<span class="q-tag solid ${limitOf(q)}">${h(limitOf(q) === 'up' ? t('limitUpTag') : t('limitDownTag'))}</span>` : '',
-        alertTag(d.symbol),
-        q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : delayOf(q.market) && q.live !== 'TWSE' ? `<span class="q-tag orange" title="${h(t('delayHelp'))}">${h(t('delayed', { n: delayOf(q.market) }))}</span>` : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
+        alertTag(d.symbol, true),
+        q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : delayOf(q.market) && q.live !== 'TWSE' ? helpTag('orange', t('delayed', { n: delayOf(q.market) }), 'delayHelp') : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
       ].join('')
     : '';
   const opt = stockMarkets.isOption?.(d.symbol);
@@ -4580,7 +4586,7 @@ function acctHtml() {
   const row = (tool, glyph, color, title, small, end = '') => `<button class="q-ritem chevron" type="button" data-action="tool" data-tool="${tool}">${tileHtml(glyph, color)}<span class="q-ritem-text"><span class="q-ritem-title">${h(title)}</span><small class="num">${h(small)}</small></span>${end}</button>`;
   const relief = reliefWorth(w) < RELIEF.under ? `<button class="callout" type="button" data-action="tool" data-tool="relief">${h(t('reliefCallout', { v: money(RELIEF.under, BASE) }))}</button>` : '';
   return `${relief}<div class="q-rowcard">
-    ${row('ranks', ico('trophy'), TINT.orange, t('ranksTitle'), `${WEALTH_RANKS[at].icon} ${rankName(WEALTH_RANKS[at])}${next ? ` · ${t('rankToGo', { v: money(next.min - worth, BASE) })}` : ''}`)}
+    ${row('ranks', ico('trophy'), TINT.orange, t('ranksTitle'), `${rankName(WEALTH_RANKS[at])}${next ? ` · ${t('rankToGo', { v: money(next.min - worth, BASE) })}` : ''}`)}
     ${row('truth', ico('spark'), TINT.teal, t('truthTitle'), t('truthSub'))}
   </div>`;
 }
@@ -4616,6 +4622,8 @@ const passRefusal = e =>
     : passError(e, locale);
 
 // 財富等級 (a sheet): every level, its one-time reward, and where the account is.
+// Each level's glyph (the kit's table carries emoji; Orbit draws no emoji icons).
+const RANK_ICONS = { start: 'flag', thrifty: 'coin', solid: 'wallet', welloff: 'home', affluent: 'star', tenmil: 'trophy', hundredmil: 'flame' };
 function ranksHtml() {
   const w = passWallet();
   const { at } = rankOf(w);
@@ -4623,7 +4631,7 @@ function ranksHtml() {
   return `<div class="q-rowcard">${WEALTH_RANKS.map((r, i) => {
     const paid = paidOf(r.id);
     const end = i === at ? `<span class="q-tag tint">${h(t('rankNow'))}</span>` : r.reward ? `<span class="q-tag${paid != null ? '' : ' orange'} num">${h(paid != null ? t('rankPaid', { v: money(paid, BASE) }) : `+${money(r.reward, BASE)}`)}</span>` : '';
-    return `<div class="q-ritem${i < at ? ' passed' : ''}">${tileHtml(r.icon, i <= at ? TINT.orange : TINT.gray)}<span class="q-ritem-text"><span class="q-ritem-title">${h(rankName(r))}</span><small class="num">${h(r.min ? money(r.min, BASE) : '—')}</small></span><span class="q-ritem-end">${end}</span></div>`;
+    return `<div class="q-ritem${i < at ? ' passed' : ''}">${tileHtml(ico(RANK_ICONS[r.id] || 'trophy'), i <= at ? TINT.orange : TINT.gray)}<span class="q-ritem-text"><span class="q-ritem-title">${h(rankName(r))}</span><small class="num">${h(r.min ? money(r.min, BASE) : '—')}</small></span><span class="q-ritem-end">${end}</span></div>`;
   }).join('')}</div><p class="foot-note">${h(t('ranksSub'))}</p>`;
 }
 
@@ -5136,7 +5144,6 @@ function accessKeyHtml(key) {
   const ready = !needs.length && spec.docs.every(d => ui.docs.has(d)) && (key !== 'kyc' || result) && (!quiz || quiz.ok);
   const word = key === 'kyc' ? (a.open ? t('kycAgain') : t('kycSubmit')) : spec.quiz ? t('liSign') : spec.wait ? t('accessApply') : t('accessSign');
   return `${back}${head}${needRows}${kyc}${docs}
-    ${spec.wait ? `<p class="foot-note">${h(t('accessWaitNote'))}</p>` : ''}
     <button class="q-btn primary block" type="button" data-action="access-apply" data-key="${key}" ${ready ? '' : 'disabled'}>${h(word)}</button>`;
 }
 function openAccess(key = null) {
@@ -6044,7 +6051,7 @@ function toolHero(kind) {
     relief: () => ({ eyebrow: t('reliefTitle'), big: money(RELIEF.amount, BASE), sub: t('reliefHeroSub', { v: money(RELIEF.under, BASE) }), tint: TINT.orange }),
     ranks: () => {
       const { worth, at, next } = rankOf(passWallet());
-      return { eyebrow: t('ranksTitle'), big: `${WEALTH_RANKS[at].icon} ${rankName(WEALTH_RANKS[at])}`, sub: t('ranksWorth', { v: money(worth, BASE) }), tags: next ? [t('rankNext', { v: money(next.min - worth, BASE), rank: rankName(next) })] : [], tint: TINT.orange };
+      return { eyebrow: t('ranksTitle'), big: rankName(WEALTH_RANKS[at]), sub: t('ranksWorth', { v: money(worth, BASE) }), tags: next ? [t('rankNext', { v: money(next.min - worth, BASE), rank: rankName(next) })] : [], tint: TINT.orange };
     },
     truth: () => ({ eyebrow: t('truthWorth'), big: money(moneySides(passWallet()).worth, BASE), sub: t('truthSub'), tint: TINT.teal }),
     // (A page of one: its own head says what it is.)
@@ -6547,7 +6554,7 @@ document.addEventListener('click', async event => {
       redrawDetail();
       break;
     case 'fact-help':
-      kitOrbit.tell?.({ title: t(el.dataset.k), body: t(el.dataset.e) });
+      kitOrbit.tell?.({ title: el.dataset.title || t(el.dataset.k), body: t(el.dataset.e) });
       break;
     case 'chart-ma':
       state.settings.ma = !state.settings.ma;
