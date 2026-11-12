@@ -1511,7 +1511,7 @@ const acted = (symbol, weight) => feedback?.did?.('stock', stockItem(symbol).key
 // 首頁's markets: each country (catalog COUNTRIES), then the products that aren't a
 // country, by the price that says how their day went.
 const homeMarkets = () => [
-  ...COUNTRIES.map(c => ({ id: c.sub || c.product, sub: !!c.sub, name: L(c), index: c.index, tile: tileHtml(curMark(c.flag), TINT.gray, 'prod-tile') })),
+  ...COUNTRIES.map(c => ({ id: c.sub || c.product, sub: !!c.sub, name: L(c.short || c), index: c.index, tile: tileHtml(curMark(c.flag), TINT.gray, 'prod-tile') })),
   ...[['crypto', 'BTC-USD'], ['fund', ''], ['gold', 'XAU'], ['fx', 'USDTWD=X']].map(([id, index]) => ({ id, name: L(PRODUCTS.find(p => p.id === id).short), index, tile: productTile(id) })),
   { id: '', name: t('marketMore'), index: '', tile: productTile('all') }
 ];
@@ -4596,9 +4596,10 @@ function reliefSheetHtml() {
   const w = passWallet();
   const worth = reliefWorth(w);
   const check = reliefCheck(w, worth, Date.now());
+  // (Not "must be under NT$2,000" when that's why: the hero and the rules under it say so already.)
   const main = check.ok
     ? `<button class="q-btn primary block" type="button" data-action="relief">${h(t('reliefApply', { v: money(RELIEF.amount, BASE) }))}</button>`
-    : `<p class="foot-note">${h(t(`reliefWhy_${check.why}`, { v: money(RELIEF.under, BASE), d: check.until ? shortDate(check.until) : '' }))}</p>`;
+    : check.why === 'worth' ? '' : `<p class="foot-note">${h(t(`reliefWhy_${check.why}`, { v: money(RELIEF.under, BASE), d: check.until ? shortDate(check.until) : '' }))}</p>`;
   // (The rules before the button, so 申請 docks at the sheet's foot as every tool page's does.)
   const rules = `<p class="foot-note">${h(t('reliefRules', { under: money(RELIEF.under, BASE), weeks: RELIEF.everyWeeks, year: RELIEF.perYear }))}</p>`;
   return check.ok ? `${rules}${main}` : `${main}${rules}`;
@@ -6001,11 +6002,11 @@ function toolHero(kind) {
   const now = Date.now();
   const rate = x => pct(x, { digits: 2, sign: false });
   const make = {
-    alloc: () => ({ eyebrow: t('netWorth'), big: money(v.netWorth, BASE), tags: [t('heroHoldN', { n: v.positions.length })], tint: TINT.indigo }),
+    alloc: () => ({ eyebrow: t('netWorth'), big: money(v.netWorth, BASE), tags: [t(v.positions.length === 1 ? 'heroHoldOne' : 'heroHoldN', { n: v.positions.length })], tint: TINT.indigo }),
     loans: () => ({
       eyebrow: t('borrowed'),
       big: money(v.debtTWD, BASE),
-      tags: v.debtTWD > 0 ? [`${t('ratioShort')} ${pct(v.ratio, { digits: 0, sign: false })}`, t('loanUsed', { pct: pct(v.debtTWD / Math.max(1, v.debtTWD + v.capacity), { digits: 0, sign: false }) })] : [t('noLoans')],
+      tags: v.debtTWD > 0 ? [`${t('ratioShort')} ${pct(v.ratio, { digits: 0, sign: false })}`, t('loanUsed', { pct: pct(v.debtTWD / Math.max(1, v.debtTWD + v.capacity), { digits: 0, sign: false }) })] : [],
       tint: TINT.indigo
     }),
     td: () => {
@@ -6053,7 +6054,8 @@ function toolHero(kind) {
       const { worth, at, next } = rankOf(passWallet());
       return { eyebrow: t('ranksTitle'), big: rankName(WEALTH_RANKS[at]), sub: t('ranksWorth', { v: money(worth, BASE) }), tags: next ? [t('rankNext', { v: money(next.min - worth, BASE), rank: rankName(next) })] : [], tint: TINT.orange };
     },
-    truth: () => ({ eyebrow: t('truthWorth'), big: money(moneySides(passWallet()).worth, BASE), sub: t('truthSub'), tint: TINT.teal }),
+    // (No line under it: the row's 錢從哪裡來 read as the hero's caption.)
+    truth: () => ({ eyebrow: t('truthWorth'), big: money(moneySides(passWallet()).worth, BASE), tint: TINT.teal }),
     // (A page of one: its own head says what it is.)
     access: () => {
       if (accessUi().key) return null;

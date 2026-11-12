@@ -335,7 +335,8 @@ export const COUNTRIES = [
   { id: 'tw', flag: 'TW', zh: '台股', en: 'Taiwan', product: 'tw', index: '^TWII' },
   { id: 'us', flag: 'US', zh: '美股', en: 'US', sub: 'us', index: '^GSPC' },
   { id: 'jp', flag: 'JP', zh: '日股', en: 'Japan', sub: 'jp', index: '^N225' },
-  { id: 'hk', flag: 'HK', zh: '港股', en: 'Hong Kong', sub: 'hk', index: '^HSI' },
+  // (short: 首頁's two-column grid cut "Hong Ko…" at 390 px.)
+  { id: 'hk', flag: 'HK', zh: '港股', en: 'Hong Kong', short: { zh: '港股', en: 'HK' }, sub: 'hk', index: '^HSI' },
   { id: 'cn', flag: 'CN', zh: '陸股', en: 'China', sub: 'cn', index: '000001.SS' },
   { id: 'kr', flag: 'KR', zh: '韓股', en: 'Korea', sub: 'kr', index: '^KS11' },
   { id: 'eu', flag: 'EU', zh: '歐股', en: 'Europe', sub: 'eu', index: '^STOXX50E' }
