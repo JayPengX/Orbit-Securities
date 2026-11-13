@@ -23,8 +23,7 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 
 <p align="center">
   <img src="docs/screenshots/securities-4.webp" width="30%" alt="Market, limit and stop orders">
-  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Day trading and warrants, real rules">
-  <img src="docs/screenshots/securities-6.webp" width="30%" alt="Exchange at the bank's rates">
+  <img src="docs/screenshots/securities-5.webp" width="30%" alt="Exchange at the bank's rates">
 </p>
 
 <details>
@@ -38,8 +37,7 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 
 <p align="center">
   <img src="docs/screenshots/securities-4.zh.webp" width="30%" alt="市價、限價、停損，像真的券商">
-  <img src="docs/screenshots/securities-5.zh.webp" width="30%" alt="當沖、權證、期貨，資格都照真的">
-  <img src="docs/screenshots/securities-6.zh.webp" width="30%" alt="換匯照銀行牌價">
+  <img src="docs/screenshots/securities-5.zh.webp" width="30%" alt="換匯照銀行牌價">
 </p>
 
 </details>
