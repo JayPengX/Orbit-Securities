@@ -5774,6 +5774,8 @@ function fold(tile, title, body, open = false, id = title, side = '') {
 // wallet as its figure.
 
 const q = orbitSession('stock', { lang: locale });
+// One language (Jay 11-13): in English, what has no English of its own (a fund's name, a company's notice) put into English by plain translation (kit).
+if (locale === 'en') kitOrbit.translateMarked?.(document.body);
 
 // The first time this pass opens Securities: an account of its own, funded
 // by the pool.
