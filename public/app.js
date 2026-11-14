@@ -3182,7 +3182,7 @@ function filingsHtml(symbol, q) {
       const lit = new Set(told?.show?.length ? shown : []);
       return `<div class="fl-card">
         <div class="fl-head"><strong>${h(shortTitle(f.title, name))}</strong><small>${h(when(f.at))}</small></div>
-        ${told ? `<p class="fl-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : filingAsked.has(f.id) && f.rows.length ? `<p class="fl-line wait q-skel" aria-hidden="true"></p>` : f.rows.length ? `<p class="fl-ask">${aiTapHtml(t('filingAsk'), `data-action="filing-ask" data-id="${h(f.id)}"`)}</p>` : ''}
+        ${told ? `<p class="fl-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : filingAsked.has(f.id) && f.rows.length ? `<p class="fl-line wait q-skel" aria-hidden="true"></p>` : f.rows.length ? `<p class="fl-ask" data-ai-only>${aiTapHtml(t('filingAsk'), `data-action="filing-ask" data-id="${h(f.id)}"`)}</p>` : ''}
         ${shown.length ? `<div class="fl-rows">${shown.map(r => row(r, lit.has(r))).join('')}${open ? rest.map(r => row(r, false)).join('') : ''}</div>` : ''}
         ${rest.length ? kitUI.moreHtml({ more: t('filingMore', { n: f.rows.length }), less: t('filingLess'), open, attr: `data-action="filing-more" data-id="${h(f.id)}"` }) : ''}
       </div>`;
@@ -5502,7 +5502,7 @@ function renderLesson() {
       `${told ? `<p class="fl-line ls-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : asked ? '<p class="fl-line wait q-skel" aria-hidden="true"></p>' : ''}
     <div class="fl-card"><div class="fl-rows">${rows}</div></div>`
     }
-    ${!told && !asked ? `<p class="fl-ask ls-ask">${aiTapHtml(t('lessonAsk'), `data-action="lesson-ask"${ready ? '' : ' disabled'}`)}</p>` : ''}
+    ${!told && !asked ? `<p class="fl-ask ls-ask" data-ai-only>${aiTapHtml(t('lessonAsk'), `data-action="lesson-ask"${ready ? '' : ' disabled'}`)}</p>` : ''}
     <p class="foot-note">${h(t('lessonFoot'))}</p>
     <div class="q-sheet-foot q-sf"><button class="q-btn" type="button" data-action="open" data-symbol="${h(c.symbol)}">${h(t('lessonGo', { name: lessonNow.name }))}</button></div>`
   );
