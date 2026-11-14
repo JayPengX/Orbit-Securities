@@ -1028,6 +1028,8 @@ body .q-section-head button.open-now { flex: 0 1 auto; min-width: 0; font: 500 1
   font: var(--q-t-caption);
   font-variant-numeric: tabular-nums;
 }
+.fl-ask { margin: 2px 0 8px; }
+.ls-ask { margin: 4px 0 12px; }
 .fl-line {
   display: flex;
   align-items: flex-start;

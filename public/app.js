@@ -3142,25 +3142,29 @@ function loadFilings(symbol) {
     .then(doc => {
       filingDocs.set(code, doc && typeof doc === 'object' ? doc : null);
       if (state.detail?.symbol === symbol) renderDetail();
-      tellFilings(symbol, code);
     })
     .catch(() => {});
 }
-async function tellFilings(symbol, code) {
-  const list = toAsk(filingsOf(filingDocs.get(code), code), new Set([...filingTold.keys(), ...filingAsked]));
-  if (!list.length) return;
+// (A filing's plain line on a tap of its AI button, never on opening the stock: Jay 11-14, "make AI
+// feature like this a button to click like we do in orbit law, never spend a penny on AI on things
+// user didn't interact with".)
+async function tellFiling(symbol, id) {
+  const code = twCode(symbol);
+  const f = code && filingsOf(filingDocs.get(code), code).find(x => x.id === id);
+  if (!f || filingTold.has(id) || filingAsked.has(id)) return;
+  filingAsked.add(id);
+  renderDetail();
   const ai = await import('#kit/ai.mjs').catch(() => null);
-  if (!ai?.aiCall) return;
   const name = catalogInfo(symbol)?.zh || twZhName(symbol) || '';
-  for (const f of list) {
-    filingAsked.add(f.id);
-    const r = await ai.aiCall('sec-filing', { title: f.title, name, rows: f.rows, lang: locale === 'en' ? 'en' : 'zh' }).catch(() => null);
-    if (r?.out?.line) {
-      filingTold.set(f.id, r.out);
-      if (state.detail?.symbol === symbol) renderDetail();
-    }
+  const r = ai?.aiCall ? await ai.aiCall('sec-filing', { title: f.title, name, rows: f.rows, lang: locale === 'en' ? 'en' : 'zh' }).catch(() => null) : null;
+  if (r?.out?.line) filingTold.set(id, r.out);
+  else {
+    filingAsked.delete(id);
+    if (ai?.aiSays) toast(ai.aiSays(r?.error));
   }
+  if (state.detail?.symbol === symbol) renderDetail();
 }
+const aiTapHtml = (label, attrs) => `<button type="button" class="q-ai-tap" ${attrs}><span class="q-ai-mark" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(label)}</span></button>`;
 function filingsHtml(symbol, q) {
   const code = twCode(symbol);
   if (!code || !['stock', 'etf'].includes(q.kind)) return '';
@@ -3178,7 +3182,7 @@ function filingsHtml(symbol, q) {
       const lit = new Set(told?.show?.length ? shown : []);
       return `<div class="fl-card">
         <div class="fl-head"><strong>${h(shortTitle(f.title, name))}</strong><small>${h(when(f.at))}</small></div>
-        ${told ? `<p class="fl-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : filingAsked.has(f.id) && f.rows.length ? `<p class="fl-line wait q-skel" aria-hidden="true"></p>` : ''}
+        ${told ? `<p class="fl-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : filingAsked.has(f.id) && f.rows.length ? `<p class="fl-line wait q-skel" aria-hidden="true"></p>` : f.rows.length ? `<p class="fl-ask">${aiTapHtml(t('filingAsk'), `data-action="filing-ask" data-id="${h(f.id)}"`)}</p>` : ''}
         ${shown.length ? `<div class="fl-rows">${shown.map(r => row(r, lit.has(r))).join('')}${open ? rest.map(r => row(r, false)).join('') : ''}</div>` : ''}
         ${rest.length ? kitUI.moreHtml({ more: t('filingMore', { n: f.rows.length }), less: t('filingLess'), open, attr: `data-action="filing-more" data-id="${h(f.id)}"` }) : ''}
       </div>`;
@@ -5443,20 +5447,27 @@ async function openLesson(id) {
   const [own, market] = await Promise.all([fetchChart(c.symbol, range).catch(() => null), idx ? fetchChart(idx, range).catch(() => null) : null]);
   if (lessonNow?.id !== id) return;
   lessonNow.l = lessonOf(c, e, { closes: own?.points || [], market: market?.points || [] });
+  lessonNow.ready = true;
   renderLesson();
-  if (lessonTold.has(id)) return;
+}
+// (The AI's line on a tap of its button (Jay 11-14: "never spend a penny on AI on things user
+// didn't interact with"), never on opening the sheet; asked once the chart's figures are in.)
+async function askLesson() {
+  const now = lessonNow;
+  if (!now?.ready || now.asked || lessonTold.has(now.id)) return;
   const ai = await import('#kit/ai.mjs').catch(() => null);
-  if (!ai?.aiCall || lessonNow?.id !== id) return;
-  lessonNow.asked = true;
+  if (!ai?.aiCall || lessonNow !== now) return;
+  now.asked = true;
   renderLesson();
-  const r = await ai.aiCall('sec-lesson', { facts: lessonFacts(lessonNow.l, { name, currency: c.currency }), lang: locale === 'en' ? 'en' : 'zh' }).catch(() => null);
-  if (r?.out?.line) lessonTold.set(id, r.out);
-  if (lessonNow?.id === id) renderLesson();
+  const r = await ai.aiCall('sec-lesson', { facts: lessonFacts(now.l, { name: now.name, currency: now.c.currency }), lang: locale === 'en' ? 'en' : 'zh' }).catch(() => null);
+  if (r?.out?.line) lessonTold.set(now.id, r.out);
+  else ((now.asked = false), toast(ai.aiSays(r?.error)));
+  if (lessonNow === now) renderLesson();
 }
 function renderLesson() {
   const body = $('lesson-body');
   if (!body || !lessonNow) return;
-  const { c, e, l, asked } = lessonNow;
+  const { c, e, l, asked, ready } = lessonNow;
   const told = lessonTold.get(lessonNow.id);
   const lit = new Set(told?.mark || []);
   const cur = c.currency;
@@ -5491,6 +5502,7 @@ function renderLesson() {
       `${told ? `<p class="fl-line ls-line"><span class="q-ai-mono" aria-hidden="true">${kitUI.icons.ai || kitUI.icons.spark || ''}</span><span>${h(told.line)}</span></p>` : asked ? '<p class="fl-line wait q-skel" aria-hidden="true"></p>' : ''}
     <div class="fl-card"><div class="fl-rows">${rows}</div></div>`
     }
+    ${!told && !asked ? `<p class="fl-ask ls-ask">${aiTapHtml(t('lessonAsk'), `data-action="lesson-ask"${ready ? '' : ' disabled'}`)}</p>` : ''}
     <p class="foot-note">${h(t('lessonFoot'))}</p>
     <div class="q-sheet-foot q-sf"><button class="q-btn" type="button" data-action="open" data-symbol="${h(c.symbol)}">${h(t('lessonGo', { name: lessonNow.name }))}</button></div>`
   );
@@ -6192,6 +6204,12 @@ document.addEventListener('click', async event => {
       break;
     case 'lesson':
       openLesson(el.dataset.id);
+      break;
+    case 'filing-ask':
+      if (state.detail?.symbol) tellFiling(state.detail.symbol, el.dataset.id);
+      break;
+    case 'lesson-ask':
+      askLesson();
       break;
     case 'filing-more':
       if (filingOpen.has(el.dataset.id)) filingOpen.delete(el.dataset.id);

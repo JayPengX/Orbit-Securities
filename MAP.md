@@ -21,7 +21,7 @@ Jay's, dated (Taiwan day), newest wins; the family's (the economy, money only he
 - 10-31 Home shows every market (each country, 加密, 基金, 黃金, 外匯, 更多) with its day's move, not just 台股; no empty-holdings card.
 - 11-03 The home opens on 總資產 (replaced 10-21's no balance on the home). `tests/home.test.mjs`.
 - 11-06 Quota first: the server checks prices and the account only so bad local data can't corrupt real data, never heavy fraud-proofing.
-- 11-10 The family's AI: 用說的下單 is code only and places nothing until the person does; 這筆交易學到什麼 and 重大訊息白話 are drawn (rows the one AI line rests on lit), never a paragraph, never advice.
+- 11-10 The family's AI: 用說的下單 is code only and places nothing until the person does; 這筆交易學到什麼 and 重大訊息白話 are drawn (rows the one AI line rests on lit), never a paragraph, never advice. 11-14 Each AI line only on a tap of its AI button (Jay: "make AI feature like this a button to click like we do in orbit law, never spend a penny on AI on things user didn't interact with"): opening a stock or a closed trade asks nothing.
 - Up is red in Chinese, green in English (switchable). Non-US government bonds use reference curves (no free live source). 新股申購 uses TWSE's real list, drawn by the proxy at TWSE's rate.
 - Logo and name tables are generated (`scripts/brand-logos.mjs`, `tv-logos.mjs`, `tv-round.mjs`, `tw-names.mjs`); never edit them by hand.
 
