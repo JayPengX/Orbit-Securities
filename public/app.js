@@ -2,7 +2,7 @@
 // the ledger, markets.mjs for fees and hours, quotes.mjs for prices).
 import './testing.mjs';
 import {
-  newAccount, replay, available, dayOfChange, placeOrder, processOrders, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, expireOrders, GTC_DAYS
+  newAccount, replay, available, dayOfChange, placeOrder, cancelOrder, exchange, quoteExchange, amountFor, valuate, resultByMarket, repay, repayAll, liquidationPlan, callPlan, callState, callNeed, payDown, penaltyEvent, openDeposit, breakDeposit, matureDeposits, lendShares, recallShares, matureLending, recallAll, lendableQty, applyCorporateActions, applyBondCashflows, netWorthSeries, mergeAccounts, recordSnapshot, benchmarkValue, isAccount, toggleWatch, watched, firstTrade, withWelcome, setPlan, activePlans, dedupePlans, planRuns, nextPlanRun, runPlan, planOrderId, setAlert, activeAlerts, alertsFor, checkAlerts, alertHitInBars, markAlertHit, marginHistory, pendingDividends, applyIncome, startIncome, applyCashInterest, unsettled, settlesBy, withdrawable, PLAN_MIN, taipeiDay, applyPool, ownCash, mergeDistinct, incomeSummary, loanRateAt, fxSpread, coverPlan, GTC_DAYS
 } from './lib/account.mjs';
 import { TD_TERMS, TD_MIN, TD_EARLY, tdRate, tdInterest, LEND_CUT, LEND_LOT, LEND_RECALL, lendFee, lendable } from './lib/savings.mjs';
 import {
@@ -44,7 +44,6 @@ import { IPO_FEE, IPO_WIN_FEE, parseIpoList, ipoOpen, ipoDrawn, ipoHold, ipoAppl
 import * as kitUI from '#kit/ui.mjs';
 import * as kitOrbit from '#kit/orbit.mjs';
 import * as stockAccount from './lib/account.mjs';
-// (Read through the module, with a fallback, for what an older kit lacks.)
 import * as stockCredit from './lib/credit.mjs';
 import * as stockIpo from './lib/ipo.mjs';
 import * as stockSavings from './lib/savings.mjs';
@@ -598,10 +597,10 @@ async function askFills(account, { now = false } = {}) {
 
 // Every order waits for the proxy's fill (none at the phone's own quote):
 // placed as one waiting for a fresh price, which only the proxy's answers
-// fill. An older kit: as before.
-const place = (account, req, opts) => placeOrder(account, stockAccount.applyFills ? { ...req, fresh: true } : req, opts);
+// fill.
+const place = (account, req, opts) => placeOrder(account, { ...req, fresh: true }, opts);
 // The US market-wide halt now (a circuit breaker on the S&P 500, the kit's marketHalt), or null.
-const haltNow = (now = Date.now()) => usHalt(state.quotes.get(stockMarkets.SPX ?? '^GSPC'), now);
+const haltNow = (now = Date.now()) => usHalt(state.quotes.get(stockMarkets.SPX), now);
 // A US stock or ETF's halt (null for anything else).
 const haltOf = (q, now = Date.now()) => (usSessionOf(q, now) !== undefined ? haltNow(now) : null);
 
@@ -621,13 +620,13 @@ function afterPrices() {
   // Filled by the proxy at its own quote (Orbit-Core stock-fill.js; the
   // owner, 2026-10-14): its fills applied here (one from a session the page
   // wasn't open for, dated then, before its order could lapse), the open
-  // orders asked about (askFills). An older kit without it: filled here.
-  const r = stockAccount.applyFills ? stockAccount.applyFills(account, state.fills, state.rates, now) : processOrders(account, state.quotes, state.rates, now, { halt: haltNow(now) });
+  // orders asked about (askFills).
+  const r = stockAccount.applyFills(account, state.fills, state.rates, now);
   account = r.account;
   // Day orders past their session end (and month-old GTC ones) lapse, once
   // the proxy has been asked after their end (lib/orders.mjs: one that met
   // its price just before it fills instead); those still to ask, asked now.
-  const ex = stockAccount.applyFills ? expireAsked(account, id => fillAsked.get(id), now) : { ...expireOrders(account, now), waiting: [] };
+  const ex = expireAsked(account, id => fillAsked.get(id), now);
   account = ex.account;
   for (const o of ex.expired) accountNotice('order', t('toastExpired', { name: nameOf(o.symbol) }), { tag: `order:${o.id}`, hash: 'history' });
   if (stockAccount.applyFills) askFills(account, { now: ex.waiting.length > 0 && !fillAsk.busy && Date.now() - fillAsk.at >= FILL_ASK_MS }).catch(() => {});
@@ -864,7 +863,7 @@ async function checkPlans() {
         else if (r.order?.status === 'rejected') accountNotice('order', t('toastPlanSkipped', { name: nameOf(plan.symbol), why: planReason(r.order.reason) }), { tone: 'bad', tag: `plan:${plan.id}:${run.month}`, hash: 'portfolio' });
         // Months running without the cash ended it (the kit's PLAN_FAIL_LIMIT): no later month runs.
         if (r.ended) {
-          accountNotice('order', t('toastPlanEnded', { name: nameOf(plan.symbol), n: stockAccount.PLAN_FAIL_LIMIT ?? 3 }), { tone: 'bad', tag: `plan:${plan.id}:ended`, hash: 'portfolio' });
+          accountNotice('order', t('toastPlanEnded', { name: nameOf(plan.symbol), n: stockAccount.PLAN_FAIL_LIMIT }), { tone: 'bad', tag: `plan:${plan.id}:ended`, hash: 'portfolio' });
           break;
         }
       }
@@ -1320,8 +1319,8 @@ function symbolBadge(symbol, q) {
   const zh = twSymbol(symbol) ? catalogInfo(symbol)?.zh || twZhName(symbol) : null;
   const zhShort = zh ? zh.replace(kind === 'etf' ? /^(元大|富邦|國泰|群益|復華|統一|凱基|大華|中信|永豐|兆豐)/ : /[-*].*$/, '').slice(0, 2) : '';
   const text = BONDS[symbol] ? symbol.split('-')[1] : /^[A-Z]{6}=X$/.test(symbol) ? symbol.slice(0, 3) : zhShort || bareSymbol(symbol).replace(/-USD$/, '').replace(/^\^/, '').slice(0, 4);
-  // No picture: a drawing of its kind on its kind's colour, never letters (an older kit without the icons: the letters).
-  const mark = kitUI.icons?.[SYM_MARK[kind] || 'bank'];
+  // No picture: a drawing of its kind on its kind's colour, never letters.
+  const mark = kitUI.icons[SYM_MARK[kind] || 'bank'];
   const plain = mark ? `<span class="sym-badge mark k-${h(kind)}" role="img" aria-label="${h(text)}">${mark}</span>` : `<span class="sym-badge k-${h(kind)}${text === zhShort && zhShort ? ' zh' : ''}">${h(text)}</span>`;
   const choice = logoChoices(symbol, kind).find(c => c.urls.every(u => !logoBad.has(u) && !logoMiss.has(u)));
   if (!choice) return plain;
@@ -1336,7 +1335,7 @@ function heroLogo(symbol, q) {
   const kind = kindOf(symbol, q);
   const urls = logoUrls(symbol, kind);
   const name = nameOf(symbol, q);
-  if (!kitUI.logoTileHtml || !urls.length || /^[A-Z]{6}=X$/.test(symbol)) return symbolBadge(symbol, q);
+  if (!urls.length || /^[A-Z]{6}=X$/.test(symbol)) return symbolBadge(symbol, q);
   return discTile(kitUI.logoTileHtml(urls, { size: 56, alt: '', fallbackText: name || bareSymbol(symbol) }), urls);
 }
 // A TradingView icon that is a disc on a clear square fills its tile: the tile takes the disc's colour (lib/tvround.mjs).
@@ -1481,7 +1480,7 @@ function eventRows(v) {
 // What 為你推薦 showed, what was opened from it and anywhere in the app, and
 // what was kept, planned and traded (the kit's feedback.mjs, the family's one
 // engine, kept on the Pass): a kind passed over day after day sinks, one
-// opened rises. (Loaded on the side: an older kit without it ranks as before.)
+// opened rises. (Loaded on the side.)
 let feedback = null;
 import('#kit/feedback.mjs')
   .then(m => {
@@ -1570,7 +1569,7 @@ function renderHome() {
   const mineCard = v
     ? sectionHtml(
         L({ zh: '我的', en: 'Mine' }),
-        `<div class="q-card sc-mine-card">${head}${mineRows}</div>${mine.length > SHOWN ? kitUI.moreHtml?.({ more: L({ zh: `再看 ${mine.length - SHOWN} 檔`, en: `${mine.length - SHOWN} more` }), less: L({ zh: '收起', en: 'Less' }), open: nvMineOpen, attr: 'data-action="nv-mine"' }) || '' : ''}`,
+        `<div class="q-card sc-mine-card">${head}${mineRows}</div>${mine.length > SHOWN ? kitUI.moreHtml({ more: L({ zh: `再看 ${mine.length - SHOWN} 檔`, en: `${mine.length - SHOWN} more` }), less: L({ zh: '收起', en: 'Less' }), open: nvMineOpen, attr: 'data-action="nv-mine"' }) || '' : ''}`,
         { count: mine.length || '', cls: 'sc-mine' }
       )
     : '';
@@ -1860,7 +1859,7 @@ function listHtml(sub) {
   const whole = !sub.listing || listings.has(sub.listing);
   const tail =
     left > 0
-      ? kitUI.moreHtml?.({ more: t('browseMore', { n: Math.min(left, PAGE), left: left.toLocaleString() }), less: null, attr: 'data-action="list-more"', cls: 'list-more' }) ?? `<button class="list-more q-more" type="button" data-action="list-more">${h(t('browseMore', { n: Math.min(left, PAGE), left: left.toLocaleString() }))}</button>`
+      ? kitUI.moreHtml({ more: t('browseMore', { n: Math.min(left, PAGE), left: left.toLocaleString() }), less: null, attr: 'data-action="list-more"', cls: 'list-more' }) ?? `<button class="list-more q-more" type="button" data-action="list-more">${h(t('browseMore', { n: Math.min(left, PAGE), left: left.toLocaleString() }))}</button>`
       : whole
         ? ''
         : `<p class="list-more list-wait">${h(failed ? t('browseFailed') : t('browseLoading'))}</p>`;
@@ -2689,9 +2688,9 @@ function trackersHtml(symbol) {
 // ---- Detail sheet: alerts, monthly plan, time machine ---------------------------
 
 // Taiwan brokers sell 定期定額 of shares in Taiwan and the US only (the
-// kit's planAllowed; an older kit: no other market's either). A plan saved
-// before this rule keeps its card so it can still be stopped.
-const planAllowed = q => (stockAccount.planAllowed ? stockAccount.planAllowed(q) && q.kind !== 'fx' : (stockAccount.PLAN_MARKETS ?? ['TW', 'US']).includes(q.market));
+// kit's planAllowed). A plan saved before this rule keeps its card so it can
+// still be stopped.
+const planAllowed = q => stockAccount.planAllowed(q) && q.kind !== 'fx';
 const canPlan = (q, symbol) => isTradable(q.kind) && !BONDS[q.symbol]
   && (planAllowed(q) || activePlans(state.account).some(p => p.symbol === symbol));
 // The least a buy can be: NT$100, a US one what exchanges for US$10 (the kit's planMinTWD).
@@ -2727,9 +2726,8 @@ function alertCardHtml(symbol, q) {
     on.length ? `<span class="q-tag red">${on.length}</span>` : ''
   );
 }
-// 定期定額's terms, the kit's (read through the module: an older kit has
-// days 1-28, no fee or session of its own, and no end).
-const planDayMax = () => stockAccount.PLAN_DAY_MAX ?? 28;
+// 定期定額's terms, the kit's.
+const planDayMax = () => stockAccount.PLAN_DAY_MAX;
 // The day picker: 29-31 fall on a shorter month's last day.
 const planDayOptions = selected =>
   Array.from({ length: planDayMax() }, (_, i) => i + 1)
@@ -2764,7 +2762,7 @@ function planTermsHtml(q, at = Date.now()) {
 const endedPlan = symbol => Object.values(state.account?.plans || {}).filter(p => !p.on && p.ended && p.symbol === symbol).sort((a, b) => b.t - a.t)[0] || null;
 // Why a month's buy didn't happen, in a few words (err_funds needs figures a plan's month doesn't keep).
 const planReason = reason => (reason === 'funds' ? t('planNoCash') : t(`err_${reason}`));
-const planEndedText = p => t('planEnded', { date: fmtDate(p.t), n: stockAccount.PLAN_FAIL_LIMIT ?? 3 });
+const planEndedText = p => t('planEnded', { date: fmtDate(p.t), n: stockAccount.PLAN_FAIL_LIMIT });
 
 function planCardHtml(symbol, q) {
   const plan = activePlans(state.account).find(p => p.symbol === symbol);
@@ -2799,7 +2797,7 @@ function planCardHtml(symbol, q) {
     ${perUnit > 0 && amount > 0 ? `<p class="foot-note">${h(t('planBuys', { units: num(units, stockMarkets.fractional(q.market, q.kind) && units < 1 ? 4 : units < 10 ? 2 : 0), unit: unitOf(symbol) }))}${q.currency !== BASE ? ` · ${h(t('planFx', { cur: q.currency }))}` : ''}</p>` : ''}
     <button class="q-btn primary block" type="button" data-action="plan-add" ${amount >= planMin(q) && state.account ? '' : 'disabled'}>${h(t(editing ? 'planSave' : 'planStart'))}</button>
     ${editing ? `<button class="q-btn small block" type="button" data-action="plan-edit-cancel">${h(t('orderAskCancel'))}</button>` : ''}
-    <p class="foot-note">${h(stockAccount.PLAN_FAIL_LIMIT ? t('planNoteEnd', { min: money(planMin(q), BASE), n: stockAccount.PLAN_FAIL_LIMIT }) : t('planNote', { min: money(planMin(q), BASE) }))}</p>
+    <p class="foot-note">${h(t('planNoteEnd', { min: money(planMin(q), BASE), n: stockAccount.PLAN_FAIL_LIMIT }))}</p>
     ${planTermsHtml(q)}`,
     Boolean(editing) || Boolean(ended),
     'tool:plan'
@@ -2900,7 +2898,7 @@ function aboutHtml(symbol, q) {
   // In the reader's language once translated; the English original a tap away.
   const local = a.summaryLocal && locale !== 'en';
   const summary = f?.summary
-    ? `<details class="summary-text">${kitUI.summaryHtml?.(t('whatItDoes')) ?? `<summary>${h(t('whatItDoes'))}</summary>`}${local ? `<p>${h(a.summaryLocal)}</p><details class="summary-orig"><summary>${h(t('originalText'))}</summary><p lang="en">${h(f.summary)}</p></details>` : `<p lang="en">${h(f.summary)}</p>`}${f.website ? `<p><a href="${h(f.website)}" target="_blank" rel="noopener">${h(f.website.replace(/^https?:\/\//, ''))}</a></p>` : ''}</details>`
+    ? `<details class="summary-text">${kitUI.summaryHtml(t('whatItDoes')) ?? `<summary>${h(t('whatItDoes'))}</summary>`}${local ? `<p>${h(a.summaryLocal)}</p><details class="summary-orig"><summary>${h(t('originalText'))}</summary><p lang="en">${h(f.summary)}</p></details>` : `<p lang="en">${h(f.summary)}</p>`}${f.website ? `<p><a href="${h(f.website)}" target="_blank" rel="noopener">${h(f.website.replace(/^https?:\/\//, ''))}</a></p>` : ''}</details>`
     : '';
   return fold(icon, title, `${body}${summary}`, true, 'about');
 }
@@ -3106,7 +3104,7 @@ let newsAt = 0;
 function loadNews() {
   if (Date.now() - newsAt < 120_000) return;
   newsAt = Date.now();
-  Promise.all([import('#kit/news-outlets.mjs'), kitOrbit.packJson?.('news/index.json', { ttl: 120_000, timeout: 20_000 })])
+  Promise.all([import('#kit/news-outlets.mjs'), kitOrbit.packJson('news/index.json', { ttl: 120_000, timeout: 20_000 })])
     .then(([k, page]) => {
       newsKit = k;
       newsPage = page && typeof page === 'object' ? page : null;
@@ -3138,7 +3136,7 @@ const filingOpen = new Set();
 const filingAsked = new Set();
 function loadFilings(symbol) {
   const code = twCode(symbol);
-  if (!code || !kitOrbit.packJson) return;
+  if (!code) return;
   kitOrbit
     .packJson(filingsPath(code), { ttl: 10 * 60_000, timeout: 20_000 })
     .then(doc => {
@@ -3369,10 +3367,8 @@ function renderTicket() {
   // After Taiwan's close (to 14:30), what the order goes to: 盤後定價 for
   // whole lots at today's close, 盤後零股 for an odd lot, each matched once
   // at 14:30. One placed before its session takes orders (13:40 盤後零股,
-  // 14:00 盤後定價) is refused on a kit that has TWSE's closing auction
-  // (afterHoursWait), as brokers do; an older kit holds it until then.
+  // 14:00 盤後定價) is refused (afterHoursWait), as brokers do.
   const afterLines = [];
-  const twseSessions = typeof stockCredit.closingAuction === 'function';
   if (q.market === 'TW' && d.type !== 'stop' && afterHours(Date.now())) {
     const odd = qty > 0 && isOddLot(q.market, q.kind, qty);
     const parts = [[qty === 0 || qty >= 1000 || !odd, false], [odd, true]];
@@ -3380,14 +3376,14 @@ function renderTicket() {
       if (!has) continue;
       const send = afterHoursSend(Date.now(), isOdd);
       const line = isOdd ? t('afterOddNote') : t('afterBoardNote', { close: qPrice(q) });
-      if (send?.waits && twseSessions) {
+      if (send?.waits) {
         afterLines.push(line);
         if (qty > 0) problems.push(t('err_afterHoursWait', { from: clock(send.sends) }));
       } else afterLines.push(send?.waits ? `${line} ${t('afterSends', { time: clock(send.sends) })}` : line);
     }
   }
   // TWSE's closing call auction (13:25-13:30) takes whole lots at a limit only.
-  const closing = twseSessions && q.market === 'TW' && d.type === 'market' && ['stock', 'etf', 'bond'].includes(q.kind) ? stockCredit.closingAuction(Date.now()) : null;
+  const closing = q.market === 'TW' && d.type === 'market' && ['stock', 'etf', 'bond'].includes(q.kind) ? stockCredit.closingAuction(Date.now()) : null;
   if (closing && Date.now() < closing.match && lotParts(q.market, q.kind, qty).some(n => !isOddLot(q.market, q.kind, n))) problems.push(t('err_closingAuction', { match: clock(closing.match) }));
   // US pre- and post-market: a day limit order may go to it (盤前／盤後, `ext`).
   const extOk = extOffered(q, d);
@@ -3773,7 +3769,6 @@ function placeFromTicket() {
 // it at its own fresh price (placeOrder's `fresh`), never at the figure the
 // screen showed: the proxy is asked at once, with the quote read beside it,
 // again a few times if either fails; after that the usual asks (askFills).
-// (An older kit without the proxy's fills: filled at the fresh quote.)
 async function atFreshPrice(place) {
   const symbol = state.detail?.symbol;
   if (!symbol) return;
@@ -3781,7 +3776,7 @@ async function atFreshPrice(place) {
   const waiting = () => (state.account?.orders || []).filter(o => o.status === 'open' && o.waitFresh && o.symbol === symbol).map(o => `${o.id}:${o.rev}`).join();
   for (let i = 0; i < 6; i++) {
     const before = waiting();
-    const [quotes, asked] = await Promise.all([fetchQuotes([symbol]).catch(() => null), stockAccount.applyFills ? askFills(state.account, { now: true }).catch(() => false) : true]);
+    const [quotes, asked] = await Promise.all([fetchQuotes([symbol]).catch(() => null), askFills(state.account, { now: true }).catch(() => false)]);
     if (quotes) {
       absorb(quotes);
       afterPrices();
@@ -4559,7 +4554,7 @@ function moneyToolsHtml(v) {
     ${row('loans', svgIcon('bank'), TINT.indigo, t('fxViewLoans'), v.debtTWD > 0 ? `${t('borrowed')} ${money(v.debtTWD, BASE)}` : t('noLoans'), v.debtTWD > 0 ? `<span class="q-tag ${v.margin === 'ok' ? 'green' : 'red'} num">${h(t('ratioShort'))} ${h(pct(v.ratio, { digits: 0, sign: false }))}</span>` : '')}
     ${stockAccess.ACCESS_KEYS ? row('access', ico('shield'), TINT.blue, t('accessTitle'), t('accessOpenN', { n: stockAccess.ACCESS_KEYS.filter(k => stockAccess.accessState(state.account, k, Date.now()).open).length, of: stockAccess.ACCESS_KEYS.length }), '') : ''}
     ${row('credit', ico('key'), TINT.purple, t('creditTitle'), credit.open ? t('creditLimitIs', { v: compactMoney(credit.limit, BASE) }) : t('creditClosed'), credit.open ? `<span class="q-tag green">${h(t('creditOpenTag'))}</span>` : '')}
-    ${snap()?.futSplit && stockAccount.futTransfer ? row('futacct', ico('chart'), TINT.indigo, t('futAcctTitle'), v.futCash > 0 || v.futMarginTWD > 0 ? t('futEquityIs', { v: money(v.futEquity, BASE) }) : t('futAcctEmpty'), v.futCall ? `<span class="q-tag red">${h(t('futCallTag'))}</span>` : '') : ''}
+    ${snap()?.futSplit ? row('futacct', ico('chart'), TINT.indigo, t('futAcctTitle'), v.futCash > 0 || v.futMarginTWD > 0 ? t('futEquityIs', { v: money(v.futEquity, BASE) }) : t('futAcctEmpty'), v.futCall ? `<span class="q-tag red">${h(t('futCallTag'))}</span>` : '') : ''}
     ${row('td', svgIcon('lock'), TINT.green, t('tdTitle'), v.savedTWD > 0 ? money(v.savedTWD, BASE) : t('tdBestRate', { rate: pct(best, { digits: 2, sign: false }) }), (v.tds || []).length ? `<span class="q-tag">${(v.tds || []).length}</span>` : '')}
     ${row('lend', svgIcon('hand'), TINT.orange, t('lendTitle'), v.lendIncome > 0 ? `+${money(v.lendIncome, BASE)}` : t('lendableN', { n: nLend }), (v.lent || []).filter(l => !l.back).length ? `<span class="q-tag">${(v.lent || []).filter(l => !l.back).length}</span>` : '')}
   </div>`;
@@ -4841,7 +4836,7 @@ function doFutTransfer() {
   render();
 }
 // The futures ticket's 入金 button, when what it opens needs more than the futures account has.
-const futInButton = short => (short && snap()?.futSplit && stockAccount.futTransfer ? `<button class="q-btn tinted block acc-go" type="button" data-action="futx-open">${h(t('futInGo'))}</button>` : '');
+const futInButton = short => (short && snap()?.futSplit ? `<button class="q-btn tinted block acc-go" type="button" data-action="futx-open">${h(t('futInGo'))}</button>` : '');
 
 // 借券出借 (a sheet): what can be lent and for about how much, the ask, what's out.
 function lendHtml() {
@@ -4850,18 +4845,16 @@ function lendHtml() {
   const lendRows = v.positions.filter(p => !p.short && lendable(p.market, p.kind));
   const lent = v.lent || [];
   return `${lendRows.length ? `<div class="q-rowcard">${lendRows.map(p => lendRowHtml(p, now)).join('')}</div>` : emptyHtml({ icon: 'lock', tint: TINT.orange, title: t('lendNoneTitle'), body: t('lendNone') })}
-    ${lendAsks() && lendRows.some(p => lendableQty(state.account, p.symbol, now) > 0) ? lendFormHtml() : ''}
+    ${lendRows.some(p => lendableQty(state.account, p.symbol, now) > 0) ? lendFormHtml() : ''}
     ${sectionHtml(t('lendOut'), lent.length ? `<div class="q-rowcard">${lent.map(l => lentRowHtml(l, now)).join('')}</div>` : '')}`;
 }
-// 借券出借 as the kit has it (read through the module: an older kit lends at
-// the going rate only, for 180 days): the lender's own yearly ask, 0.01% to
+// 借券出借 as the kit has it: the lender's own yearly ask, 0.01% to
 // 16%, lent only at or under the going rate a borrower pays (LEND_RATE);
 // six months, renewed twice where the lender agrees; the fee accrued day by
 // day on each day's close and paid when the shares come back.
 const lendPct = x => pct(x, { digits: 2, sign: false });
-const lendAsks = () => stockSavings.LEND_RATE_MAX != null;
 // The ask typed (a yearly %, as a share), or null for the going rate.
-const lendAsk = () => (lendAsks() && state.lend.rate !== '' && Number.isFinite(Number(state.lend.rate)) ? Number(state.lend.rate) / 100 : null);
+const lendAsk = () => (state.lend.rate !== '' && Number.isFinite(Number(state.lend.rate)) ? Number(state.lend.rate) / 100 : null);
 // Why an ask won't lend `kind`: out of the range, or above the going rate.
 function lendAskProblem(kind, ask = lendAsk()) {
   if (ask == null) return '';
@@ -4880,7 +4873,7 @@ const lendEndsAt = l => stockSavings.lendEnds(l);
 const lendCloses = new Map();
 const lendClosesOf = symbol => (Array.isArray(lendCloses.get(symbol)) ? lendCloses.get(symbol) : null);
 function loadLendCloses(account, now = Date.now()) {
-  if (!lendAsks() || !account) return;
+  if (!account) return;
   for (const l of Object.values(replay(account, now).lent || {})) {
     if (l.back || lendCloses.has(l.symbol)) continue;
     const read = fetchChart(l.symbol, historyRange(now - l.t))
@@ -4895,7 +4888,7 @@ function loadLendCloses(account, now = Date.now()) {
   }
 }
 // Whether every contract due to end has its closes read (or failed): it ends then, its fee day by day.
-const lendClosesReady = (account, now) => !lendAsks() || Object.values(replay(account, now).lent || {}).every(l => l.back || lendEndsAt(l) > now || !(lendCloses.get(l.symbol) instanceof Promise || !lendCloses.has(l.symbol)));
+const lendClosesReady = (account, now) => Object.values(replay(account, now).lent || {}).every(l => l.back || lendEndsAt(l) > now || !(lendCloses.get(l.symbol) instanceof Promise || !lendCloses.has(l.symbol)));
 
 function lendFormHtml() {
   const going = stockSavings.LEND_RATE || {};
@@ -4913,7 +4906,7 @@ function lendRowHtml(p, now) {
 
 function lentRowHtml(l, now) {
   const so = lendFee(l, l.back || now, lendClosesOf(l.symbol)).net;
-  const terms = lendAsks() ? ` · ${t('lendAt', { rate: lendPct(l.rate) })}${l.back ? '' : ` · ${t(l.renew ? 'lendEndsRenew' : 'lendEnds', { date: fmtDate(lendEndsAt(l)) })}`}` : '';
+  const terms = ` · ${t('lendAt', { rate: lendPct(l.rate) })}${l.back ? '' : ` · ${t(l.renew ? 'lendEndsRenew' : 'lendEnds', { date: fmtDate(lendEndsAt(l)) })}`}`;
   return `<div class="q-ritem">${symbolBadge(l.symbol)}<span class="q-ritem-text"><span class="q-ritem-title">${h(nameOf(l.symbol))} · ${h(fmtQty(l.qty))} ${h(unitOf(l.symbol))}</span><small class="num">${h(l.back ? t('lendBack', { date: fmtDate(l.back) }) : t('lendSince', { date: fmtDate(l.t) }))}${h(terms)}</small><span class="q-tags"><span class="q-tag green num">${h(t('lendSoFar', { v: money(so, BASE) }))}</span></span></span>${l.back ? '' : `<button class="q-btn small" type="button" data-action="recall" data-id="${h(l.id)}">${h(t('lendRecall'))}</button>`}</div>`;
 }
 async function doOpenDeposit() {
@@ -4951,15 +4944,13 @@ async function doLend(symbol, qty) {
   const v = valuation();
   const p = v.positions.find(x => x.symbol === symbol);
   const mine = lendAsk();
-  const renew = lendAsks() && state.lend.renew;
+  const renew = state.lend.renew;
   const req = { symbol, qty, price: q.price, ...(mine != null ? { rate: mine } : {}), ...(renew ? { renew: true } : {}) };
   // The kit's checks first (the ask's range, a borrower at that rate), before asking.
   const tried = lendShares(state.account, req, Date.now());
   if (tried.error) return toast(errorText(tried), 'bad');
   const { net: yearNet } = lendYear(p?.kind || 'stock', qty, q.price, mine);
-  const term = lendAsks()
-    ? [['📅', t('lendAskTerm', { rate: lendPct(tried.event.rate), date: fmtDate(lendEndsAt(tried.event)) }), t(renew ? 'lendAskRenew' : 'lendAskNoRenew', { n: stockSavings.LEND_RENEWALS, months: stockSavings.LEND_TERM_MONTHS })]]
-    : [];
+  const term = [['📅', t('lendAskTerm', { rate: lendPct(tried.event.rate), date: fmtDate(lendEndsAt(tried.event)) }), t(renew ? 'lendAskRenew' : 'lendAskNoRenew', { n: stockSavings.LEND_RENEWALS, months: stockSavings.LEND_TERM_MONTHS })]];
   if (!(await askKit({ lang: locale, icon: '🤝', title: t('lendAsk', { qty: fmtQty(qty), name: nameOf(symbol) }), points: [['💰', t('lendAskEarn', { v: money(yearNet, BASE) }), t('lendAskCut', { cut: pct(LEND_CUT, { digits: 0, sign: false }) })], ...term, ['🔒', t('lendAskLock'), t('lendAskRecall', { days: LEND_RECALL })], ['🧾', t('lendAskTax'), t('lendAskNhi')]], ok: t('lendGo'), cancel: t('orderAskCancel') }))) return;
   const r = lendShares(state.account, req, Date.now());
   if (r.error) return toast(errorText(r), 'bad');
@@ -4972,7 +4963,7 @@ async function doRecall(id) {
   if (!(await askKit({ lang: locale, icon: '↩️', title: t('lendRecallAsk'), body: t('lendRecallBody', { days: LEND_RECALL }), ok: t('lendRecall'), cancel: t('orderAskCancel') }))) return;
   // The fee day by day at each day's close (read now if it isn't yet).
   const l = replay(state.account, Date.now()).lent?.[id];
-  if (l && lendAsks()) {
+  if (l) {
     loadLendCloses(state.account);
     await lendCloses.get(l.symbol);
   }
@@ -5544,7 +5535,7 @@ const ACT_PAGE = 100;
 function renderHistory() {
   const box = $('history-body');
   // (Wide: 統計分析 stands beside the activity, so it's no view of its own.)
-  const wide = Boolean(kitOrbit.screenFit?.().wide);
+  const wide = Boolean(kitOrbit.screenFit().wide);
   const views = wide ? ['activity', 'orders'] : ['activity', 'orders', 'stats'];
   const view = wide && state.historyView === 'stats' ? 'activity' : state.historyView;
   const head = `<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${view === x}">${h(t(`hview_${x}`))}${x === 'orders' && state.account?.orders.some(o => o.status === 'open') ? ` <b class="seg-count">${state.account.orders.filter(o => o.status === 'open').length}</b>` : ''}</button>`).join('')}</div>`;
@@ -5572,7 +5563,7 @@ function renderHistory() {
   const days = dayGroups(shown);
   const list = `<div class="q-chips q-texttabs bleed filter-chips">${Object.keys(ACTIVITY_FILTERS).map(k => `<button class="q-chip" type="button" data-action="afilter" data-f="${k}" aria-pressed="${f === k}">${h(t(`af_${k}`))}</button>`).join('')}</div>
     ${days.length ? days.map(([day, rows]) => `<p class="sub-head day-head">${h(dayLabel(day))}</p><div class="q-rowcard">${rows.join('')}</div>`).join('') : `${plainEmpty(t('nothingYet'))}`}
-    ${own.length > shown.length ? kitUI.moreHtml?.({ more: t('showMore', { n: Math.min(ACT_PAGE, own.length - shown.length) }), less: null, attr: 'data-action="more"', cls: 'act-more' }) ?? `<button class="q-btn small more" type="button" data-action="more">${h(t('showMore', { n: Math.min(ACT_PAGE, own.length - shown.length) }))}</button>` : ''}`;
+    ${own.length > shown.length ? kitUI.moreHtml({ more: t('showMore', { n: Math.min(ACT_PAGE, own.length - shown.length) }), less: null, attr: 'data-action="more"', cls: 'act-more' }) ?? `<button class="q-btn small more" type="button" data-action="more">${h(t('showMore', { n: Math.min(ACT_PAGE, own.length - shown.length) }))}</button>` : ''}`;
   if (!wide) return morph(box, `${head}${list}`);
   morph(box, `${head}<div class="q-cols act-cols"><div>${list}</div><div class="act-stats">${statsHtml()}</div></div>`);
   renderBench();
@@ -6380,7 +6371,7 @@ document.addEventListener('click', async event => {
       if (!order) break;
       let res = null;
       try {
-        res = stockAccount.applyFills ? await workerJson('/stock', '', { body: JSON.stringify({ op: 'cancel', order: spec(order) }), timeout: 15_000 }) : { cancelled: true };
+        res = await workerJson('/stock', '', { body: JSON.stringify({ op: 'cancel', order: spec(order) }), timeout: 15_000 });
       } catch {
         toast(t('cancelNoNet'), 'bad');
         break;
@@ -6576,7 +6567,7 @@ document.addEventListener('click', async event => {
       redrawDetail();
       break;
     case 'fact-help':
-      kitOrbit.tell?.({ title: el.dataset.title || t(el.dataset.k), body: t(el.dataset.e) });
+      kitOrbit.tell({ title: el.dataset.title || t(el.dataset.k), body: t(el.dataset.e) });
       break;
     case 'chart-ma':
       state.settings.ma = !state.settings.ma;
@@ -6847,7 +6838,7 @@ topActions(q, { refresh: () => refresh({ list: true }), extra: settingsEl });
 // Big numbers shrink (to 60% at most) to stay on one line (the kit's fitNumbers).
 // (And a fact or an order's hint, a line each.)
 const FIT_SELECTOR = '.q-sf-sum b, .q-hc-big, .q-focus-value, .q-stat strong, .idx-card > strong, .rec-foot strong, .q-ritem-end > strong, .fx-result, .verdict strong, .facts-grid dd span, .about-fin .about-h';
-// (The kit's watchFit: new, so a phone on an older kit just isn't fitted after a redraw.)
+// (The kit's watchFit.)
 kitOrbit.watchFit(FIT_SELECTOR);
 
 // Redraw the charts at their new size when the screen changes (turned on its

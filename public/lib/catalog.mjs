@@ -194,21 +194,19 @@ const FX = [
   ['EURGBP=X', '歐元/英鎊', 'EUR/GBP', 'fx'], ['USDKRW=X', '美元/韓元', 'USD/KRW', 'fx'], ['USDSGD=X', '美元/新加坡幣', 'USD/SGD', 'fx']
 ];
 
-// TAIFEX's TAIEX futures: each size's two nearest months (an older kit: none).
+// TAIFEX's TAIEX futures: each size's two nearest months.
 const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const FUTS = markets.futureMonths
-  ? ['TX', 'MTX', 'TMF'].flatMap(code =>
-      markets.futureMonths(code).map(symbol => {
-        const f = markets.futureOf(symbol);
-        return [symbol, `${f.zh} ${f.month}月`, `${f.en} ${MONTH_EN[f.month - 1]}`, 'fut'];
-      })
-    )
-  : [];
+const FUTS = ['TX', 'MTX', 'TMF'].flatMap(code =>
+  markets.futureMonths(code).map(symbol => {
+    const f = markets.futureOf(symbol);
+    return [symbol, `${f.zh} ${f.month}月`, `${f.en} ${MONTH_EN[f.month - 1]}`, 'fut'];
+  })
+);
 
-// TAIFEX's 股票期貨 and ETF期貨 (an older kit: none): each contract's nearest
+// TAIFEX's 股票期貨 and ETF期貨: each contract's nearest
 // month, the best-known stocks' first (in 台股's order), a 小型 after its full size.
 const twRank = new Map(TW.map(([s], i) => [s, i]));
-const SSF = (markets.stockFutureCodes?.() || [])
+const SSF = markets.stockFutureCodes()
   .map(code => markets.futureMonths(code, Date.now(), 1)[0])
   .filter(Boolean)
   .map(symbol => ({ symbol, f: markets.futureOf(symbol) }))
