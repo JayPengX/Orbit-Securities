@@ -3299,7 +3299,7 @@ function renderTicket() {
   // (An option by its contract: its series is on the card below.)
   setHead($('trade'), `${h(t(d.side === 'buy' ? 'buy' : 'sell'))} ${h(stockMarkets.isOption?.(d.symbol) ? optContract(d.symbol) : nameOf(d.symbol, q0))}`);
   if (!state.account || !q0) {
-    morph(box, `${head}<div class="empty"><div class="spinner"></div></div>`);
+    morph(box, `${head}<div class="q-skel-lines" role="status"><i class="q-skel"></i><i class="q-skel"></i><i class="q-skel"></i><i class="q-skel"></i></div>`);
     return;
   }
   if (q0.kind === 'fut') return renderFutTicket(box, d, q0);
@@ -3971,7 +3971,7 @@ function overdraftHtml(v) {
 
 function renderPortfolio() {
   const box = $('portfolio-body');
-  if (!state.account) return morph(box, `<div class="empty"><div class="spinner"></div></div>`);
+  if (!state.account) return morph(box, `<div class="q-skel-lines" role="status"><i class="q-skel"></i><i class="q-skel"></i><i class="q-skel"></i><i class="q-skel"></i></div>`);
   const v = valuation();
   const s = snap();
   const view = state.nwView || 'pl';
@@ -4535,7 +4535,7 @@ const currencySelect = (id, selected) => `<span class="fx-cur"><span class="fx-c
 function renderFx() {
   const box = $('fx-body');
   const over = `<span class="q-tag ${state.fxOpen ? 'green' : 'orange'}">${h(state.fxOpen ? t('fxOpenTag') : t('fxClosedTag'))}</span>`;
-  if (!state.account || !snap()) return morph(box, `<div class="empty"><div class="spinner"></div></div>`);
+  if (!state.account || !snap()) return morph(box, `<div class="q-skel-lines" role="status"><i class="q-skel"></i><i class="q-skel"></i><i class="q-skel"></i><i class="q-skel"></i></div>`);
   const v = valuation();
   const rates = Object.keys(CURRENCIES).filter(c => c !== BASE);
   morph(
@@ -5548,7 +5548,7 @@ function renderHistory() {
   const views = wide ? ['activity', 'orders'] : ['activity', 'orders', 'stats'];
   const view = wide && state.historyView === 'stats' ? 'activity' : state.historyView;
   const head = `<div class="q-seg history-tabs" role="group">${views.map(x => `<button type="button" data-action="hview" data-view="${x}" aria-pressed="${view === x}">${h(t(`hview_${x}`))}${x === 'orders' && state.account?.orders.some(o => o.status === 'open') ? ` <b class="seg-count">${state.account.orders.filter(o => o.status === 'open').length}</b>` : ''}</button>`).join('')}</div>`;
-  if (!state.account) return morph(box, `${head}<div class="empty"><div class="spinner"></div></div>`);
+  if (!state.account) return morph(box, `${head}<div class="q-skel-lines" role="status"><i class="q-skel"></i><i class="q-skel"></i><i class="q-skel"></i><i class="q-skel"></i></div>`);
   if (view === 'orders') {
     const open = state.account.orders.filter(o => o.status === 'open').reverse();
     const done = state.account.orders.filter(o => o.status !== 'open').reverse().slice(0, 100);
