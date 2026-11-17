@@ -1532,7 +1532,7 @@ function nvRow(symbol, { tag = '', why = '' } = {}) {
   const due = BONDS[symbol] ? /^(.+?)\s*[（(]([^（(]+)[)）]$/.exec(nameOf(symbol, q)) : null;
   const code = due ? due[2] : bareSymbol(symbol);
   // (Why it's picked, on a phone 360 wide or more; narrower, its code.)
-  const line = tag ? `<small class="num">${h(tag)}</small>` : why ? `<small class="sc-why">${h(why)}</small><small class="num sc-code">${h(code)}</small>` : `<small class="num">${h(code)}</small>`;
+  const line = tag ? `<small class="num">${h(tag)}</small>` : why ? `<small class="sc-why q-fit">${h(why)}</small><small class="num sc-code">${h(code)}</small>` : `<small class="num">${h(code)}</small>`;
   return `<button class="q-ritem sc-row ${q ? dirClass(p) : 'flat'}" type="button" data-action="open" data-symbol="${h(symbol)}">
     ${symbolBadge(symbol, q)}
     <span class="q-ritem-text"><span class="q-ritem-title">${h(due ? due[1] : nameOf(symbol, q))}</span>${line}</span>
@@ -1688,7 +1688,7 @@ function ipoHtml() {
     return `<div class="q-ritem ipo-item">
       ${tileHtml(ico('ticket'), TINT.indigo)}
       <span class="q-ritem-text"><span class="q-ritem-title">${h(s.name)} <em class="code num">${h(s.code)}</em></span>
-        <small class="num">${h(t('ipoPrice', { p: money(s.price, BASE), v: money(ipoHold(s), BASE) }))}</small>
+        <small class="num q-fit">${h(t('ipoPrice', { p: money(s.price, BASE), v: money(ipoHold(s), BASE) }))}</small>
         <small>${h(t(s.ipo ? (/櫃/.test(s.kind) ? 'ipoNewOtc' : 'ipoNew') : 'ipoMore'))} · ${h(t('ipoDrawOn', { date: shortDate(s.draw) }))}</small>${gain != null ? `<small class="num ${gain >= 0 ? 'up-ink' : 'down-ink'}">${h(t('ipoGain'))} ${h(money(gain, BASE, { sign: true }))}</small>` : ''}</span>
       <button class="q-btn small primary" type="button" data-action="ipo-apply" data-key="${h(ipoKey(s))}">${h(t('ipoApply'))}</button>
     </div>`;
