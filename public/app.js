@@ -5940,12 +5940,15 @@ function settingsEl() {
 
 // ---- Page frame: tabs, the sheets, rendering ------------------------------------------------
 
-// Only when there's nothing to show: the notice. Everything else about the
-// prices (saved, offline, stale) is one tag on the home's top line.
+// The notice: when there's nothing to show, or the prices shown are the
+// last read, over two minutes old, their reads failing since (Yahoo down):
+// said, never passed off as now. Offline is the kit's cover.
+const STALE_NOTE_MS = 2 * 60_000;
 function renderStatus() {
   const notice = $('notice');
-  notice.hidden = !(state.error && !state.loaded);
-  notice.textContent = state.error && !state.loaded ? t('noticeNoData') : '';
+  const said = Boolean(state.error) && (!state.loaded || Date.now() - (state.updated || 0) > STALE_NOTE_MS);
+  notice.hidden = !said;
+  notice.textContent = said ? t('noticeNoData') : '';
 }
 
 const TAB_ICONS = { home: 'home', markets: 'chart', portfolio: 'wallet', fx: 'exchange', history: 'history' };
