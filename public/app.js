@@ -2297,7 +2297,7 @@ function renderDetail() {
     ? [
         limitOf(q) ? `<span class="q-tag solid ${limitOf(q)}">${h(limitOf(q) === 'up' ? t('limitUpTag') : t('limitDownTag'))}</span>` : '',
         alertTag(d.symbol, true),
-        q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : delayOf(q.market) && q.live !== 'TWSE' ? helpTag('orange', t('delayed', { n: delayOf(q.market) }), 'delayHelp') : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
+        q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : pricesStale() ? `<span class="q-tag orange">${h(t('staleTag'))}</span>` : delayOf(q.market) && q.live !== 'TWSE' ? helpTag('orange', t('delayed', { n: delayOf(q.market) }), 'delayHelp') : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
       ].join('')
     : '';
   const opt = stockMarkets.isOption?.(d.symbol);
@@ -5944,6 +5944,10 @@ function settingsEl() {
 // last read, over two minutes old, their reads failing since (Yahoo down):
 // said, never passed off as now. Offline is the kit's cover.
 const STALE_NOTE_MS = 2 * 60_000;
+// (The same in a stock's sheet: its price isn't tagged 即時 while it's the last read.)
+function pricesStale() {
+  return Boolean(state.error) && Date.now() - (state.updated || 0) > STALE_NOTE_MS;
+}
 function renderStatus() {
   const notice = $('notice');
   const said = Boolean(state.error) && (!state.loaded || Date.now() - (state.updated || 0) > STALE_NOTE_MS);
