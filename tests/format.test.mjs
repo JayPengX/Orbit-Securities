@@ -64,6 +64,7 @@ test('what a number field keeps: digits and the first point only', () => {
   assert.equal(cleanNumber('1,234.5'), '1234.5');
   assert.equal(cleanNumber('NT$ 1,000'), '1000');
   assert.equal(cleanNumber('1.2.3'), '1.2');
+  assert.equal(cleanNumber('１，０００．５'), '1000.5');
   // A second point ends the number, so a paste can't move the decimal point.
   assert.equal(cleanNumber('1.2.3.4'), '1.2');
   assert.ok(Number.isFinite(Number(cleanNumber('1.2.3.4'))));

@@ -49,7 +49,8 @@ const BUY = /買進|買入|買|加碼|進場/;
 const SELL = /賣出|賣掉|賣|出清|停利|停損/;
 
 export function readOrder(text) {
-  let s = String(text || '').trim().replace(/\s+/g, '');
+  // (Full-width as some keyboards type it: 用５萬 is 用5萬.)
+  let s = String(text || '').normalize('NFKC').trim().replace(/\s+/g, '');
   if (!s || s.length > 40) return null;
   const sell = SELL.test(s);
   const buy = !sell && BUY.test(s);

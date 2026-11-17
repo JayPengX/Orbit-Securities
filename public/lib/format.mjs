@@ -38,9 +38,10 @@ export const weekdayClock = (t, tz) => dtf({ weekday: 'short', hour: '2-digit', 
 export const monthYear = (t, tz) => dtf({ year: 'numeric', month: 'short' }, tz).format(t);
 
 // What's typed (or pasted) in a number field, as a number's text: digits
-// and the first point ("1.2.3.4" is 1.234, a pasted "NT$1,234.5" 1234.5).
+// and the first point ("1.2.3.4" is 1.234, a pasted "NT$1,234.5" 1234.5,
+// a full-width "１，０００" 1000: it was nothing).
 export function cleanNumber(value) {
-  const text = String(value ?? '').replace(/[^\d.]/g, '');
+  const text = String(value ?? '').normalize('NFKC').replace(/[^\d.]/g, '');
   // A second dot ends the number ('1.2.3.4' is 1.2), so a slip of the finger can't move the decimal point.
   const dot = text.indexOf('.');
   const next = dot < 0 ? -1 : text.indexOf('.', dot + 1);

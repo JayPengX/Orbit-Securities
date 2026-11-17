@@ -67,4 +67,5 @@ test('digits with Chinese units, as people type them', () => {
   assert.deepEqual(readOrder('用1萬5000買0056'), { side: 'buy', name: '0056', odd: false, money: 15000 });
   // A code run into a Chinese count stays the code.
   assert.deepEqual(readOrder('買2330兩張'), { side: 'buy', name: '2330', odd: false, lots: 2 });
+  assert.deepEqual(readOrder('用５千買台積電零股'), { side: 'buy', name: '台積電', odd: true, money: 5000 });
 });
