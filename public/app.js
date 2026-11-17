@@ -1667,9 +1667,11 @@ function loadIpo() {
 const ipoApplied = () => (state.account?.events || []).filter(e => e.type === 'ipo');
 const ipoOutcome = a => state.account.events.find(e => (e.type === 'ipowin' || e.type === 'ipoback') && e.code === a.code && e.draw === a.draw) || null;
 function ipoHtml() {
-  const list = ipoState.list;
+  // (TWSE's list not read yet, or down: the person's own applications still
+  // show, and it never says there are no offers. Unread, an application drawing
+  // went from 首頁 and it said 目前沒有可申購的新股 while one was open, 11-18.)
+  const list = ipoState.list || [];
   if (!state.account) return '';
-  if (!list) return sectionHtml(t('ipoTitle'), emptyHtml({ icon: 'calendar', tint: TINT.purple, title: t('ipoNone'), body: t('ipoNoneSub') }));
   const now = Date.now();
   const applied = new Set(ipoApplied().map(a => `${a.code}:${a.draw}`));
   const open = list.filter(s => ipoOpen(s, now) && !applied.has(ipoKey(s))).sort((a, b) => a.to - b.to);
@@ -1685,7 +1687,7 @@ function ipoHtml() {
     const won = testFlag('ipoDraw') === 'won';
     mine.unshift({ a: { code: s.code, name: s.name, symbol: s.symbol, draw: s.draw }, out: testFlag('ipoDraw') === 'drawing' ? null : { type: won ? 'ipowin' : 'ipoback', t: won ? now + 3 * 86_400_000 : now } });
   }
-  if (!open.length && !mine.length) return sectionHtml(t('ipoTitle'), emptyHtml({ icon: 'calendar', tint: TINT.purple, title: t('ipoNone'), body: t('ipoNoneSub') }));
+  if (!open.length && !mine.length) return sectionHtml(t('ipoTitle'), emptyHtml({ icon: 'calendar', tint: TINT.purple, title: t(ipoState.list ? 'ipoNone' : 'ipoUnread'), body: t(ipoState.list ? 'ipoNoneSub' : 'ipoUnreadSub') }));
   // A listed company's offer: what a win is worth at today's price (the gap on the shares).
   const gainOf = s => {
     const q = state.quotes.get(s.symbol);
