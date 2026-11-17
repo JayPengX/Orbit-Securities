@@ -1561,8 +1561,10 @@ function renderHome() {
   const dayRaw = before ? dayAmt / Math.abs(before) : 0;
   // (Under 0.005%, or under a dollar: flat, no arrow.)
   const dayPct = Math.abs(dayRaw) < 5e-5 || Math.abs(dayAmt) < 0.5 ? 0 : dayRaw;
+  // (A holding with no price read yet, or its source down: the day is unknown, a dash, never a made-up 0.)
+  const dayKnown = !v?.stale?.length;
   const head = v
-    ? `<button class="sc-day" type="button" data-action="goto" data-tab="portfolio"><small>${h(t('netWorth'))}</small><strong class="sc-day-big num" data-q-live="nv:worth">${h(money(v.netWorth, BASE))}</strong><span class="sc-day-amt num ${dirClass(dayPct)}">${h(dayWord(v))} ${arrow(dayPct)}${h(money(Math.abs(dayAmt), BASE))} · ${h(pct(Math.abs(dayPct)).replace(/^[+-]/, ''))}</span></button>`
+    ? `<button class="sc-day" type="button" data-action="goto" data-tab="portfolio"><small>${h(t('netWorth'))}</small><strong class="sc-day-big num" data-q-live="nv:worth">${h(money(v.netWorth, BASE))}</strong><span class="sc-day-amt num ${dayKnown ? dirClass(dayPct) : 'flat'}">${h(dayWord(v))} ${dayKnown ? `${arrow(dayPct)}${h(money(Math.abs(dayAmt), BASE))} · ${h(pct(Math.abs(dayPct)).replace(/^[+-]/, ''))}` : '—'}</span></button>`
     : '';
   // 我的 opens on 總資產 even before anything is held or starred (no empty-holdings card: MAP 10-31, 11-03).
   const mineRows = mine.length ? `<div class="q-rowcard sc-rows">${mine.slice(0, nvMineOpen ? mine.length : SHOWN).join('')}</div>` : '';
