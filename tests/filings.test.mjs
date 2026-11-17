@@ -3,7 +3,7 @@
 // card shows (the AI's picks, else the first few).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { twCode, filingsPath, filingsOf, shortTitle, rowsShown, toAsk } from '../public/lib/filings.mjs';
+import { twCode, filingsPath, filingsOf, shortTitle, rowsShown } from '../public/lib/filings.mjs';
 
 const now = Date.parse('2026-11-11T00:00:00Z');
 const doc = {
@@ -42,11 +42,6 @@ test("the rows shown: the AI's picks in its order, else the first four; the rest
   assert.equal(rowsShown(f, { show: [4, 0] }).rest.length, 3);
   assert.deepEqual(rowsShown(f, null).shown.length, 4);
   assert.deepEqual(rowsShown(f, { show: [99] }).shown.length, 4);
-});
-
-test('asked about: the newest two with rows not told yet', () => {
-  assert.deepEqual(toAsk(filingsOf(doc, '2330', now), new Set()).map(f => f.id), ['a']);
-  assert.deepEqual(toAsk(filingsOf(doc, '2330', now), new Set(['a'])), []);
 });
 
 // 這筆交易學到什麼 (lib/lesson.mjs): a closed sale's rows from the account's own numbers.

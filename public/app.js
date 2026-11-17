@@ -18,8 +18,8 @@ import { tvLogos } from './lib/tvlogos.mjs';
 import { TV_ROUND } from './lib/tvround.mjs';
 import { TW_NAMES } from './lib/twnames.mjs';
 import { twHits, twFirst } from './lib/twsearch.mjs';
-import { readOrder, sharesFor, askSearch } from './lib/sayorder.mjs';
-import { twCode, filingsPath, filingsOf, shortTitle, rowsShown, toAsk } from './lib/filings.mjs';
+import { readOrder, sharesFor } from './lib/sayorder.mjs';
+import { twCode, filingsPath, filingsOf, shortTitle, rowsShown } from './lib/filings.mjs';
 import { lessonOf, lessonFacts, indexOf as lessonIndex } from './lib/lesson.mjs';
 import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestTier, creditUsed, terms as creditTerms, extendTerm, closeOutPlan, yearOfTrading, dayTradeSellFirst, CREDIT_TIERS, CREDIT_MIN_TRADES, CREDIT_TURNOVER, CREDIT_PROOF } from './lib/credit.mjs';
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, setFormatLocale, cleanNumber } from './lib/format.mjs';
@@ -6829,23 +6829,8 @@ document.addEventListener('change', event => {
   const fromHash = location.hash.slice(1);
   if (TABS.includes(fromHash)) state.tab = fromHash;
 }
-// 問 Orbit's question (the Pass sheet, kit ask-orbit.mjs: #ask=<words>): typed
-// into 市場's search, where 用說的下單 reads an order and names find stocks.
-function askFromLink() {
-  if (!/(?:^#|&)ask=/.test(location.hash)) return;
-  import('#kit/ask-orbit.mjs')
-    .then(m => {
-      const text = askSearch(m.takeAsk?.());
-      showTab('markets');
-      if (!text) return;
-      $('search').value = text;
-      onSearchInput(text);
-    })
-    .catch(() => {});
-}
 // A notice's banner (or a link) that points at a tab while the app is open.
 window.addEventListener('hashchange', () => {
-  if (state.accountReady && /(?:^#|&)ask=/.test(location.hash)) return askFromLink();
   if (hashStock()) return openStockFromHash();
   const tab = location.hash.slice(1);
   if (TABS.includes(tab) && tab !== state.tab) showTab(tab);
@@ -6945,7 +6930,6 @@ async function boot() {
   checkIncome();
   render();
   openStockFromHash();
-  askFromLink();
   backfillOrders()
     .catch(() => {})
     .then(checkMarginHistory)

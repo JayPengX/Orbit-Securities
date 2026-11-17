@@ -37,6 +37,3 @@ export function rowsShown(f, ai) {
   const shown = picked.length ? picked : rows.slice(0, SHOWN);
   return { shown, rest: rows.filter(r => !shown.includes(r)) };
 }
-
-// The filings the AI is asked about on opening a stock: the newest two not yet told, each with rows.
-export const toAsk = (list, told) => list.filter(f => f.rows?.length && !told.has(f.id)).slice(0, 2);
