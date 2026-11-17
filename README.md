@@ -18,7 +18,7 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 > **Best in Orbit.** Add [Orbit](https://orbit.jaypengx.com/app/) to your home screen: every Orbit app in one, signed in once, switching between them without reloading. Orbit Securities also works on its own at [orbit.jaypengx.com/securities](https://orbit.jaypengx.com/securities/) if it's the only one you want.
 
 <p align="center">
-  <img src="docs/screenshots/securities-1.webp" width="30%" alt="Everything you own, at a glance">
+  <img src="docs/screenshots/securities-1.webp" width="30%" alt="Real markets, no real money">
   <img src="docs/screenshots/securities-2.webp" width="30%" alt="Real prices, real charts">
   <img src="docs/screenshots/securities-3.webp" width="30%" alt="Every market, one account">
 </p>
@@ -33,7 +33,7 @@ A Taiwan brokerage on play money, with real prices and a real broker's rules. Pa
 <summary>中文畫面</summary>
 
 <p align="center">
-  <img src="docs/screenshots/securities-1.zh.webp" width="30%" alt="你的總資產，一眼看">
+  <img src="docs/screenshots/securities-1.zh.webp" width="30%" alt="不花真錢，照真的行情投資">
   <img src="docs/screenshots/securities-2.zh.webp" width="30%" alt="真實報價與 K 線">
   <img src="docs/screenshots/securities-3.zh.webp" width="30%" alt="全世界的市場，一個帳戶買">
 </p>
