@@ -1578,7 +1578,7 @@ function renderHome() {
     const q = m.index ? state.quotes.get(m.index) : null;
     return `<button class="sc-mkt q-press ${q ? dirClass(q.pct) : 'flat'}" type="button" data-action="go-product" data-id="${h(m.id)}"${m.sub ? ' data-sub="1"' : ''}>
       <span class="sc-mkt-name">${h(m.name)}</span>${m.index ? nvMove(q) : ''}
-      <small class="num">${m.index ? (q ? h(qPrice(q)) : '…') : h(m.id === 'fund' ? L({ zh: '股票、債券、平衡', en: 'Equity, bond, balanced' }) : L({ zh: '總覽', en: 'Overview' }))}</small>
+      <small class="num q-fit">${m.index ? (q ? h(qPrice(q)) : '…') : h(m.id === 'fund' ? L({ zh: '股票、債券、平衡', en: 'Equity, bond, balanced' }) : L({ zh: '總覽', en: 'Overview' }))}</small>
     </button>`;
   }).join('');
   const markets = sectionHtml(L({ zh: '各市場', en: 'Markets' }), `<div class="q-card sc-mkts">${mkts}</div>`, { side: homeOpenChip(), cls: 'sc-markets' });
