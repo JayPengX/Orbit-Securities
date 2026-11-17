@@ -6,25 +6,28 @@
 
 const DIGITS = { 零: 0, 〇: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
 const UNITS = { 十: 10, 百: 100, 千: 1000 };
-// 三千五 → 3500, 十二 → 12, 兩百 → 200 (under 萬; 萬 is taken apart below).
+// 三千五 → 3500, 十二 → 12, 兩百 → 200, 5千 → 5000, 3千5 → 3500, 2千50 → 2050
+// (under 萬; 萬 is taken apart below). Digits typed count as one number.
 function smallZh(s) {
   if (!s) return NaN;
   if (/^[\d.]+$/.test(s)) return Number(s);
   let total = 0;
   let n = null;
+  let one = false;
   let last = 1;
-  for (const ch of s) {
+  for (const [ch] of s.matchAll(/[\d.]+|./gu)) {
     // (一百零五: after 零 the next digit is units, not tens: 105, never 150.)
     if (ch === '零' || ch === '〇') (n = null), (last = 1);
-    else if (ch in DIGITS) n = DIGITS[ch];
+    else if (/^[\d.]+$/.test(ch)) (n = Number(ch)), (one = ch.length === 1);
+    else if (ch in DIGITS) (n = DIGITS[ch]), (one = true);
     else if (ch in UNITS) {
       total += (n ?? 1) * UNITS[ch];
       last = UNITS[ch];
       n = null;
     } else return NaN;
   }
-  // (三千五: the 五 after 千 is 500.)
-  if (n != null) total += last > 1 ? (n * last) / 10 : n;
+  // (三千五, 3千5: the one digit after 千 is 500; 2千50's 50 is 50.)
+  if (n != null) total += last > 1 && one ? (n * last) / 10 : n;
   return total;
 }
 export function zhNumber(s) {
@@ -39,7 +42,9 @@ export function zhNumber(s) {
   return hi * 10_000 + tail;
 }
 
-const NUM = '(?:[\\d.,]+萬?\\d*|[零〇一二兩三四五六七八九十百千萬]+)';
+// (Digits with 萬, 千, 百 or 十 after them, a digit after each: 5千, 3萬2千, 5萬5000;
+// never digits run into a Chinese digit, 2330兩張 being 2330 and 兩張.)
+const NUM = '(?:[\\d.,]+(?:[十百千萬](?:[\\d.]+|[一二兩三四五六七八九])?)*|[零〇一二兩三四五六七八九十百千萬]+)';
 const BUY = /買進|買入|買|加碼|進場/;
 const SELL = /賣出|賣掉|賣|出清|停利|停損/;
 

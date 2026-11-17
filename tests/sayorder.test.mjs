@@ -52,3 +52,19 @@ test('a 零 inside a number, 零股 alone, all of a fraction', () => {
   assert.equal(sharesFor({ part: 1 }, { held: 0.05, lot: 1 }), 0.05);
   assert.equal(sharesFor({ part: 0.5 }, { held: 3.4567, lot: 1, round: n => Math.floor(n / 1e-4 + 1e-6) * 1e-4 }).toFixed(4), '1.7283');
 });
+
+// (11-17) Digits typed with 千 or 萬 after them: 用5千買台積電零股 came to NT$5
+// and a stock named 千台積電; 用3萬2千 left 千 on the name.
+test('digits with Chinese units, as people type them', () => {
+  assert.equal(zhNumber('5千'), 5000);
+  assert.equal(zhNumber('3千5'), 3500);
+  assert.equal(zhNumber('2千50'), 2050);
+  assert.equal(zhNumber('3萬2千'), 32000);
+  assert.equal(zhNumber('1.5千'), 1500);
+  assert.deepEqual(readOrder('用5千買台積電零股'), { side: 'buy', name: '台積電', odd: true, money: 5000 });
+  assert.deepEqual(readOrder('用5千元買零股台積電'), { side: 'buy', name: '台積電', odd: true, money: 5000 });
+  assert.deepEqual(readOrder('用3萬2千買鴻海'), { side: 'buy', name: '鴻海', odd: false, money: 32000 });
+  assert.deepEqual(readOrder('用1萬5000買0056'), { side: 'buy', name: '0056', odd: false, money: 15000 });
+  // A code run into a Chinese count stays the code.
+  assert.deepEqual(readOrder('買2330兩張'), { side: 'buy', name: '2330', odd: false, lots: 2 });
+});
