@@ -31,3 +31,13 @@ test('a broken or empty answer is no flags', () => {
   assert.equal(parseAlertList({ stat: '很抱歉，沒有符合條件的資料!' }, 'notice').size, 0);
   assert.equal(parseAlertList({ fields: ['名稱'], data: [['a']] }, 'notice').size, 0);
 });
+
+// (11-17) Listed the evening before it starts: 處置 from its first day, not the day it's listed.
+test('a 處置 starting tomorrow is not one today', () => {
+  const m = parseAlertList({ fields: ['公布日期', '證券代號', '處置起迄時間'], data: [['115/11/17', '2455', '115/11/18～115/11/24']] }, 'punish');
+  const { from } = m.get('2455');
+  assert.equal(from, Date.parse('2026-11-18T00:00:00+08:00'));
+  assert.equal(alertOf('2455.TW', { punish: m }, from - 1), '');
+  assert.equal(alertOf('2455.TW', { punish: m, notice: new Map([['2455', {}]]) }, from - 1), 'notice');
+  assert.equal(alertOf('2455.TW', { punish: m }, from), 'punish');
+});

@@ -18,8 +18,9 @@ const column = (fields, name, re) => {
   return exact >= 0 ? exact : list.findIndex(f => re.test(f));
 };
 
-// TWSE's {stat, fields, data} as Map(code -> { until }) for 處置 (until: the last
-// day's end, or null when the list doesn't say) or Map(code -> {}) for 注意.
+// TWSE's {stat, fields, data} as Map(code -> { from, until }) for 處置 (from: its
+// first day's start, until: the last day's end, null when the list doesn't say)
+// or Map(code -> {}) for 注意.
 // Columns are found by name, so a reordered list still reads.
 export function parseAlertList(json, kind) {
   const out = new Map();
@@ -35,16 +36,18 @@ export function parseAlertList(json, kind) {
       continue;
     }
     const days = String(row[period] ?? '').split(/[～~至-]/).map(rocDate).filter(x => x != null);
-    out.set(c, { until: days.length > 1 ? days[days.length - 1] + 86_400_000 : null });
+    out.set(c, { from: days.length > 1 ? days[0] : null, until: days.length > 1 ? days[days.length - 1] + 86_400_000 : null });
   }
   return out;
 }
 
-// '處置' or '注意' (punish first, it's the stricter) for a symbol, or ''.
+// '處置' or '注意' (punish first, it's the stricter) for a symbol, or ''. A 處置
+// is from its first day only: TWSE lists it the evening before (115/11/17 for
+// 11/18～11/24), and that day it still trades as any other, 11-17.
 export function alertOf(symbol, { punish, notice } = {}, now = Date.now()) {
   const m = /^(\d{4,6}[A-Z]?)\.TW$/.exec(String(symbol || ''));
   if (!m) return '';
   const p = punish?.get(m[1]);
-  if (p && !(p.until && now >= p.until)) return 'punish';
+  if (p && !(p.until && now >= p.until) && !(p.from && now < p.from)) return 'punish';
   return notice?.has(m[1]) ? 'notice' : '';
 }
