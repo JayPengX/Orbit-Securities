@@ -15,7 +15,9 @@ test('Taiwan: 0.1425% commission, at least NT$20, fractions dropped; sell tax by
   assert.equal(stock.commission, 352);
   assert.equal(stock.tax, 742);
   assert.equal(tradeCosts({ market: 'TW', side: 'sell', kind: 'etf', gross: 100_000, currency: 'TWD' }).tax, 100);
-  assert.equal(tradeCosts({ market: 'TW', side: 'sell', kind: 'bond', gross: 100_000, currency: 'TWD' }).tax, 0);
+  // A bond ETF's sale: no tax to 2026-12-31, 0.1% after (證券交易稅條例 §2-1), by the trade's own day.
+  assert.equal(tradeCosts({ market: 'TW', side: 'sell', kind: 'bond', gross: 100_000, currency: 'TWD', t: Date.parse('2026-12-31T13:00:00+08:00') }).tax, 0);
+  assert.equal(tradeCosts({ market: 'TW', side: 'sell', kind: 'bond', gross: 100_000, currency: 'TWD', t: Date.parse('2027-01-04T10:00:00+08:00') }).tax, 100);
   assert.equal(tradeCosts({ market: 'TW', side: 'buy', kind: 'stock', gross: 100_000, currency: 'TWD' }).tax, 0);
 });
 
