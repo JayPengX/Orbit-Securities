@@ -37,3 +37,18 @@ test('how many shares it comes to', () => {
   assert.equal(sharesFor({ part: 0.5 }, { held: 3000 }), 1000);
   assert.equal(sharesFor({ part: 0.5 }, { held: 75 }), 37);
 });
+
+test('a 零 inside a number, 零股 alone, all of a fraction', () => {
+  assert.equal(zhNumber('一百零五'), 105);
+  assert.equal(zhNumber('一千零五'), 1005);
+  assert.equal(zhNumber('一千零五十'), 1050);
+  assert.equal(zhNumber('三百零八'), 308);
+  assert.deepEqual(readOrder('買一百零五股台積電'), { side: 'buy', name: '台積電', odd: false, shares: 105 });
+  assert.deepEqual(readOrder('買台積電零股'), { side: 'buy', name: '台積電', odd: true });
+  // NT$ over the price in NT$ (US$230 at 32.5: NT$7,475 a share).
+  assert.equal(sharesFor({ money: 50000, odd: false }, { price: 230 * 32.5, lot: 1 }), 6);
+  // All of a US holding's fractions, a coin's; a part to what can be sold.
+  assert.equal(sharesFor({ part: 1 }, { held: 3.4567, lot: 1 }), 3.4567);
+  assert.equal(sharesFor({ part: 1 }, { held: 0.05, lot: 1 }), 0.05);
+  assert.equal(sharesFor({ part: 0.5 }, { held: 3.4567, lot: 1, round: n => Math.floor(n / 1e-4 + 1e-6) * 1e-4 }).toFixed(4), '1.7283');
+});

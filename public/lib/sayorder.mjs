@@ -14,7 +14,9 @@ function smallZh(s) {
   let n = null;
   let last = 1;
   for (const ch of s) {
-    if (ch in DIGITS) n = DIGITS[ch];
+    // (一百零五: after 零 the next digit is units, not tens: 105, never 150.)
+    if (ch === '零' || ch === '〇') (n = null), (last = 1);
+    else if (ch in DIGITS) n = DIGITS[ch];
     else if (ch in UNITS) {
       total += (n ?? 1) * UNITS[ch];
       last = UNITS[ch];
@@ -56,7 +58,8 @@ export function readOrder(text) {
   let m;
   if ((m = take(new RegExp(`(?:NT\\$|\\$)?(${NUM})(?:塊錢|元|塊)`)) || take(new RegExp(`用(${NUM})`)) || take(new RegExp(`(${NUM}萬)`)))) out.money = zhNumber(m[1]);
   else if ((m = take(new RegExp(`(${NUM})張`)))) out.lots = zhNumber(m[1]);
-  else if ((m = take(new RegExp(`(${NUM})股`)))) out.shares = zhNumber(m[1]);
+  // (零股 alone is how, not how many.)
+  else if ((m = take(new RegExp(`(${NUM})(?<![零〇])股`)))) out.shares = zhNumber(m[1]);
   else if (sell && (m = take(/全部|全賣|出清|所有/))) out.part = 1;
   else if (sell && (m = take(/一半|半數/))) out.part = 0.5;
   else if (sell && (m = take(/(?:三分之一)/))) out.part = 1 / 3;
@@ -67,15 +70,18 @@ export function readOrder(text) {
   return out.name ? out : null;
 }
 
-// How many shares that comes to at a price: money buys whole shares (whole
-// lots of 1,000 unless 零股); lots × 1,000; a part of what's held (whole lots
-// when what's held is, else shares).
-export function sharesFor(order, { price = 0, held = 0, lot = 1000 } = {}) {
+// How many shares that comes to at a price (NT$ a share, whatever its
+// currency): money buys whole shares (whole lots unless 零股); lots × the
+// lot; a part of what's held (whole lots when what's held is, else what can
+// be sold: `round`, a US share's 0.0001 or a coin's fraction; all of it is
+// all of it).
+export function sharesFor(order, { price = 0, held = 0, lot = 1000, round = Math.floor } = {}) {
   if (!order) return 0;
   if (order.shares) return Math.floor(order.shares);
   if (order.lots) return Math.floor(order.lots) * lot;
   if (order.part) {
-    const n = Math.floor(held * order.part);
+    if (order.part >= 1) return held > 0 ? held : 0;
+    const n = round(held * order.part);
     return held % lot === 0 && n >= lot ? Math.floor(n / lot) * lot : n;
   }
   if (order.money && price > 0) {

@@ -17,17 +17,19 @@ const change = (points, from, to) => {
 
 // The rows: [{ id, value, sub? }] (figures as numbers; the app formats them), and the facts the AI is told.
 // c: the account's closed entry; e: the sale's fill event; closes / market: [[t, close]] over the holding.
-export function lessonOf(c, e, { closes = [], market = [] } = {}) {
+// mult: a future's or an option's money a point (its cost is in money, its prices in points).
+export function lessonOf(c, e, { closes = [], market = [], mult = 1 } = {}) {
   if (!c || !e || !(c.qty > 0)) return null;
   const from = c.t - (c.held || 0);
   const days = Math.max(0, Math.round((c.held || 0) / DAY));
   const local = c.realizedLocal ?? c.realized;
-  const cost = Math.abs(c.cost) / c.qty;
+  const cost = Math.abs(c.cost) / c.qty / (mult > 0 ? mult : 1);
   const costs = (e.commission || 0) + (e.tax || 0) + (e.fee || 0);
   const rows = [
     { id: 'pl', value: local, pct: c.pct },
-    { id: 'buy', value: cost },
-    { id: 'sell', value: e.price },
+    // (A short was sold first and bought back to close: the sale is its cost, the buy-back its end.)
+    { id: 'buy', value: c.short ? e.price : cost },
+    { id: 'sell', value: c.short ? cost : e.price },
     { id: 'held', value: days }
   ];
   const held = within(closes, from, c.t);
@@ -52,8 +54,8 @@ export function lessonFacts(l, { name = '', currency = 'TWD' } = {}) {
     buy: r => `[buy] Average cost a share: ${r2(r.value)}`,
     sell: r => `[sell] Sold at: ${r2(r.value)}`,
     held: r => `[held] Held: ${r.value} days`,
-    high: r => `[high] Best close while held: ${r2(r.value)} on ${md(r.at)} (${p1(r.pct)} on cost)`,
-    low: r => `[low] Worst close while held: ${r2(r.value)} on ${md(r.at)} (${p1(r.pct)} on cost)`,
+    high: r => `[high] Highest close while held: ${r2(r.value)} on ${md(r.at)} (${p1(r.pct)} on the opening price)`,
+    low: r => `[low] Lowest close while held: ${r2(r.value)} on ${md(r.at)} (${p1(r.pct)} on the opening price)`,
     market: r => `[market] The market over the same days: ${p1(r.value)}`,
     costs: r => `[costs] Fees and tax on the sale: ${r2(r.value)} ${currency}`
   };

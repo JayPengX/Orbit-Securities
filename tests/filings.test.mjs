@@ -60,9 +60,13 @@ test('a sale told back: cost, sale, days, best and worst close while held, the m
   assert.equal(l.rows.find(r => r.id === 'low').value, 980);
   assert.ok(Math.abs(l.rows.find(r => r.id === 'market').value - 0.05) < 1e-9);
   const f = lessonFacts(l, { name: '台積電' });
-  assert.match(f, /\[high\] Best close while held: 1100 on 10\/05 \(\+10%/);
+  assert.match(f, /\[high\] Highest close while held: 1100 on 10\/05 \(\+10%/);
   assert.match(f, /\[market\] The market over the same days: \+5%/);
   assert.equal(indexOf('2330.TW'), '^TWII');
   assert.equal(indexOf('AAPL'), '^GSPC');
   assert.equal(lessonOf(c, e).rows.length, 5);
+  // A future: its cost in money, its prices in points (TX, NT$200 a point); a short: sold first, bought back.
+  const fut = lessonOf({ ...c, symbol: 'TX202611', kind: 'fut', qty: 1, cost: 23000 * 200, short: true }, { price: 22800 }, { closes: closes.map(([t]) => [t, 23100]), mult: 200 });
+  assert.deepEqual([fut.rows[1].value, fut.rows[2].value], [22800, 23000]);
+  assert.ok(Math.abs(fut.rows.find(r => r.id === 'high').pct - (23100 / 23000 - 1)) < 1e-9);
 });

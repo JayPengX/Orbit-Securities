@@ -905,9 +905,12 @@ async function settleFutures() {
   const written = all.filter(p => p.kind === 'opt' && p.qty < 0);
   if ((!futs.length && !written.length) || !stockAccount.applyFutExpiry) return;
   const now = Date.now();
+  const expired = futs.some(p => now >= stockMarkets.futureExpiry(p.symbol));
+  const table = expired ? await stockQuotes.fetchFutTable().catch(() => null) : null;
+  // (The account as it is after the wait: one read before it put back an
+  // order placed or a fill counted meanwhile.)
   let account = state.account;
-  if (futs.some(p => now >= stockMarkets.futureExpiry(p.symbol))) {
-    const table = await stockQuotes.fetchFutTable().catch(() => null);
+  if (expired) {
     for (const p of futs) {
       const final = stockMarkets.futFinal ? stockMarkets.futFinal(p.symbol, table) : table?.final?.[p.symbol.slice(-9, -3)];
       const r = stockAccount.applyFutExpiry(account, p.symbol, final, { now });
@@ -968,7 +971,8 @@ async function settleWarrants() {
     return;
   }
   const now = Date.now();
-  let account = state.account;
+  const start = state.account;
+  let account = start;
   for (const symbol of held) {
     const last = warrantLast(symbol);
     const qty = Math.max(0, available(account, replay(account, now)).qty[symbol] || 0);
@@ -981,6 +985,8 @@ async function settleWarrants() {
     account = r.account;
     accountNotice('order', t('toastWarrantExpiry', { name: nameOf(symbol), date: fmtDate(last) }), { tag: `expiry:${symbol}:${last}`, hash: 'portfolio' });
   }
+  // (Changed while a price was read: done again on the next round, never over it.)
+  if (state.account !== start) return;
   if (account !== state.account) {
     commit(account);
     askFills(state.account, { now: true }).catch(() => {});
@@ -2058,9 +2064,13 @@ function renderSearch() {
 // 用說的下單's row: what the words came to (買進 台積電 零股 · NT$50,000 ≈ 45 股),
 // a tap opening the stock's ticket filled in; nothing is placed until the
 // person places it.
+// (The NT$ amount over the price in NT$: a US$ price as it was, 用5萬買蘋果
+// came to 30 times the shares. Lots as the market trades them: Tokyo's 100.)
 function sayOrderQty(o) {
   const q = state.quotes.get(o.symbol);
-  return sharesFor(o, { price: q?.price || 0, held: snap()?.positions[o.symbol]?.qty || 0, lot: q?.market === 'TW' ? 1000 : 1 });
+  const twd = !q ? 0 : q.currency === BASE ? 1 : state.rates[q.currency] || 0;
+  const lot = !q || q.market === 'TW' ? 1000 : lotSize(q.market, q.symbol, q.kind);
+  return sharesFor(o, { price: q?.price > 0 ? q.price * twd : 0, held: snap()?.positions[o.symbol]?.qty || 0, lot, round: n => (q ? ticketRound(q, 'sell', n) : Math.floor(n)) });
 }
 function sayOrderRow(o) {
   if (!o) return '';
@@ -2223,11 +2233,11 @@ async function loadChart(retry = 0) {
       const last = await lastDayChart(symbol).catch(() => null);
       if (last) [chart, d.lastDay] = [{ ...chart, ...last.chart }, last.day];
     }
-    if (state.detail !== d || d.range !== range) return;
+    if (state.detail !== d || d.range !== range || d.symbol !== symbol) return;
     d.chart = chart;
     d.chartError = false;
   } catch {
-    if (state.detail !== d || d.range !== range) return;
+    if (state.detail !== d || d.range !== range || d.symbol !== symbol) return;
     d.chartError = true;
     if (retry < 3) setTimeout(() => state.detail === d && d.range === range && d.chartError && loadChart(retry + 1), CHART_RETRY_MS);
   }
@@ -4245,6 +4255,15 @@ function exTagHtml(symbol) {
 // 未實現損益 as a broker shows it: the holding's worth less what selling it now would
 // cost (commission and tax), less what it cost; a short's as the ledger has it.
 function netPl(p) {
+  // A future's value is only its gain since the last day's mark, never what
+  // it cost: its result less the closing costs, as a share of its margin (the
+  // kit's plPct); over value less gain, a TX up 200 points read 199%.
+  if (p.kind === 'fut') {
+    const qty = Math.abs(p.qty);
+    const costs = qty ? stockAccount.estimate({ market: p.market, kind: p.kind, currency: p.currency, side: p.qty > 0 ? 'sell' : 'buy', qty, price: p.price, symbol: p.symbol }).costs || 0 : 0;
+    const pl = p.pl - costs;
+    return { pl, pct: p.im && qty ? pl / (p.im * qty) : p.plPct };
+  }
   if (p.short || !(p.qty > 0) || !p.value) return { pl: p.pl, pct: p.plPct };
   const costs = stockAccount.estimate({ market: p.market, kind: p.kind, currency: p.currency, side: 'sell', qty: p.qty, price: p.price }).costs || 0;
   const pl = p.pl - costs * (p.valueTWD / p.value);
@@ -5432,7 +5451,9 @@ async function openLesson(id) {
   const e = state.account?.events.find(x => x.id === id);
   if (!c || !e) return;
   const name = nameOf(c.symbol);
-  lessonNow = { id, c, e, name, l: lessonOf(c, e), asked: false };
+  // (A future's or an option's points in money: its multiplier.)
+  const mult = c.kind === 'fut' ? stockMarkets.futureOf(c.symbol)?.mult || 1 : c.kind === 'opt' ? stockMarkets.OPTION.mult : 1;
+  lessonNow = { id, c, e, name, l: lessonOf(c, e, { mult }), asked: false };
   kitSheet('lesson', { detent: 'large', onClose: () => (lessonNow = null) });
   setHead($('lesson'), h(t('lessonTitle')), name);
   if (!kitAI)
@@ -5448,7 +5469,7 @@ async function openLesson(id) {
   const idx = lessonIndex(c.symbol);
   const [own, market] = await Promise.all([fetchChart(c.symbol, range).catch(() => null), idx ? fetchChart(idx, range).catch(() => null) : null]);
   if (lessonNow?.id !== id) return;
-  lessonNow.l = lessonOf(c, e, { closes: own?.points || [], market: market?.points || [] });
+  lessonNow.l = lessonOf(c, e, { closes: own?.points || [], market: market?.points || [], mult });
   lessonNow.ready = true;
   renderLesson();
 }
@@ -6449,7 +6470,8 @@ document.addEventListener('click', async event => {
       const have = Math.max(0, withdrawable(state.account, snap())[state.fx.from] || 0);
       const digits = currencyInfo(state.fx.from).digits ?? 2;
       state.fx.mode = 'pay';
-      state.fx.amount = String(Math.floor(have * Number(el.dataset.pct) * 10 ** digits) / 10 ** digits);
+      // (US$0.29 × 100 is 28.999… in floating point: without the 1e-6, a cent left behind.)
+      state.fx.amount = String(Math.floor(have * Number(el.dataset.pct) * 10 ** digits + 1e-6) / 10 ** digits);
       renderFx();
       break;
     }
