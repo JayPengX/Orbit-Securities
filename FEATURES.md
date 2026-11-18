@@ -12,6 +12,7 @@ To remove a feature on purpose, delete its line here in the same commit and say 
 - 市場: one product bar, options chain — `public/app.js`: `productBar`, `optChainHtml`
 - 開戶與交易資格 (real access rules, 當沖 risk notice) — `public/app.js`, `public/lib/access.mjs`, `public/lib/i18n.mjs`: `開戶與交易資格`, `daytrade`, `風險預告書`
 - 融資 against shares bought — `public/app.js`: `融資`
+- 現股／融資 on every Taiwan buy that can borrow, the way to open the credit account said when it isn't — `public/app.js`, `public/lib/preview.mjs`: `marginRateOffered`, `creditFirst`, `creditGoOpen`
 - 資金 › 你的帳戶: 財富等級, 真相, weekly pay, 急難紓困 — `public/app.js`: `ranksHtml`, `truthTitle`, `nextPayday`, `reliefSheetHtml`
 - 統計 — `public/app.js`: `statsHtml`
 - 用說的下單: an order typed in words in the search fills the ticket — `public/app.js`, `public/lib/sayorder.mjs`: `sayOrderRow`, `readOrder`

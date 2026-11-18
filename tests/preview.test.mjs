@@ -344,6 +344,11 @@ test("融資 on the ticket: only with an open credit account and no default, and
   assert.equal(marginRateFor(a, q, 'buy', T0), 0.6);
   assert.equal(marginRateFor(a, q, 'sell', T0), 0);
   assert.equal(marginRateFor(a, quote('6488.TWO', 500), 'buy', T0), 0.5);
+  // 現股／融資 is offered before the account is open (Jay 2026-11-18: "IDK where is the option"), never on a sell or abroad.
+  const { marginRateOffered } = await import('../public/lib/preview.mjs');
+  assert.equal(marginRateOffered(plain, q, 'buy', T0), 0.6);
+  assert.equal(marginRateOffered(plain, q, 'sell', T0), 0);
+  assert.equal(marginRateOffered(plain, quote('AAPL', 200, T0, { market: 'US', currency: 'USD' }), 'buy', T0), 0);
   const valuation = val(a, T0, [['2330.TW', q]]);
   const opts = { quote: q, rates: RATES, valuation, now: T0 };
   // NT$400,000 of room, each order's loan counted at its price × 60% with the part under NT$1,000 not lent:

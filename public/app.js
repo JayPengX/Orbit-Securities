@@ -25,7 +25,7 @@ import { afterHours, marginShares, creditAccount, creditCheck, openCredit, bestT
 import { money, price as fmtPrice, pct, qty as fmtQty, num, compact, dateTime, date as fmtDate, shortDate, clock, weekdayClock, monthYear, setFormatLocale, cleanNumber } from './lib/format.mjs';
 import { lineChart, attachHover, candleChart, attachCandleHover, donut, miniBars, stackBar, SERIES } from './lib/chart.mjs';
 import { movingAverage, pointAt } from './lib/series.mjs';
-import { shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit, cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, usHalt, ticketRound, ticketStepOk } from './lib/preview.mjs';
+import { shortRoom, shortCredit, heldQty, tdPreview, tdFull, lendYear, historyRange, dayTradeLeft, dayTradePrice, startPrice, lotSplit, lotParts, lotsEstimate, lotsHold, placeLots, marginRateFor, marginRateOffered, ticketMax, oddLotNeedsLimit, boardLots, quotaPrice, lotsLoan, lotsDeposit, cashOnly, orderTypes, usSessionOf, extOffered, northboundBlock, usHalt, ticketRound, ticketStepOk } from './lib/preview.mjs';
 import { expireAsked, odDeadline } from './lib/orders.mjs';
 import { twPhase, afterHoursSend, atLimit, exDayTags, closeMatchOf as twseCloseMatchOf, orderWaitKind } from './lib/twse.mjs';
 import { detectLocale, makeT } from './lib/i18n.mjs';
@@ -3259,6 +3259,9 @@ function ticketInfo() {
   const hasCredit = creditAccount(state.account, now).open;
   const marginRate = marginRateFor(state.account, q, d.side, now);
   const credit = Boolean(d.credit) && marginRate > 0;
+  // 融資 picked before the credit account is open: said, with the way to open it.
+  const offered = marginRate || marginRateOffered(state.account, q, d.side, now);
+  const creditFirst = Boolean(d.credit) && !marginRate && offered > 0;
   const max = ticketMax(state.account, { quote: q, order: d, ref, spendable, margin: credit ? marginRate : 0, valuation: credit ? valuation() : null, now });
   // Exactly what the order will hold (placeOrder checks the same figure):
   // the estimate, plus a 3% buffer when it has to wait for its market.
@@ -3284,7 +3287,7 @@ function ticketInfo() {
   // (Never abroad: 複委託 is cash only.)
   if (d.side === 'sell' && isShortable(q.kind, q.symbol) && !cashOnly(q) && state.rates[q.currency] && (hasCredit || q.market === 'TW' || q.kind === 'fx'))
     room = shortRoom(valuation(), { unit: q.price * state.rates[q.currency], price: quotaPrice(q, d, now), kind: q.kind, credit: shortCredit(state.account, q.market, now), cash, dayLeft: dayRoom?.left ?? null, dayUnit: dayTradePrice(q, d, now) * state.rates[q.currency], held: shares, market: q.market });
-  return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
+  return { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom: room, req, need, welcome, marginRate, offered, creditFirst, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom };
 }
 
 // The ticket's one floating button: what it does, and under it what it comes to (總共付出
@@ -3323,7 +3326,7 @@ function renderTicket() {
   }
   if (q0.kind === 'fut') return renderFutTicket(box, d, q0);
   if (q0.kind === 'opt') return renderOptTicket(box, d, q0);
-  const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, welcome, marginRate, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom } = ticketInfo();
+  const { q, est, cash, shares, max, short, topUp, covers, sources, qty, ref, last, shortRoom, req, need, welcome, marginRate, offered, creditFirst, credit, lent, marginOk, shorting, twCredit, twDayShort, dayRoom } = ticketInfo();
   const open = isOpen(q);
   const unit = unitOf(d.symbol);
   // A Taiwan market or stop order sells whole lots only (an odd lot takes limit orders), as ticketMax buys.
@@ -3367,6 +3370,7 @@ function renderTicket() {
   else if (shorting && !twCredit && !twDayShort && (q.market === 'TW' || (q.kind !== 'fx' && !creditAccount(state.account, Date.now()).open))) problems.push(t('err_creditNeeded'));
   else if (shorting && qty > shares + shortRoom + 1e-9) problems.push(t('shortTooBig', { max: fmtQty(shares + shortRoom) }));
   if (credit && !marginOk) problems.push(t('err_margin'));
+  if (creditFirst) problems.push(t('creditFirst'));
   if (short > 0 && !topUp?.enough) problems.push(t('notEnoughCash', { cur: q.currency, have: money(cash, q.currency), short: money(short, q.currency) }));
   if (d.qty && !ticketStepOk(q, d.side, qty)) problems.push(t('err_qtyStep'));
   // Stock Connect: a STAR or ChiNext share is sold, never bought.
@@ -3451,7 +3455,7 @@ function renderTicket() {
       ${orderTypes(q).length > 1 ? seg(orderTypes(q).map(x => [x, t(`otype_${x}`)]), 'otype', 'otype', v => d.type === v) : ''}
       ${d.type !== 'market' && q.kind !== 'crypto' && q.kind !== 'fx' ? seg(['day', 'gtc'].map(x => [x, t(`tif_${x}`, { n: GTC_DAYS })]), 'tif', 'tif', v => (d.tif || 'day') === v) : ''}
       ${extOk ? seg([['', t('session_regular')], ['1', t(`session_${usSession}`)]], 'ext', 'ext', v => Boolean(v) === Boolean(d.ext)) : ''}
-      ${marginRate > 0 ? seg([['', t('cashBuy')], ['1', t('creditBuy', { n: Math.round(marginRate * 10) })]], 'credit', 'credit', v => Boolean(v) === credit) : ''}
+      ${offered > 0 ? seg([['', t('cashBuy')], ['1', t('creditBuy', { n: Math.round(offered * 10) })]], 'credit', 'credit', v => Boolean(v) === Boolean(d.credit)) : ''}
       <div class="ticket-fields">
         <div class="q-stake ticket-stake" style="--n:${presets.filter(([, v]) => v > 0).length || 1}"><label class="q-stake-amt"><small>${h(t('quantity'))} · ${h(unit)}</small><input id="t-qty" class="num" inputmode="decimal" autocomplete="off" value="${h(d.qty)}" placeholder="0" /></label>${presets.filter(([, v]) => v > 0).length ? `<div class="q-stake-presets">${presets.filter(([, v]) => v > 0).map(([label, v]) => `<button type="button" data-action="qty" data-qty="${v}" title="${h(fmtQty(v))}" aria-pressed="${Number(d.qty) === v}">${h(label)}</button>`).join('')}</div>` : ''}</div>
         ${d.type === 'limit' ? `<label class="big-field"><span>${h(t('limitPrice'))}<em>${h(q.currency)}</em></span><input id="t-limit" class="num" inputmode="decimal" autocomplete="off" value="${h(d.limit)}" /></label>` : ''}
@@ -3475,7 +3479,7 @@ function renderTicket() {
           : ''
       }
       ${halt && Date.now() < halt.until ? `<p class="warn">${h(halt.level === 3 ? t('haltNoteDay') : t('haltNote', { level: halt.level, time: clock(halt.until) }))}</p>` : ''}
-      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}
+      ${problems.map(p => `<p class="warn">${h(p)}</p>`).join('')}${gateButton(gate)}${creditFirst ? `<button class="q-btn tinted block acc-go" type="button" data-action="tool" data-tool="credit">${h(t('creditGoOpen'))}</button>` : ''}
       ${notes.length ? `<ul class="rule-notes">${notes.map(x => `<li>${h(x)}</li>`).join('')}</ul>` : ''}
       ${d.type !== 'limit' && est && !afterLines.length ? `<p class="foot-note">${h(t('spreadNote', { price: fmtPrice(ref, q.currency), last: fmtPrice(last, q.currency) }))}</p>` : ''}
       ${pricesLive() ? '' : `<p class="warn">${h(t('waitLive'))}</p>`}

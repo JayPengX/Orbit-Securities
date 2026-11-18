@@ -305,6 +305,14 @@ export function marginRateFor(account, quote, side, now = Date.now()) {
   if (side !== 'buy' || cashOnly(quote) || !creditAccount(account, now).open || defaulted(account, now)) return 0;
   return collateralRate(quote.kind, quote.market, quote.symbol);
 }
+// The rate 融資 would lend on this buy once the credit account is open (0:
+// never on this one): the ticket offers 現股／融資 whenever it's > 0, so the
+// choice is found before the account is opened (Jay 2026-11-18: "IDK where
+// is the option").
+export function marginRateOffered(account, quote, side, now = Date.now()) {
+  if (side !== 'buy' || cashOnly(quote) || defaulted(account, now)) return 0;
+  return collateralRate(quote.kind, quote.market, quote.symbol);
+}
 
 // The ticket's 最大 for a buy of `order` ({ type, limit, stop }) filling at
 // `ref`: what `spendable` holds (lotsHold, held for a fresh price as every
