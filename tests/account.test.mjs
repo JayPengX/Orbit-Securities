@@ -426,3 +426,15 @@ test('dayOfChange: a weekend shows the last trading day, not 今日', async () =
   // Nothing held: today's.
   assert.equal(dayOfChange({ positions: [] }, sun).today, true);
 });
+
+// 11-18: today's net worth, taken again every 10 minutes, is no reason to read and write the Pass.
+test('a change to the daily snapshots alone is told apart from a real change', async () => {
+  const { onlySnapshot } = await import('../public/lib/account.mjs');
+  const a = newAccount(1_000_000, T0);
+  const snapped = recordSnapshot(a, T0 + 11 * 60_000, 1_000_000, 1_000_000);
+  assert.notEqual(snapped, a);
+  assert.equal(onlySnapshot(snapped, a), true);
+  assert.equal(onlySnapshot(toggleWatch(snapped, '2330.TW'), a), false, 'a watch list change syncs');
+  assert.equal(onlySnapshot(a, a), false);
+  assert.equal(onlySnapshot(snapped, null), false, 'a first account syncs');
+});

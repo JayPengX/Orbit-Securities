@@ -723,7 +723,10 @@ function afterPrices() {
   const alerts = checkAlerts(account, state.quotes, now);
   account = alerts.account;
   for (const a of alerts.hits) alertFired(a);
-  if (account !== state.account) commit(account);
+  // (Only today's net worth, taken again every 10 minutes: kept here, and it
+  // goes to the Pass with the next sync, never a read and a write of its own.
+  // An hour open made six of each, 11-18.)
+  if (account !== state.account) commit(account, { sync: !stockAccount.onlySnapshot(account, state.account) });
 }
 
 // ---- Offline: the last prices are kept, so the page opens with them ------------
@@ -6917,9 +6920,13 @@ q.on('wallet', wallet => {
   renderStatus();
   if (state.tab === 'portfolio' || state.tab === 'home' || state.tab === 'fx' || state.tool) render();
 });
+// True until boot has merged the Pass's copy it opened with.
+let bootMerging = true;
 q.on('active', live => {
   if (live) {
-    syncNow();
+    // (Opening, the pass becomes live as it starts: boot merges what it read then,
+    // so no second read and write of the same account, 11-18.)
+    if (!bootMerging) syncNow();
     refresh();
   }
 });
@@ -6957,6 +6964,7 @@ async function boot() {
   // offline on a new phone, the pass's own account isn't known (a new one
   // would be folded into it as a second). Until then, none; the next sync
   // (mergeRemote) makes it.
+  bootMerging = false;
   if (!state.account && first && !first.offline) ensureAccount();
   state.accountReady = true;
   if (state.fromCache) $('loading').hidden = true;
@@ -6990,7 +6998,7 @@ async function boot() {
 }
 const bootAt = Date.now();
 const BOOT_LIMIT_MS = 8_000;
-if (!gated) boot();
+if (!gated) boot().finally(() => (bootMerging = false));
 // Hide the loading screen after at most 8 seconds whatever happens.
 setTimeout(() => ($('loading').hidden = true), BOOT_LIMIT_MS);
 
@@ -6998,11 +7006,14 @@ setInterval(() => {
   if (document.visibilityState === 'visible' && q.active) refresh().then(checkBonds).then(() => Promise.all([loadIpo(), loadAlerts()]).then(() => state.tab === 'home' && renderHome()));
 }, QUOTE_REFRESH_MS);
 // What the other apps did (bets, the pay) arrives with the wallet
-// (orbit.mjs checks it every minute); the account itself every few.
+// (orbit.mjs checks it every minute); the account itself every quarter hour:
+// only one place runs it at a time (the one opened last; coming back, opening
+// and taking over sync at once), so another device's changes reach an open one
+// only through the Pass's inbox, rarely. (Every 3 minutes: 20 reads an hour, 11-18.)
 setInterval(() => {
   // (With no account yet too: one opened offline is made by the first sync.)
   if (document.visibilityState === 'visible' && q.active) syncNow();
-}, 3 * 60_000);
+}, 15 * 60_000);
 // Monthly plans due today wait for their market's first price.
 setInterval(() => {
   if (document.visibilityState !== 'visible' || !q.active) return;
