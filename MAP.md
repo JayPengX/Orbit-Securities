@@ -41,7 +41,13 @@ Jay's, dated (Taiwan day), newest wins; the family's (the economy, money only he
   account): money is added only as the market allows. A phone's own figures
   never add money.
 - **Prices:** Yahoo Finance through the data proxy (`lib/quotes.mjs`):
-  spark quotes, charts, search, quoteSummary. Refreshed every 45 s while
+  spark quotes, charts, search, quoteSummary. Live while they trade: Taiwan's
+  stocks, ETFs, warrants and 可轉債 from TWSE's own quotes, futures and
+  options from TAIFEX's (kit `stock-quotes.mjs` `liveTw`, `withLive`; the
+  proxy's `taifex.js` `/live.json`), the US, crypto and FX from Yahoo; other
+  markets 10-20 minutes late (free feeds by the exchanges' rule), said on the
+  quote only while they trade. 興櫃 (TPEx turns the proxy away) and 黃金存摺
+  (Bank of Taiwan's posted price is behind a browser check) stay as they are. Refreshed every 45 s while
   visible; a price whose market is shut till a later session, read after
   its day's last price (close + the market's delay + 30 min), isn't asked
   again until 15 minutes before that session (`lib/rest.mjs` `resting`:

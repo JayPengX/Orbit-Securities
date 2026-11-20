@@ -2316,7 +2316,7 @@ function renderDetail() {
     ? [
         limitOf(q) ? `<span class="q-tag solid ${limitOf(q)}">${h(limitOf(q) === 'up' ? t('limitUpTag') : t('limitDownTag'))}</span>` : '',
         alertTag(d.symbol, true),
-        q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : pricesStale() ? `<span class="q-tag orange">${h(t('staleTag'))}</span>` : !(isOpen(q) || usSessionOf(q)) ? '' : delayOf(q.market) && q.live !== 'TWSE' ? helpTag('orange', t('delayed', { n: delayOf(q.market) }), 'delayHelp') : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
+        q.market === 'TWFUND' ? `<span class="q-tag">${h(t('navAsOf', { date: fmtDate(q.marketTime) }))}</span>` : pricesStale() ? `<span class="q-tag orange">${h(t('staleTag'))}</span>` : !(isOpen(q) || usSessionOf(q)) ? '' : delayOf(q.market) && !q.live ? helpTag('orange', t('delayed', { n: delayOf(q.market) }), 'delayHelp') : `<span class="q-tag green" title="${h(t('liveHelp'))}">${h(t('livePrice'))}</span>`
       ].join('')
     : '';
   const opt = stockMarkets.isOption?.(d.symbol);
