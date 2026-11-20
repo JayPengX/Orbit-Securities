@@ -40,9 +40,12 @@ export function afterHoursSend(t, odd) {
 
 // A price at the day's limit: 'up' at 漲停, 'down' at 跌停, else null (no
 // band, as in the US, or no previous close to count it from). Taiwan's
-// brokers mark it on the price (a red or green fill).
+// brokers mark it on the price (a red or green fill). The price is its own
+// day's (a close until the next session), so its own day's band, from the
+// close before: once the session ends the ticket's band moves to the next
+// day's, and 台達電 locked at 900 lost its 跌停 (11-20).
 export function atLimit(q) {
-  const band = q ? priceLimits(q) : null;
+  const band = q ? priceLimits({ ...q, session: null }) : null;
   if (!band || !(q.price > 0)) return null;
   const tick = tickSize(q.market, q.kind, q.price, q.symbol) || 1e-6;
   if (q.price >= band.up - tick / 2) return 'up';

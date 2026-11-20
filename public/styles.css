@@ -177,6 +177,8 @@ select.q-field { -webkit-appearance: none; appearance: none; }
 .num.at-limit.up { background: var(--up); }
 .num.at-limit.down { background: var(--down); }
 .q-focus .q-focus-value.at-limit { align-self: flex-start; width: fit-content; padding: 0 8px; border-radius: 10px; color: #fff; }
+/* (White on the fill in the native look's light theme too, over its own value colour.) */
+html[data-look] .q-focus .q-focus-value.at-limit.at-limit { color: #fff; }
 /* Sparklines */
 .spark { display: block; overflow: visible; }
 .spark path { fill: none; stroke: var(--q-label-2); stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
@@ -610,6 +612,10 @@ a.act-row { color: inherit; }
 .sym-hero-status > .q-tag.q-tag,
 .sym-hero-status > .mkt-status.mkt-status { white-space: nowrap; }
 .sym-hero-status > :not(:last-child)::after { content: '\00a0· '; white-space: normal; }
+/* (A filled 漲停/跌停 is its own divider: no dot inside it or before it, 11-20.) */
+.sym-hero-status > .q-tag.solid { margin-inline-end: 6px; }
+.sym-hero-status > .q-tag.solid::after { content: none; }
+.sym-hero-status > :has(+ .q-tag.solid)::after { content: '\00a0'; }
 /* The ticket's: a size down, the order is what it's about. */
 .sym-hero.compact { margin-bottom: var(--q-s-4); padding: 14px 16px; }
 .sym-hero.compact .q-focus-value { font-size: 34px; line-height: 40px; }

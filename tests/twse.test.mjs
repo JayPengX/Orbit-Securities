@@ -52,6 +52,9 @@ test('漲停 and 跌停: a price at the day limit, on its tick, and none where a
   assert.equal(atLimit({ ...q(110), market: 'US', symbol: 'AAPL', currency: 'USD' }), null);
   assert.equal(atLimit(q(110, null)), null);
   assert.equal(atLimit(null), null);
+  // (11-20) After the close the ticket's band is the next day's (from 900), but 900 still closed at 跌停.
+  const day = { start: Date.parse('2026-11-20T09:00:00+08:00'), end: Date.parse('2026-11-20T13:30:00+08:00') };
+  assert.equal(atLimit(q(900, 1000, { symbol: '2308.TW', session: day, marketTime: day.end })), 'down');
 });
 
 test('除息 and 除權 on a holding: only on its ex-date, in its market’s own day', () => {
