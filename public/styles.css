@@ -354,7 +354,8 @@ p.list-more { margin: 0; padding: 14px; border-top: var(--q-hairline) solid var(
 .about-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .about-grid > div { padding: 10px 12px; border-radius: 12px; background: var(--q-fill-3); }
 .about-grid dt { color: var(--q-label-2); font: var(--q-t-caption); }
-.about-grid dd { margin: 2px 0 0; font: 600 16px/21px var(--q-font); overflow-wrap: anywhere; }
+.about-grid dd { margin: 2px 0 0; font: 600 16px/21px var(--q-font); white-space: normal; overflow-wrap: anywhere; }
+.about-grid dd small { display: block; overflow: hidden; color: var(--q-label-2); font: var(--q-t-caption); text-overflow: ellipsis; }
 .about-fin .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
 .about-fin .card-head .about-h { flex: 1 1 0; min-width: 0; margin: 0; }
 .about-fin .card-head .q-seg { flex: none; }

@@ -1636,11 +1636,14 @@ function loadAlerts() {
 }
 const alertOf = (symbol, st) => (testFlag('alertList') && /\.TWO?$/.test(symbol) ? testFlag('alertList') : alertOfList(symbol, st));
 // A tag whose meaning is a tap away (a title shows nothing on a phone); `tap` off inside a row that is itself a button.
-const helpTag = (cls, label, help, tap = true) =>
-  `<span class="q-tag ${cls}" title="${h(t(help))}"${tap ? ` role="button" tabindex="0" data-action="fact-help" data-title="${h(label)}" data-e="${h(help)}"` : ''}>${h(label)}</span>`;
+// (why: TWSE's own words for it, under the meaning.)
+const helpTag = (cls, label, help, tap = true, why = '') =>
+  `<span class="q-tag ${cls}" title="${h(t(help))}"${tap ? ` role="button" tabindex="0" data-action="fact-help" data-title="${h(label)}" data-e="${h(help)}"${why ? ` data-why="${h(why)}"` : ''}` : ''}>${h(label)}</span>`;
 const alertTag = (symbol, tap = false) => {
   const a = alertOf(symbol, alertState);
-  return a ? helpTag(a === 'punish' ? 'solid red' : 'orange', t(`${a}Tag`), `${a}Help`, tap) : '';
+  // (TWSE writes it in Chinese only: one language a page, RULEBOOK 10-27.)
+  const why = a === 'notice' && locale === 'zh' ? alertState.notice?.get(twCode(symbol))?.why : '';
+  return a ? helpTag(a === 'punish' ? 'solid red' : 'orange', t(`${a}Tag`), `${a}Help`, tap, why) : '';
 };
 const ipoKey = s => `${s.code}:${s.draw}`;
 function loadIpo() {
@@ -2929,7 +2932,9 @@ function factGroup(title, rows) {
   const list = rows.filter(([, v]) => v != null && v !== '');
   if (!list.length) return '';
   // What a figure means opens on a tap (the kit's tell), never a paragraph under each (RULEBOOK 11-12).
-  return `<h3 class="about-h">${h(title)}</h3><dl class="about-grid q-even">${list.map(([k, v, e]) => `<div${e ? ` class="q-press" role="button" tabindex="0" data-action="fact-help" data-k="${h(k)}" data-e="${h(e)}"` : ''}><dt>${h(t(k))}</dt><dd class="num">${h(v)}</dd></div>`).join('')}</dl>`;
+  // (A value with a second part, [figure, beside]: the part on a small line of its own, never run into the next tile.)
+  const dd = v => (Array.isArray(v) ? `${h(v[0])}${v[1] ? `<small>${h(v[1])}</small>` : ''}` : h(v));
+  return `<h3 class="about-h">${h(title)}</h3><dl class="about-grid q-even">${list.map(([k, v, e]) => `<div${e ? ` class="q-press" role="button" tabindex="0" data-action="fact-help" data-k="${h(k)}" data-e="${h(e)}"` : ''}><dt>${h(t(k))}</dt><dd class="num">${dd(v)}</dd></div>`).join('')}</dl>`;
 }
 
 function stockAboutHtml(f, q, a) {
@@ -2970,7 +2975,7 @@ function stockAboutHtml(f, q, a) {
     ${financialsHtml(f, rc)}
     ${targetHtml(f, q)}
     ${factGroup(t('gValue'), [
-      ['marketCap', f.marketCap != null ? compactMoney(f.marketCap, cur) + inTwd(f.marketCap, cur) : null, 'marketCapHelp'],
+      ['marketCap', f.marketCap != null ? [compactMoney(f.marketCap, cur), inTwd(f.marketCap, cur).trim().replace(/^\((.*)\)$/, '$1')] : null, 'marketCapHelp'],
       ['peRatio', f.pe != null ? num(f.pe, 1) : null, 'peHelp'],
       ['forwardPe', f.forwardPe != null ? num(f.forwardPe, 1) : null, 'forwardPeHelp'],
       ['eps', f.eps != null ? `${fmtPrice(f.eps, cur)} ${cur}` : null, 'epsHelp'],
@@ -2997,7 +3002,7 @@ function stockAboutHtml(f, q, a) {
       ['freeCashflow', f.freeCashflow != null ? compactMoney(f.freeCashflow, rc) : null, 'freeCashflowHelp']
     ])}
     ${factGroup(t('gRisk'), [
-      ['change52', f.change52 != null ? `${pct(f.change52, { digits: 1 })}${f.sp52 != null ? ` · ${t('vsSp', { pct: pct(f.sp52, { digits: 1 }) })}` : ''}` : null, 'change52Help'],
+      ['change52', f.change52 != null ? [pct(f.change52, { digits: 1 }), f.sp52 != null ? t('vsSp', { pct: pct(f.sp52, { digits: 1 }) }) : ''] : null, 'change52Help'],
       ['beta', f.beta != null ? num(f.beta, 2) : null, 'betaHelp']
     ])}`;
 }
@@ -3105,7 +3110,7 @@ function fundAboutHtml(f, q, a) {
       ['frontLoadMax', f.frontLoadMax ? pct(f.frontLoadMax, { sign: false, digits: 1 }) : null, 'frontLoadHelp'],
       ['fundPays', f.distribution ? (f.distribution === 'income' ? t('fundPaysIncome') : t('fundPaysAcc')) : null],
       ['fundCustodian', f.custodian],
-      ['fundSize', f.totalAssets != null ? compactMoney(f.totalAssets, cur) + (sizeTwd && cur !== BASE ? ` (≈ ${compactMoney(sizeTwd, BASE)})` : '') : null, 'fundSizeHelp'],
+      ['fundSize', f.totalAssets != null ? [compactMoney(f.totalAssets, cur), sizeTwd && cur !== BASE ? `≈ ${compactMoney(sizeTwd, BASE)}` : ''] : null, 'fundSizeHelp'],
       ['divYield', f.dividendYield != null ? pct(f.dividendYield, { sign: false }) : null, 'divYieldHelp'],
       ['peRatio', f.pe != null ? num(f.pe, 1) : null, 'peFundHelp'],
       ['beta', f.beta != null ? num(f.beta, 2) : null, 'betaHelp']
@@ -6625,7 +6630,7 @@ document.addEventListener('click', async event => {
       redrawDetail();
       break;
     case 'fact-help':
-      kitOrbit.tell({ title: el.dataset.title || t(el.dataset.k), body: t(el.dataset.e) });
+      kitOrbit.tell({ title: el.dataset.title || t(el.dataset.k), body: t(el.dataset.e), points: el.dataset.why ? [['!', t('twseWhy'), el.dataset.why]] : [] });
       break;
     case 'chart-ma':
       state.settings.ma = !state.settings.ma;

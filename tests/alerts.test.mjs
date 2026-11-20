@@ -41,3 +41,9 @@ test('a 處置 starting tomorrow is not one today', () => {
   assert.equal(alertOf('2455.TW', { punish: m, notice: new Map([['2455', {}]]) }, from - 1), 'notice');
   assert.equal(alertOf('2455.TW', { punish: m }, from), 'punish');
 });
+
+// (11-20) A bare 注意 told nothing: TWSE's own reason is kept, its tags and clause mark off.
+test("注意 keeps TWSE's reason and how many times running", () => {
+  const m = parseAlertList({ fields: ['編號', '證券代號', '證券名稱', '累計次數', '注意交易資訊', '日期', '收盤價', '本益比'], data: [[10, '2330', '台積電', '1', "六個營業日起迄兩個營業日收盤價價差達350.00元且當日收盤價為最近六個營業日收盤價最低者<font color='#FF0000'>﹝第十一款﹞</font>。", '115.11.20', '2000.00', '20.36']] }, 'notice');
+  assert.deepEqual(m.get('2330'), { why: '六個營業日起迄兩個營業日收盤價價差達350.00元且當日收盤價為最近六個營業日收盤價最低者', times: 1 });
+});

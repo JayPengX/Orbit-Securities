@@ -20,7 +20,8 @@ const column = (fields, name, re) => {
 
 // TWSE's {stat, fields, data} as Map(code -> { from, until }) for 處置 (from: its
 // first day's start, until: the last day's end, null when the list doesn't say)
-// or Map(code -> {}) for 注意.
+// or Map(code -> { why, times }) for 注意: TWSE's own reason, its tags and
+// clause mark taken off, and how many times running it's been listed.
 // Columns are found by name, so a reordered list still reads.
 export function parseAlertList(json, kind) {
   const out = new Map();
@@ -28,11 +29,13 @@ export function parseAlertList(json, kind) {
   const code = column(json.fields, '證券代號', /代號/);
   if (code < 0) return out;
   const period = kind === 'punish' ? column(json.fields, '處置起迄時間', /起迄|期間|處置期/) : -1;
+  const why = kind === 'punish' ? -1 : column(json.fields, '注意交易資訊', /注意交易|資訊/);
+  const times = kind === 'punish' ? -1 : column(json.fields, '累計次數', /累計/);
   for (const row of json.data) {
     const c = String(row?.[code] ?? '').trim();
     if (!/^\d{4,6}[A-Z]?$/.test(c)) continue;
     if (kind !== 'punish') {
-      out.set(c, {});
+      out.set(c, { why: reasonText(row[why]), times: Number(row[times]) || 0 });
       continue;
     }
     const days = String(row[period] ?? '').split(/[～~至-]/).map(rocDate).filter(x => x != null);
@@ -40,6 +43,14 @@ export function parseAlertList(json, kind) {
   }
   return out;
 }
+
+// '…收盤價最低者<font color='#FF0000'>﹝第十一款﹞</font>。' → '…收盤價最低者'.
+export const reasonText = x =>
+  String(x ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[﹝〔［\[(（]第[^﹞〕］\])）]*款[﹞〕］\])）]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[。；;]+$/, '');
 
 // '處置' or '注意' (punish first, it's the stricter) for a symbol, or ''. A 處置
 // is from its first day only: TWSE lists it the evening before (115/11/17 for
